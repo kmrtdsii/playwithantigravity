@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
 
 // Types (shared with Backend ideally, but defined here for now)
 export interface Commit {
@@ -19,7 +18,9 @@ export interface GitState {
     staging: string[];
     modified: string[];
     files: string[];
+
     output: string[];
+    commandCount: number;
 }
 
 interface GitContextType {
@@ -29,7 +30,8 @@ interface GitContextType {
 
 const GitContext = createContext<GitContextType | undefined>(undefined);
 
-export const GitProvider = ({ children }: { children: ReactNode }) => {
+export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    console.log("GitProvider: Mounted");
     const [state, setState] = useState<GitState>({
         initialized: false,
         commits: [],
@@ -38,7 +40,9 @@ export const GitProvider = ({ children }: { children: ReactNode }) => {
         staging: [],
         modified: [],
         files: [],
-        output: []
+
+        output: [],
+        commandCount: 0
     });
 
     const [sessionId, setSessionId] = useState<string>('');
@@ -49,6 +53,7 @@ export const GitProvider = ({ children }: { children: ReactNode }) => {
             try {
                 const res = await fetch('/api/session/init', { method: 'POST' });
                 const data = await res.json();
+                console.log("GitAPI: Session init response:", data); // Log the session init response
                 if (data.sessionId) {
                     setSessionId(data.sessionId);
                     await fetchState(data.sessionId);
@@ -63,7 +68,7 @@ export const GitProvider = ({ children }: { children: ReactNode }) => {
 
     const fetchState = async (sid: string) => {
         try {
-            const res = await fetch(`/api/state?sessionId=${sid}`);
+            const res = await fetch(`/api/state?sessionId=${sid}&t=${Date.now()}`);
             if (!res.ok) throw new Error('Failed to fetch state');
             const data = await res.json();
 
@@ -99,6 +104,8 @@ export const GitProvider = ({ children }: { children: ReactNode }) => {
             });
             const data = await res.json();
 
+            console.log("GitAPI: Command response:", data);
+
             if (data.error) {
                 setState(prev => ({ ...prev, output: [...prev.output, `Error: ${data.error}`] }));
             } else if (data.output) {
@@ -107,9 +114,12 @@ export const GitProvider = ({ children }: { children: ReactNode }) => {
 
             // Always fetch fresh state after command
             await fetchState(sessionId);
+
+            // Increment command count to signal terminal
+            setState(prev => ({ ...prev, commandCount: prev.commandCount + 1 }));
         } catch (e) {
             console.error(e);
-            setState(prev => ({ ...prev, output: [...prev.output, "Network error"] }));
+            setState(prev => ({ ...prev, output: [...prev.output, "Network error"], commandCount: prev.commandCount + 1 }));
         }
     };
 

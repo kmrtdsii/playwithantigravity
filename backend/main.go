@@ -77,6 +77,7 @@ func execCommand(w http.ResponseWriter, r *http.Request) {
 	// For now assume "git <cmd> <args>"
 
 	parts := strings.Fields(req.Command)
+	log.Printf("Command received: user=%s cmd=%s parts=%v", req.SessionID, req.Command, parts)
 	// Basic check
 	if len(parts) > 0 && parts[0] == "git" {
 		output, err := ExecuteGitCommand(req.SessionID, parts[1:])

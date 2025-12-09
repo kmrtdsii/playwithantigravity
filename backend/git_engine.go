@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/go-git/go-billy/v5"
@@ -10,6 +12,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/go-git/go-billy/v5/util"
 )
 
 // Session holds the state of a user's simulated git repo
@@ -36,6 +39,11 @@ func InitSession(id string) error {
 	f, _ := fs.Create("README.md")
 	f.Write([]byte("# My Project\n"))
 	f.Close()
+
+	// Debug: Check status immediately
+	w, _ := repo.Worktree()
+	status, _ := w.Status()
+	fmt.Printf("InitSession: Status after README creation: %v\n", status)
 
 	sessions[id] = &Session{
 		ID:         id,
@@ -71,6 +79,13 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 			return "", err
 		}
 		return status.String(), nil
+
+	case "init":
+		err := InitSession(sessionID)
+		if err != nil {
+			return "", err
+		}
+		return "Initialized empty Git repository", nil
 
 	case "add":
 		if len(args) < 2 {
@@ -157,15 +172,16 @@ func GetGraphState(sessionID string) (*GraphState, error) {
 		// If empty repo (no commits yet)
 		if err.Error() == "reference not found" {
 			state.HEAD = Head{Type: "branch", Ref: "main"} // Default
-			return state, nil
+			// Continue to get files even if no commits
+		} else {
+			return nil, err
 		}
-		return nil, err
-	}
-
-	if ref.Name().IsBranch() {
-		state.HEAD = Head{Type: "branch", Ref: ref.Name().Short()}
 	} else {
-		state.HEAD = Head{Type: "commit", ID: ref.Hash().String()}
+		if ref.Name().IsBranch() {
+			state.HEAD = Head{Type: "branch", Ref: ref.Name().Short()}
+		} else {
+			state.HEAD = Head{Type: "commit", ID: ref.Hash().String()}
+		}
 	}
 
 	// 2. Get Branches
@@ -215,7 +231,33 @@ func GetGraphState(sessionID string) (*GraphState, error) {
 	w, _ := session.Repo.Worktree()
 	status, _ := w.Status()
 
-	// status is a map[string]*FileStatus
+	// Walk filesystem to find all files (tracked and untracked)
+	fmt.Println("Searching for files in root...")
+	util.Walk(session.Filesystem, "/", func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			fmt.Printf("Walk error: %v\n", err)
+			return nil
+		}
+		if fi.IsDir() {
+			if path == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		
+		fmt.Printf("Found file: %s\n", path)
+
+		// Clean path
+		if path != "" && path[0] == '/' {
+			path = path[1:]
+		}
+
+		state.Files = append(state.Files, path)
+		return nil
+	})
+	fmt.Printf("Total files found: %d\n", len(state.Files))
+
+	// Use status to determine Staging/Modified
 	for file, s := range status {
 		if s.Staging != git.Unmodified {
 			state.Staging = append(state.Staging, file)
@@ -223,7 +265,7 @@ func GetGraphState(sessionID string) (*GraphState, error) {
 		if s.Worktree != git.Unmodified {
 			state.Modified = append(state.Modified, file)
 		}
-		state.Files = append(state.Files, file)
+		// Note: Files are already added via Walk
 	}
 
 	return state, nil
