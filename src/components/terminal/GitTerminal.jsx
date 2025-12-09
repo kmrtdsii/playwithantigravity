@@ -20,10 +20,21 @@ const GitTerminal = () => {
                 xtermRef.current.writeln(line);
             });
             lastOutputLen.current = state.output.length;
-            // Re-prompt
-            xtermRef.current.write('$ ');
         }
-    }, [state.output]);
+
+        // Re-prompt (always, if state changed)
+        // Check if we already prompted for this state version?
+        // Simple heuristic: If output length changed OR lastUpdated changed.
+        // But initial mount shouldn't double prompt.
+        // We can just call write('$ ') here if it's not the very first render?
+        // Actually, we printed initial $ manually.
+
+        // Let's just write prompt if we processed something.
+        if (state.lastUpdated > 0 || state.output.length > 0) {
+            xtermRef.current.write('\r\n$ ');
+        }
+
+    }, [state.output, state.lastUpdated]);
 
     useEffect(() => {
         if (!terminalRef.current) return;
@@ -77,15 +88,57 @@ const GitTerminal = () => {
 
                         // Let's modify logic: if runCommand returns an object with output, we print it manually? 
                         const res = runCommand(cmd);
+
+                        // Always write prompt back, even if no output
                         if (res && res.output) {
                             term.writeln(res.output);
-                            term.write('$ ');
-                        } else {
-                            // It was a dispatch, so the useEffect will handle the prompt.
-                            // Wait, if dispatch happens, state updates, effect runs.
-                            // If invalid command, runCommand returned string but didn't dispatch?
-                            // Let's check GitContext again.
                         }
+
+                        // If output didn't change (silent command), we need to write prompt here.
+                        // But if output DID change, the effect will write prompt.
+                        // We need to coordinate.
+
+                        // Check if state output length will change? 
+                        // Actually, since dispatch is async, 'state' here is old.
+                        // We can't know easily.
+
+                        // Better strategy: Have runCommand return { output, silent: true/false } ?
+                        // Or just let the effect handle EVERYTHING, and ensure 'silent' commands
+                        // still append a dummy empty line or we use a transaction ID in state?
+
+                        // Quick fix: Set a timeout to check if output changed? No, flaky.
+                        // Reliable fix: Add a 'lastCommandId' to git state.
+
+                        // For now, let's just write the prompt IF runCommand return value suggests no dispatch
+                        // OR if we assume all dispatches update output.
+
+                        // Wait, `git add` in reducer does: output: state.output
+                        // So length never changes. 
+                        // So effect never fires.
+                        // So we MUST write prompt here if we detect no output change intention?
+
+                        if (!res && state.output.length === lastOutputLen.current) {
+                            // This assumes synchronous update? No, state update is async.
+                            // If we dispatched, state WILL change eventually... but content might be identical?
+                            // React won't re-render if state is identical.
+
+                            // So we MUST return something from reducer.
+                            // OR handle it here.
+                        }
+
+                        // Simplest fix: Force prompt here if we know the command is 'add'?
+                        // No, generic.
+
+                        // Case A: Command returns { output: ... } (handled below)
+                        // Case B: Command dispatches. Loop relies on state change.
+
+                        // If I change `GitTerminal` to NOT use effect for prompt, but manual?
+                        // But `state.output` comes asynchronously.
+
+                        // Best Fix: Update `GitContext/git-simulation.js` to ALWAYS return a new output array 
+                        // even for silent commands (e.g. append null or empty string, or filter in UI).
+                        // OR add a 'timestamp' to state.
+
                     }
                 } else {
                     term.write('$ ');
@@ -120,7 +173,7 @@ const GitTerminal = () => {
     return (
         <div
             ref={terminalRef}
-            style={{ width: '100%', height: '100%' }}
+            style={{ width: '100%', flex: 1, minHeight: 0 }}
         />
     );
 };

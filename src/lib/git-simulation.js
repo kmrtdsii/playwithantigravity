@@ -16,7 +16,8 @@ export const initialState = {
     branches: {}, // Map branchName -> commitId
     HEAD: { type: 'branch', ref: null }, // { type: 'branch', ref: 'name' } or { type: 'commit', id: 'hash' }
     staging: [], // Array of file paths
-    output: [] // Command output history
+    output: [], // Command output history
+    lastUpdated: 0 // Timestamp to force updates on silent commands
 };
 
 export function gitReducer(state, action) {
@@ -45,7 +46,8 @@ export function gitReducer(state, action) {
             return {
                 ...state,
                 staging: newStaging,
-                output: state.output // silent usually
+                output: state.output,
+                lastUpdated: Date.now()
             };
         }
 
