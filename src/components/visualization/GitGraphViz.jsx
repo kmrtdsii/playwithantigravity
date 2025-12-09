@@ -24,6 +24,12 @@ const computeLayout = (commits, branches, HEAD) => {
             if (!childrenMap[c.parentId]) childrenMap[c.parentId] = [];
             childrenMap[c.parentId].push(c.id);
         }
+
+        // Handle merge parents
+        if (c.secondParentId) {
+            if (!childrenMap[c.secondParentId]) childrenMap[c.secondParentId] = [];
+            childrenMap[c.secondParentId].push(c.id);
+        }
     });
 
     // 2. Assign lanes via DFS
@@ -88,21 +94,33 @@ const computeLayout = (commits, branches, HEAD) => {
         ...positions[c.id]
     }));
 
-    const edges = commits
-        .filter(c => c.parentId)
-        .map(c => {
+    const edges = [];
+    commits.forEach(c => {
+        if (c.parentId) {
             const source = positions[c.parentId];
             const target = positions[c.id];
-            if (!source || !target) return null;
-            return {
-                id: `${c.parentId}-${c.id}`,
-                x1: source.x,
-                y1: source.y,
-                x2: target.x,
-                y2: target.y
-            };
-        })
-        .filter(Boolean);
+            if (source && target) {
+                edges.push({
+                    id: `${c.parentId}-${c.id}`,
+                    x1: source.x, y1: source.y,
+                    x2: target.x, y2: target.y,
+                    isMerge: false
+                });
+            }
+        }
+        if (c.secondParentId) {
+            const source = positions[c.secondParentId];
+            const target = positions[c.id];
+            if (source && target) {
+                edges.push({
+                    id: `${c.secondParentId}-${c.id}`,
+                    x1: source.x, y1: source.y,
+                    x2: target.x, y2: target.y,
+                    isMerge: true
+                });
+            }
+        }
+    });
 
     // 4. Determine Active Status (HEAD)
     // HEAD can be a commit or a branch ref.
