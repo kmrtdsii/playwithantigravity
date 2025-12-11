@@ -6,7 +6,7 @@
             "version": "1.23"
         },
         "ghcr.io/devcontainers/features/node:1": {
-            "version": "18"
+            "version": "22"
         },
         "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
             "version": "latest",
@@ -28,7 +28,8 @@
                 "go.useLanguageServer": true,
                 "gopls": {
                     "usePlaceholders": true
-                }
+                },
+                "typescript.tsdk": "frontend/node_modules/typescript/lib"
             }
         }
     },
