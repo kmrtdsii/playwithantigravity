@@ -1,315 +1,344 @@
 import React, { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit, GitState } from '../../context/GitAPIContext';
 
-// Basic constants
-const NODE_RADIUS = 16;
-const X_SPACING = 100;
-const Y_SPACING = 100;
-const START_X = 50;
-const START_Y = 100;
+// --- Constants & Config ---
+const ROW_HEIGHT = 28;
+const LANE_WIDTH = 12; // Narrower for "rail" look
+const CIRCLE_RADIUS = 4;
+const PADDING_TOP = 20;
+const GRAPH_LEFT_PADDING = 20;
 
-interface Node extends Commit {
+const LANE_COLORS = [
+    '#00bfff', // Deep Sky Blue (Cyan-ish)
+    '#ff00ff', // Magenta
+    '#ffff00', // Yellow
+    '#00ff00', // Lime
+    '#ff4500', // OrangeRed
+    '#1e90ff', // Dodger Blue
+    '#da70d6', // Orchid
+    '#adff2f', // GreenYellow
+];
+
+interface VizNode extends Commit {
     x: number;
     y: number;
     lane: number;
+    color: string;
 }
 
-interface Edge {
+interface VizEdge {
     id: string;
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-    isMerge: boolean;
+    path: string;
+    color: string;
 }
 
-interface Label {
+interface Badge {
     text: string;
-    type: 'branch' | 'head';
+    type: 'branch' | 'head' | 'tag';
+    isActive?: boolean;
 }
+
+// --- Layout Engine ---
 
 // Helper to compute layout
 const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD: GitState['HEAD']) => {
-    if (commits.length === 0) return { nodes: [], edges: [], headCommitId: null, labelsMap: {} };
+    if (commits.length === 0) return { nodes: [], edges: [], height: 0, badgesMap: {} };
 
-    // 1. Assign Lanes
-    const laneMap: Record<string, number> = { 'main': 0 };
-    let nextLane = 1;
-
-    commits.forEach(c => {
-        const branchName = c.branch || 'detached';
-        if (laneMap[branchName] === undefined) {
-            laneMap[branchName] = nextLane++;
-        }
+    // 0. Ensure Sort order (Newest first)
+    // We create a copy to avoid mutating props, though typically props are immutable.
+    const sortedCommits = [...commits].sort((a, b) => {
+        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
 
-    const positions: Record<string, { x: number, y: number, lane: number }> = {}; // commitId -> pos
+    const nodes: VizNode[] = [];
+    const edges: VizEdge[] = [];
 
-    // 2. Compute Positions
-    commits.forEach((c, index) => {
-        const lane = laneMap[c.branch || 'detached'] || 0;
-        positions[c.id] = {
-            x: START_X + index * X_SPACING,
-            y: START_Y + lane * Y_SPACING,
-            lane
-        };
-    });
+    // "activePaths" = list of slots (lanes). 
+    // Each slot contains the parent_hash it is looking for.
+    // If a slot is null, it is free.
+    const activePaths: (string | null)[] = [];
 
-    // 3. Generate Nodes
-    const nodes: Node[] = commits.map(c => ({
-        ...c,
-        ...positions[c.id]
-    }));
-
-    // 4. Generate Edges
-    const edges: Edge[] = [];
-    commits.forEach(c => {
-        if (c.parentId) {
-            const source = positions[c.parentId];
-            const target = positions[c.id];
-            if (source && target) {
-                edges.push({
-                    id: `${c.parentId}-${c.id}`,
-                    x1: source.x, y1: source.y,
-                    x2: target.x, y2: target.y,
-                    isMerge: false
-                });
-            }
-        }
-        if (c.secondParentId) {
-            const source = positions[c.secondParentId];
-            const target = positions[c.id];
-            if (source && target) {
-                edges.push({
-                    id: `${c.secondParentId}-${c.id}`,
-                    x1: source.x, y1: source.y,
-                    x2: target.x, y2: target.y,
-                    isMerge: true
-                });
-            }
-        }
-    });
-
-    // 5. Determine Active Status (HEAD)
-    let headCommitId: string | null = null;
-    if (HEAD.type === 'commit') headCommitId = HEAD.id || null;
-    else if (HEAD.type === 'branch' && HEAD.ref) headCommitId = branches[HEAD.ref];
-
-    // 6. Compute Labels
-    const labelsMap: Record<string, Label[]> = {};
-
-    // Add branches
-    Object.entries(branches).forEach(([name, commitId]) => {
-        if (!commitId) return;
-        if (!labelsMap[commitId]) labelsMap[commitId] = [];
-        labelsMap[commitId].push({ text: name, type: 'branch' });
-    });
-
-    // Add HEAD
-    if (headCommitId) {
-        if (!labelsMap[headCommitId]) labelsMap[headCommitId] = [];
-        labelsMap[headCommitId].push({ text: 'HEAD', type: 'head' });
+    // --- FORCE MAIN TO LANE 0 ---
+    // If 'main' branch exists, we "seed" Lane 0 to look for the main tip.
+    // This reserves the lane even if the main tip appears much later in the list.
+    let mainHash = branches['main'];
+    if (mainHash) {
+        activePaths[0] = mainHash;
     }
 
-    return { nodes, edges, headCommitId, labelsMap };
+    // Helper to find a lane for a target commit hash
+    const getLaneForHash = (h: string) => {
+        for (let i = 0; i < activePaths.length; i++) {
+            if (activePaths[i] === h) return i;
+        }
+        return -1;
+    };
+
+    // Helper to get next free lane
+    const getFreeLane = () => {
+        for (let i = 0; i < activePaths.length; i++) {
+            if (activePaths[i] === null) return i;
+        }
+        // If we are appending a new lane, make sure we don't accidentally take Lane 0 
+        // if it was reserved (activePaths[0] != null) but just not matched yet.
+        // Actually, if activePaths[0] is set (waiting for main), getFreeLane won't return 0. 
+        // It will return index > length.
+        return activePaths.length;
+    };
+
+    sortedCommits.forEach((c, i) => {
+        let lane = getLaneForHash(c.id);
+
+        // If this commit was not expected by any lane (start of a new branch / ref)
+        if (lane === -1) {
+            lane = getFreeLane();
+        }
+
+        // Use this lane.
+        // If we "found" the commit activePaths[lane] was looking for, we consume it.
+        // We will set the NEW expectation (parent) below.
+        activePaths[lane] = null;
+
+        // Assign color based on lane index
+        const color = LANE_COLORS[lane % LANE_COLORS.length];
+
+        const x = GRAPH_LEFT_PADDING + lane * LANE_WIDTH + LANE_WIDTH / 2;
+        const y = PADDING_TOP + i * ROW_HEIGHT + ROW_HEIGHT / 2;
+
+        nodes.push({
+            ...c,
+            x, y, lane, color
+        });
+
+        // Process Parents
+        const parentIds = [];
+        if (c.parentId) parentIds.push(c.parentId);
+        if (c.secondParentId) parentIds.push(c.secondParentId);
+
+        parentIds.forEach((pid, pIdx) => {
+            // Check if ANY lane is already looking for this parent
+            let parentLane = getLaneForHash(pid);
+
+            if (parentLane !== -1) {
+                // Parent already has a reserved lane (from a sibling).
+                // We will just draw a merge line to it later.
+            } else {
+                // Parent not yet accounted for.
+                if (pIdx === 0) {
+                    // Primary parent: extend CURRENT lane
+                    activePaths[lane] = pid;
+                    parentLane = lane;
+                } else {
+                    // Secondary parent: must fork to a NEW lane
+                    const newLane = getFreeLane();
+                    activePaths[newLane] = pid;
+                    parentLane = newLane;
+                }
+            }
+        });
+    });
+
+    // Pass 2: Generate Edges based on calculated positions
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    nodes.forEach(node => {
+        const parents = [];
+        if (node.parentId) parents.push(node.parentId);
+        if (node.secondParentId) parents.push(node.secondParentId);
+
+        parents.forEach(pid => {
+            const parentNode = nodeMap.get(pid);
+            if (!parentNode) {
+                // Determine if parent is off-screen (not in list). 
+                // For now, ignore.
+                return;
+            }
+
+            // CURVE LOGIC
+            // Standard: Bezier S-curve
+            // If lane is same: Straight line
+
+            let path = '';
+            if (node.lane === parentNode.lane) {
+                path = `M ${node.x} ${node.y} L ${parentNode.x} ${parentNode.y}`;
+            } else {
+                path = createBezierPath(node.x, node.y, parentNode.x, parentNode.y);
+            }
+
+            edges.push({
+                id: `${node.id}-${pid}`,
+                color: node.color, // Use child color? Or parent? Usually child.
+                path
+            });
+        });
+    });
+
+    // 2. Badges & Labels
+    const badgesMap: Record<string, Badge[]> = {};
+
+    // Active Branch logic
+    let activeBranchName = null;
+    if (HEAD.type === 'branch' && HEAD.ref) {
+        activeBranchName = HEAD.ref;
+    }
+
+    Object.entries(branches).forEach(([name, commitId]) => {
+        if (!commitId) return;
+        if (!badgesMap[commitId]) badgesMap[commitId] = [];
+        const isActive = name === activeBranchName;
+
+        badgesMap[commitId].push({
+            text: name,
+            type: 'branch',
+            isActive
+        });
+    });
+
+    // HEAD (only if detached)
+    if (HEAD.type === 'commit' && HEAD.id) {
+        if (!badgesMap[HEAD.id]) badgesMap[HEAD.id] = [];
+        badgesMap[HEAD.id].push({ text: 'HEAD', type: 'head' });
+    }
+
+    return {
+        nodes,
+        edges,
+        height: PADDING_TOP + commits.length * ROW_HEIGHT + PADDING_TOP,
+        badgesMap
+    };
 };
 
+// SVG Path Helper
+const createBezierPath = (x1: number, y1: number, x2: number, y2: number) => {
+    // Vertical distance
+    const dy = y2 - y1;
+    // Control points for smooth S-curve
+    const cy1 = y1 + dy * 0.5;
+    const cy2 = y2 - dy * 0.5;
+
+    return `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
+};
+
+
+// --- Component ---
+
 const GitGraphViz: React.FC = () => {
-    const { state, runCommand } = useGit();
+    const { state } = useGit();
     const { commits, branches, HEAD } = state;
 
-    const { nodes, edges, headCommitId, labelsMap } = useMemo(() =>
+    const { nodes, edges, height, badgesMap } = useMemo(() =>
         computeLayout(commits, branches, HEAD),
         [commits, branches, HEAD]
     );
 
     if (!state.initialized) {
         return (
-            <div style={{
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--text-secondary)',
-                fontSize: '0.9rem'
-            }}>
-                Type <code>git init</code> to start visualizing.
+            <div className="flex h-full items-center justify-center text-gray-500 font-mono text-sm">
+                Type <code className="mx-1 text-gray-400">git init</code> to start.
             </div>
         );
     }
 
-    const getFileStatus = (file: string) => {
-        const isStaged = state.staging.includes(file);
-        const isModified = state.modified.includes(file);
-        if (isStaged) return 'staged';
-        if (isModified) return 'modified';
-        return 'clean';
-    };
-
     return (
-        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <div style={{
-                display: 'flex',
-                gap: '1rem',
-                padding: '1rem',
-                borderBottom: '1px solid var(--border-primary)',
-                backgroundColor: 'var(--bg-secondary)',
-                flexShrink: 0
-            }}>
-                <div style={{ flex: 1, border: '1px solid var(--border-primary)', borderRadius: '4px', padding: '0.5rem' }}>
-                    <h3 style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: 'var(--text-primary)', textTransform: 'uppercase' }}>Working Directory (Files)</h3>
-                    {state.files && state.files.length > 0 ? (
-                        <ul style={{ margin: 0, paddingLeft: '0', fontSize: '0.85rem', listStyle: 'none' }}>
-                            {state.files.map(f => {
-                                const status = getFileStatus(f);
-                                let color = 'var(--text-tertiary)';
-                                if (status === 'modified') color = '#e5534b';
-                                else if (status === 'staged') color = '#238636';
+        <div style={{
+            height: '100%',
+            overflow: 'auto',
+            background: 'var(--bg-primary)',
+            color: 'var(--text-primary)',
+            fontFamily: 'Menlo, Monaco, Consolas, monospace',
+            fontSize: '12px'
+        }}>
+            <div style={{ position: 'relative', height: Math.max(height, 500) }}>
+                <svg width="100%" height={height} style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}>
+                    {/* Render Edges first (behind nodes) */}
+                    {edges.map(edge => (
+                        <path
+                            key={edge.id}
+                            d={edge.path}
+                            stroke={edge.color}
+                            strokeWidth="2"
+                            fill="none"
+                            strokeLinecap="round"
+                        />
+                    ))}
 
-                                return (
-                                    <li key={f} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px', color }}>
-                                        <span>{f} <span style={{ fontSize: '0.7em', opacity: 0.7 }}>({status})</span></span>
-                                        {status === 'clean' || status === 'staged' ? (
-                                            <button
-                                                onClick={() => runCommand(`touch ${f}`)}
-                                                style={{
-                                                    background: 'none',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: '3px',
-                                                    color: 'var(--text-secondary)',
-                                                    cursor: 'pointer',
-                                                    fontSize: '0.7rem',
-                                                    padding: '2px 6px',
-                                                    position: 'relative',
-                                                    zIndex: 10
-                                                }}
-                                                title="Edit file (touch)"
-                                            >
-                                                Edit
-                                            </button>
-                                        ) : null}
-                                    </li>
-                                );
-                            })}
-                        </ul>
-                    ) : (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>No files</div>
-                    )}
-                </div>
-
-                <div style={{ flex: 1, border: '1px solid var(--border-primary)', borderRadius: '4px', padding: '0.5rem' }}>
-                    <h3 style={{ margin: '0 0 0.5rem', fontSize: '0.8rem', color: '#238636', textTransform: 'uppercase' }}>Staging Area</h3>
-                    {state.staging && state.staging.length > 0 ? (
-                        <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.85rem' }}>
-                            {state.staging.map(f => <li key={f} style={{ color: '#238636' }}>{f}</li>)}
-                        </ul>
-                    ) : (
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Empty</div>
-                    )}
-                </div>
-            </div>
-
-            <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
-                <svg width="2000" height="1000">
-                    <defs>
-                        <marker
-                            id="arrowhead"
-                            markerWidth="10"
-                            markerHeight="7"
-                            refX="24"
-                            refY="3.5"
-                            orient="auto"
-                        >
-                            <polygon points="0 0, 10 3.5, 0 7" fill="var(--border-active)" />
-                        </marker>
-                    </defs>
-
-                    <AnimatePresence>
-                        {edges.map(edge => (
-                            <motion.line
-                                key={edge.id}
-                                initial={{ pathLength: 0, opacity: 0 }}
-                                animate={{ pathLength: 1, opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                x1={edge.x1}
-                                y1={edge.y1}
-                                x2={edge.x2}
-                                y2={edge.y2}
-                                stroke="var(--border-active)"
-                                strokeWidth="2"
-                                markerEnd="url(#arrowhead)"
-                            />
-                        ))}
-                    </AnimatePresence>
-
-                    <AnimatePresence>
-                        {nodes.map(node => {
-                            const isHead = node.id === headCommitId;
-                            return (
-                                <motion.g
-                                    key={node.id}
-                                    initial={{ scale: 0, opacity: 0 }}
-                                    animate={{ scale: 1, opacity: 1 }}
-                                    exit={{ scale: 0, opacity: 0 }}
-                                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                                >
-                                    <circle
-                                        cx={node.x}
-                                        cy={node.y}
-                                        r={NODE_RADIUS}
-                                        fill={isHead ? "var(--bg-secondary)" : "var(--bg-primary)"}
-                                        stroke={isHead ? "var(--accent-primary)" : "var(--text-tertiary)"}
-                                        strokeWidth={isHead ? 3 : 2}
-                                    />
-                                    <text
-                                        x={node.x}
-                                        y={node.y + NODE_RADIUS + 15}
-                                        textAnchor="middle"
-                                        fill="var(--text-secondary)"
-                                        fontSize="10"
-                                        style={{ fontFamily: 'monospace', pointerEvents: 'none', userSelect: 'none' }}
-                                    >
-                                        {node.id.substring(0, 7) + '...'}
-                                    </text>
-
-                                    <text
-                                        x={node.x}
-                                        y={node.y + NODE_RADIUS + 35}
-                                        textAnchor="middle"
-                                        fill="var(--text-secondary)"
-                                        fontSize="10"
-                                        style={{ whiteSpace: 'pre' }}
-                                    >
-                                        {node.message}
-                                    </text>
-
-                                    {(labelsMap[node.id] || []).map((label, i) => {
-                                        const yPos = node.y - NODE_RADIUS - 10 - (i * 14);
-                                        const isHeadLabel = label.type === 'head';
-
-                                        return (
-                                            <motion.text
-                                                key={`${node.id}-${label.text}`}
-                                                initial={{ y: -10, opacity: 0 }}
-                                                animate={{ y: yPos - node.y + NODE_RADIUS + 10 + (i * 14), opacity: 1 }}
-                                                x={node.x}
-                                                y={yPos}
-                                                textAnchor="middle"
-                                                fill={isHeadLabel ? "var(--accent-primary)" : "var(--text-secondary)"}
-                                                fontSize="11"
-                                                fontWeight={isHeadLabel ? "bold" : "normal"}
-                                            >
-                                                {label.text}
-                                            </motion.text>
-                                        );
-                                    })}
-                                </motion.g>
-                            );
-                        })}
-                    </AnimatePresence>
+                    {/* Render Nodes */}
+                    {nodes.map(node => (
+                        <circle
+                            key={node.id}
+                            cx={node.x}
+                            cy={node.y}
+                            r={CIRCLE_RADIUS}
+                            fill={node.color}
+                            stroke="var(--bg-primary)"
+                            strokeWidth="1"
+                        />
+                    ))}
                 </svg>
+
+                {/* Render Text Content (Positioned absolutely over the graph) */}
+                {nodes.map(node => {
+                    // Text should start after the graph area.
+                    // Calculate max lane x to avoid overlapping text? 
+                    // Or just strict columns. 
+                    // Let's put text at a fixed offset + max lane width?
+                    // Simpler: x = (Graph Area) + 10px.
+                    // Graph Area Width ~ 150px or dynamic.
+
+                    const textX = 140; // Fixed gutter for rails
+                    const hasBadges = badgesMap[node.id] && badgesMap[node.id].length > 0;
+
+                    return (
+                        <div
+                            key={node.id}
+                            style={{
+                                position: 'absolute',
+                                left: textX,
+                                top: node.y - ROW_HEIGHT / 2,
+                                height: ROW_HEIGHT,
+                                display: 'flex',
+                                alignItems: 'center',
+                                whiteSpace: 'nowrap',
+                                gap: '8px'
+                            }}
+                        >
+                            {/* Badges */}
+                            {hasBadges && (
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                    {badgesMap[node.id].map((badge, i) => (
+                                        <span
+                                            key={i}
+                                            style={{
+                                                fontSize: '10px',
+                                                padding: '1px 6px',
+                                                borderRadius: '10px',
+                                                fontWeight: badge.isActive ? 'bold' : 'normal',
+                                                backgroundColor: 'transparent',
+                                                border: `1px solid ${node.color}`,
+                                                color: node.color,
+                                                opacity: 0.9
+                                            }}
+                                        >
+                                            {badge.isActive && '● '}
+                                            {badge.text}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Message */}
+                            <span style={{ color: 'var(--text-secondary)' }}>
+                                {node.message}
+                            </span>
+
+                            {/* ID (faded) */}
+                            <span style={{ color: 'var(--text-tertiary)', fontSize: '10px', marginLeft: '4px' }}>
+                                {node.id.substring(0, 7)}
+                            </span>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
