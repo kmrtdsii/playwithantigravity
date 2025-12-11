@@ -77,6 +77,10 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 			return "", err
 		}
 		session.Repo = repo
+		
+		// Set default branch to main
+		headRef := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.ReferenceName("refs/heads/main"))
+		session.Repo.Storer.SetReference(headRef)
 
 		// Create initial files (simulating project start)
 		f, _ := session.Filesystem.Create("README.md")
