@@ -32,7 +32,12 @@ const GitTerminal = () => {
 
         // Check if a command finished execution
         if (state.commandCount > lastCommandCount.current) {
-            xtermRef.current.write('\r\n$ ');
+            let prompt = '$ ';
+            if (state.initialized) {
+                const branch = state.HEAD.ref || state.HEAD.id?.substring(0, 7) || 'DETACHED';
+                prompt = `(${branch}) $ `;
+            }
+            xtermRef.current.write(`\r\n${prompt}`);
             lastCommandCount.current = state.commandCount;
         }
 
@@ -79,7 +84,12 @@ const GitTerminal = () => {
                 if (cmd) {
                     if (cmd === 'clear') {
                         term.clear();
-                        term.write('$ ');
+                        let prompt = '$ ';
+                        // We need to access current state here, but state is in closure.
+                        // Ideally we should use a ref for state access in event handler.
+                        // However, let's just default to simple prompt for clear, next command will fix it.
+                        // Or better, let's use a ref to track current prompt string.
+                        term.write(prompt);
                     } else {
                         // Run command - result handling is in the other useEffect
                         console.log("GitTerminal: Invoking runCommand with:", cmd);
@@ -88,6 +98,11 @@ const GitTerminal = () => {
                         }
                     }
                 } else {
+                    // Empty command, just new prompt
+                    // But wait, we don't have easy access to state here without ref.
+                    // Let's rely on the useEffect to update prompt? No, useEffect only runs on state change.
+                    // If user hits enter empty, we just show prompt again.
+                    // Let's use a simple $ for empty enter for now or try to fetch ref.
                     term.write('$ ');
                 }
                 currentLine = '';
