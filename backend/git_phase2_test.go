@@ -186,4 +186,62 @@ func TestGitPhase2Features(t *testing.T) {
 			t.Errorf("help log missing --oneline: %s", out)
 		}
 	})
+
+	// 9. Test Rebase
+	t.Run("Rebase", func(t *testing.T) {
+		// Setup:
+		// main: C1 -> C2
+		// feature: C1 -> C3
+		// Goal: rebase feature on main -> C1 -> C2 -> C3'
+		
+		// Reset to C1 (Base)
+		exec("checkout", "master") // or whatever initial
+		// Actually, let's start fresh or use current state?
+		// Current state: main has commits.
+		// Let's create new branch 'feature-rebase' from HEAD^ (Base)
+		exec("checkout", "main")
+		exec("branch", "feature-rebase") // at HEAD
+		exec("reset", "--hard", "HEAD^") // move main back 1
+		exec("commit", "--allow-empty", "-m", "Main Diverged") // main has Base -> Diverged
+		
+		exec("checkout", "feature-rebase") // at Base (actually at old HEAD, so Base -> FeatureCommit)
+		// Wait, logic:
+		// Start: C1(Base) -> C2(Feature/HEAD)
+		// Main: C1(Base) -> C3(Main/Diverged)
+		// Rebase feature on Main
+		
+		// Let's build explicitly
+		exec("checkout", "-b", "base-branch")
+		exec("commit", "--allow-empty", "-m", "Base Commit")
+		// baseHash, _ := exec("rev-parse", "HEAD")
+		
+		exec("checkout", "-b", "feat-branch")
+		exec("commit", "--allow-empty", "-m", "Feat Commit")
+		
+		exec("checkout", "base-branch")
+		exec("commit", "--allow-empty", "-m", "Upstream Commit")
+		
+		// Rebase feat-branch on base-branch
+		exec("checkout", "feat-branch")
+		_, err := exec("rebase", "base-branch") // out -> _
+		if err != nil {
+			t.Fatalf("rebase failed: %v", err)
+		}
+		
+		// Verify log
+		// Should be: Base -> Upstream -> Feat'
+		log, _ := exec("log", "--oneline")
+		if !strings.Contains(log, "Feat Commit") || !strings.Contains(log, "Upstream Commit") {
+			t.Errorf("log missing commits after rebase: %s", log)
+		}
+		
+		// Verify linear history (parents)
+		// Hard to parse parents from simple log output, but order implies it.
+		// If "Feat Commit" is at top, and "Upstream Commit" is below it.
+		lines := strings.Split(strings.TrimSpace(log), "\n")
+		// lines[0] = Feat, lines[1] = Upstream, lines[2] = Base
+		if len(lines) < 3 {
+			t.Errorf("log too short: %v", lines)
+		}
+	})
 }

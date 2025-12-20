@@ -251,6 +251,120 @@ Type 'git help <command>' for more information about a specific command.`, nil
 		}
 		return sb.String(), nil
 
+	case "rebase":
+		if len(args) < 2 {
+			return "", fmt.Errorf("usage: git rebase <upstream>")
+		}
+		upstreamName := args[1]
+		
+		// 1. Resolve Upstream
+		upstreamHash, err := session.Repo.ResolveRevision(plumbing.Revision(upstreamName))
+		if err != nil {
+			return "", fmt.Errorf("invalid upstream '%s': %v", upstreamName, err)
+		}
+		upstreamCommit, err := session.Repo.CommitObject(*upstreamHash)
+		if err != nil {
+			return "", err
+		}
+
+		// 2. Resolve HEAD
+		headRef, err := session.Repo.Head()
+		if err != nil {
+			return "", err
+		}
+		headCommit, err := session.Repo.CommitObject(headRef.Hash())
+		if err != nil {
+			return "", err
+		}
+
+		// 3. Find Merge Base
+		mergeBases, err := upstreamCommit.MergeBase(headCommit)
+		if err != nil {
+			return "", fmt.Errorf("failed to find merge base: %v", err)
+		}
+		if len(mergeBases) == 0 {
+			return "", fmt.Errorf("no common ancestor found")
+		}
+		base := mergeBases[0]
+
+		if base.Hash == headCommit.Hash {
+			return "Current branch is up to date.", nil
+		}
+		if base.Hash == upstreamCommit.Hash {
+			return "Current branch is up to date (or ahead of upstream).", nil
+		}
+
+		// 4. Collect commits to replay (base..HEAD]
+		var commitsToReplay []*object.Commit
+		iter := headCommit
+		for iter.Hash != base.Hash {
+			commitsToReplay = append(commitsToReplay, iter)
+			if iter.NumParents() == 0 {
+				break
+			}
+			p, err := iter.Parent(0)
+			if err != nil {
+				return "", fmt.Errorf("failed to traverse parents: %v", err)
+			}
+			iter = p
+		}
+		// Reverse order
+		for i, j := 0, len(commitsToReplay)-1; i < j; i, j = i+1, j-1 {
+			commitsToReplay[i], commitsToReplay[j] = commitsToReplay[j], commitsToReplay[i]
+		}
+
+		// 5. Hard Reset to Upstream
+		w, _ := session.Repo.Worktree()
+		if err := w.Reset(&git.ResetOptions{Commit: *upstreamHash, Mode: git.HardReset}); err != nil {
+			return "", fmt.Errorf("failed to reset to upstream: %v", err)
+		}
+
+		// 6. Replay Commits (Cherry-pick)
+		replayedCount := 0
+		for _, c := range commitsToReplay {
+			parent, _ := c.Parent(0)
+			pTree, _ := parent.Tree()
+			cTree, _ := c.Tree()
+			patch, err := pTree.Patch(cTree)
+			if err != nil {
+				return "", fmt.Errorf("failed to compute patch: %v", err)
+			}
+
+			for _, fp := range patch.FilePatches() {
+				from, to := fp.Files()
+				if to == nil {
+					if from != nil {
+						session.Filesystem.Remove(from.Path())
+					}
+					continue
+				}
+				path := to.Path()
+				file, err := c.File(path)
+				if err != nil { continue }
+				content, err := file.Contents()
+				if err != nil { continue }
+				
+				f, _ := session.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+				f.Write([]byte(content))
+				f.Close()
+				w.Add(path)
+			}
+
+			_, err = w.Commit(c.Message, &git.CommitOptions{
+				Author: &object.Signature{
+					Name:  "User",
+					Email: "user@example.com",
+					When:  time.Now(),
+				},
+			})
+			if err != nil {
+				return "", fmt.Errorf("failed to commit replayed change: %v", err)
+			}
+			replayedCount++
+		}
+
+		return fmt.Sprintf("Successfully rebased and updated %s.\nReplayed %d commits.", headRef.Name().Short(), replayedCount), nil
+
 	case "tag":
 		// List tags
 		if len(args) == 1 {
