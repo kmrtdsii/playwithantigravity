@@ -59,13 +59,27 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
     // If a slot is null, it is free.
     const activePaths: (string | null)[] = [];
 
-    // --- FORCE MAIN TO LANE 0 ---
-    // If 'main' branch exists, we "seed" Lane 0 to look for the main tip.
-    // This reserves the lane even if the main tip appears much later in the list.
-    let mainHash = branches['main'];
-    if (mainHash) {
-        activePaths[0] = mainHash;
-    }
+    // --- SEED LANES FOR BRANCHES ---
+    // We want each branch tip to start on its own lane to prevent visual collision.
+    // Lane 0 is reserved for 'main' if it exists.
+    // Other branches get subsequent lanes based on name sort.
+    const branchNames = Object.keys(branches).sort((a, b) => {
+        if (a === 'main') return -1;
+        if (b === 'main') return 1;
+        return a.localeCompare(b);
+    });
+
+    branchNames.forEach((name, index) => {
+        const hash = branches[name];
+        if (hash) {
+            // If lane is already taken by a previous branch (pointing to same commit),
+            // we could skip it to merge trails, OR we can force it to reserve a new lane (index)
+            // to show distinct tips initially.
+            // Let's force distinct start lanes by index.
+            // But we must respect the array index = lane logic.
+            activePaths[index] = hash;
+        }
+    });
 
     // Helper to find a lane for a target commit hash
     const getLaneForHash = (h: string) => {
