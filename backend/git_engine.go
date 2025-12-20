@@ -9,11 +9,11 @@ import (
 
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
+	"github.com/go-git/go-billy/v5/util"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/go-git/go-billy/v5/util"
 )
 
 // Session holds the state of a user's simulated git repo
@@ -78,7 +78,7 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 			return "", err
 		}
 		session.Repo = repo
-		
+
 		// Set default branch to main
 		headRef := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.ReferenceName("refs/heads/main"))
 		session.Repo.Storer.SetReference(headRef)
@@ -96,15 +96,15 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 			return "", fmt.Errorf("usage: git add <file>")
 		}
 		file := args[1]
-			var err error
-			if file == "." {
-				_, err = w.Add(".")
-			} else {
-				_, err = w.Add(file)
-			}
-			if err != nil {
-				return "", err
-			}
+		var err error
+		if file == "." {
+			_, err = w.Add(".")
+		} else {
+			_, err = w.Add(file)
+		}
+		if err != nil {
+			return "", err
+		}
 		return "Added " + file, nil
 
 	case "commit":
@@ -156,13 +156,12 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 		// Create new reference
 		refName := plumbing.ReferenceName("refs/heads/" + branchName)
 		newRef := plumbing.NewHashReference(refName, headRef.Hash())
-		
+
 		if err := session.Repo.Storer.SetReference(newRef); err != nil {
 			return "", err
 		}
-		
-		return "Created branch " + branchName, nil
 
+		return "Created branch " + branchName, nil
 
 	case "checkout":
 		w, _ := session.Repo.Worktree()
@@ -178,10 +177,10 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 			branchName := args[2]
 
 			// Create branch reference manually first (like git branch <name>)
-			// We do this because Checkout with Create: true might fail if we don't handle it right, 
+			// We do this because Checkout with Create: true might fail if we don't handle it right,
 			// or we can use the CheckoutOptions.Create but let's stick to standard go-git flow.
 			// Actually go-git CheckoutOptions has Create: true.
-			
+
 			err := w.Checkout(&git.CheckoutOptions{
 				Create: true,
 				Force:  false,
@@ -195,7 +194,7 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 
 		// Handle normal checkout (branch or commit)
 		target := args[1]
-		
+
 		// 1. Try as branch
 		branchRef := plumbing.ReferenceName("refs/heads/" + target)
 		err := w.Checkout(&git.CheckoutOptions{
@@ -214,6 +213,7 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 			return fmt.Sprintf("Note: switching to '%s'.\n\nYou are in 'detached HEAD' state.", target), nil
 		}
 
+		return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", target)
 
 	case "merge":
 		w, _ := session.Repo.Worktree()
@@ -267,21 +267,21 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 				if err != nil {
 					return "", err
 				}
-				
-				// If we were on a branch, update the branch ref too? 
+
+				// If we were on a branch, update the branch ref too?
 				// w.Checkout(Hash) puts us in Detached HEAD if we don't specify Branch.
 				// But we want to move the current branch pointer.
 				// go-git's w.Checkout behavior:
 				// If we are on a branch, and we merge, we want to update THAT branch to point to new commit.
-				
+
 				// If we use w.Checkout with Hash, it creates detached HEAD.
 				// We need to manually update the reference of the current HEAD branch.
-				
+
 				if headRef.Name().IsBranch() {
 					newRef := plumbing.NewHashReference(headRef.Name(), targetCommit.Hash)
 					session.Repo.Storer.SetReference(newRef)
-					// And we need to update working tree files? 
-					// w.Checkout with Keep: true? 
+					// And we need to update working tree files?
+					// w.Checkout with Keep: true?
 					// Or just w.Reset?
 					w.Reset(&git.ResetOptions{
 						Commit: targetCommit.Hash,
@@ -289,7 +289,7 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 					})
 					return fmt.Sprintf("Updating %s..%s\nFast-forward", headCommit.Hash.String()[:7], targetCommit.Hash.String()[:7]), nil
 				}
-				
+
 				// If we were detached, just checkout target
 				w.Checkout(&git.CheckoutOptions{Hash: targetCommit.Hash})
 				return fmt.Sprintf("Fast-forward to %s", targetName), nil
@@ -299,10 +299,10 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 		// 4. Merge Commit
 		// Simplified "Strategy Ours" for file content (ignoring conflicts for visualization demo)
 		// We just create a commit with 2 parents.
-		
+
 		msg := fmt.Sprintf("Merge branch '%s'", targetName)
 		parents := []plumbing.Hash{headCommit.Hash, targetCommit.Hash}
-		
+
 		newCommitHash, err := w.Commit(msg, &git.CommitOptions{
 			Parents: parents,
 			Author: &object.Signature{
@@ -420,7 +420,7 @@ func GetGraphState(sessionID string) (*GraphState, error) {
 	}
 
 	// 4. Get Status (Files, Staging, Modified)
-	
+
 	// Walk filesystem to find all files (tracked and untracked)
 	// Even if no repo, we can list files (which should be empty initially)
 	fmt.Println("Searching for files in root...")
@@ -435,7 +435,7 @@ func GetGraphState(sessionID string) (*GraphState, error) {
 			}
 			return nil
 		}
-		
+
 		fmt.Printf("Found file: %s\n", path)
 
 		// Clean path
@@ -482,6 +482,6 @@ func TouchFile(sessionID, filename string) error {
 	if _, err := f.Write([]byte("\n// Update")); err != nil {
 		return err
 	}
-	
+
 	return nil
 }
