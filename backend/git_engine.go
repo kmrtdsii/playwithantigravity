@@ -16,12 +16,19 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
+// ReflogEntry represents an entry in the reflog
+type ReflogEntry struct {
+	Hash    string
+	Message string
+}
+
 // Session holds the state of a user's simulated git repo
 type Session struct {
 	ID         string
 	Filesystem billy.Filesystem
 	Repo       *git.Repository
 	CreatedAt  time.Time
+	Reflog     []ReflogEntry
 }
 
 var sessions = make(map[string]*Session)
@@ -39,8 +46,26 @@ func InitSession(id string) error {
 		Filesystem: fs,
 		Repo:       nil, // Repo is nil until git init
 		CreatedAt:  time.Now(),
+		Reflog:     []ReflogEntry{},
 	}
 	return nil
+}
+
+// Helper to record reflog
+func (s *Session) recordReflog(msg string) {
+	if s.Repo == nil {
+		return
+	}
+	headRef, err := s.Repo.Head()
+	hash := ""
+	if err == nil {
+		hash = headRef.Hash().String()
+	} else {
+		return // HEAD not resolving usually means no commits yet
+	}
+	
+	// Prepend for newest top
+	s.Reflog = append([]ReflogEntry{{Hash: hash, Message: msg}}, s.Reflog...)
 }
 
 // ExecuteGitCommand parses a simple command string and executes it on the repo
@@ -201,6 +226,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 			if err != nil {
 				return "", err
 			}
+			session.recordReflog("commit (amend): " + strings.Split(msg, "\n")[0])
 
 			return fmt.Sprintf("Commit amended: %s", newCommitHash.String()), nil
 		}
@@ -216,6 +242,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 		if err != nil {
 			return "", err
 		}
+		session.recordReflog(fmt.Sprintf("commit: %s", strings.Split(msg, "\n")[0]))
 		return fmt.Sprintf("Commit created: %s", commit.String()), nil
 
 	case "log":
@@ -363,7 +390,15 @@ Type 'git help <command>' for more information about a specific command.`, nil
 			replayedCount++
 		}
 
+		session.recordReflog(fmt.Sprintf("rebase: finished rebase onto %s", upstreamName))
 		return fmt.Sprintf("Successfully rebased and updated %s.\nReplayed %d commits.", headRef.Name().Short(), replayedCount), nil
+
+	case "reflog":
+		var sb strings.Builder
+		for i, entry := range session.Reflog {
+			sb.WriteString(fmt.Sprintf("%s HEAD@{%d}: %s\n", entry.Hash[:7], i, entry.Message))
+		}
+		return sb.String(), nil
 
 	case "tag":
 		// List tags
@@ -524,6 +559,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 		}); err != nil {
 			return "", err
 		}
+		session.recordReflog(fmt.Sprintf("reset: moving to %s", target))
 
 		return fmt.Sprintf("HEAD is now at %s", h.String()[:7]), nil
 	
@@ -636,6 +672,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 			if err := w.Checkout(opts); err != nil {
 				return "", err
 			}
+			session.recordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", branchName))
 			return fmt.Sprintf("Switched to a new branch '%s'", branchName), nil
 		}
 
@@ -648,6 +685,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 			Branch: branchRef,
 		})
 		if err == nil {
+			session.recordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", target)) // simplified from
 			return fmt.Sprintf("Switched to branch '%s'", target), nil
 		}
 
@@ -657,6 +695,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 			Hash: hash,
 		})
 		if err == nil {
+			session.recordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", target))
 			return fmt.Sprintf("Note: switching to '%s'.\n\nYou are in 'detached HEAD' state.", target), nil
 		}
 

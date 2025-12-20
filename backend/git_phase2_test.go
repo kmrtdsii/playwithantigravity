@@ -244,4 +244,25 @@ func TestGitPhase2Features(t *testing.T) {
 			t.Errorf("log too short: %v", lines)
 		}
 	})
+
+	// 10. Test Reflog
+	t.Run("Reflog", func(t *testing.T) {
+		// Just run reflog and check if it contains recent actions from previous tests if state is shared,
+		// but tests run in same process/session? 
+		// Actually, ExecuteGitCommand uses global 'sessions' map, but we InitSession("test-session") in main test func?
+		// Wait, TestGitPhase2Features uses "test-session-phase2".
+		
+		out, err := exec("reflog")
+		if err != nil {
+			t.Fatalf("reflog failed: %v", err)
+		}
+		
+		// We expect "rebase", "checkout", "commit" from previous step
+		if !strings.Contains(out, "rebase: finished") {
+			t.Errorf("reflog missing rebase entry: %s", out)
+		}
+		if !strings.Contains(out, "checkout: moving") {
+			t.Errorf("reflog missing checkout entry: %s", out)
+		}
+	})
 }
