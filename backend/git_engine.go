@@ -66,6 +66,20 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 		w, _ := session.Repo.Worktree()
 		status, _ := w.Status()
 		return status.String(), nil
+	
+	case "help":
+		return `Supported commands:
+   init       Initialize a repository
+   status     Show the working tree status
+   add        Add file contents to the index
+   commit     Record changes to the repository
+   log        Show commit logs
+   branch     List, create, or delete branches
+   checkout   Switch branches or restore working tree files
+   merge      Join two or more development histories together
+   diff       Show changes between commits, commit and working tree, etc
+   tag        Create, list, delete or verify a tag object signed with GPG
+   reset      Reset current HEAD to the specified state`, nil
 
 	case "init":
 		if session.Repo != nil {

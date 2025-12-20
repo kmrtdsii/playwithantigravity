@@ -156,4 +156,18 @@ func TestGitPhase2Features(t *testing.T) {
 			t.Errorf("log should not contain Second after reset: %s", log)
 		}
 	})
+
+	// 7. Test Help
+	t.Run("Help", func(t *testing.T) {
+		out, err := exec("help")
+		if err != nil {
+			t.Fatalf("help failed: %v", err)
+		}
+		if !strings.Contains(out, "Supported commands:") {
+			t.Errorf("help output missing header: %s", out)
+		}
+		if !strings.Contains(out, "init") || !strings.Contains(out, "commit") {
+			t.Errorf("help output missing commands: %s", out)
+		}
+	})
 }
