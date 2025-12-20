@@ -109,12 +109,58 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 
 	case "commit":
 		w, _ := session.Repo.Worktree()
-		// simple parsing
+		
+		// Parse options
 		msg := "Default commit message"
-		if len(args) >= 3 && args[1] == "-m" {
-			msg = args[2] // This is very naive split
+		amend := false
+
+		// Naive arg parsing
+		for i := 1; i < len(args); i++ {
+			if args[i] == "-m" && i+1 < len(args) {
+				msg = args[i+1]
+				i++
+			} else if args[i] == "--amend" {
+				amend = true
+			}
 		}
 
+		if amend {
+			// Amend logic
+			// 1. Get HEAD
+			headRef, err := session.Repo.Head()
+			if err != nil {
+				return "", fmt.Errorf("cannot amend without HEAD: %v", err)
+			}
+			headCommit, err := session.Repo.CommitObject(headRef.Hash())
+			if err != nil {
+				return "", err
+			}
+
+			// 2. Reuse parent
+			parents := headCommit.ParentHashes
+
+			// 3. Reuse message if not provided
+			if !strings.Contains(strings.Join(args, " "), "-m") {
+				msg = headCommit.Message
+			}
+
+			// 4. Commit with HEAD's parents
+			newCommitHash, err := w.Commit(msg, &git.CommitOptions{
+				Parents: parents, 
+				Author: &object.Signature{
+					Name:  "User",
+					Email: "user@example.com",
+					When:  time.Now(),
+				},
+			})
+			if err != nil {
+				return "", err
+			}
+
+			return fmt.Sprintf("Commit amended: %s", newCommitHash.String()), nil
+		}
+
+		// Normal commit
 		commit, err := w.Commit(msg, &git.CommitOptions{
 			Author: &object.Signature{
 				Name:  "User",
@@ -128,9 +174,200 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 		return fmt.Sprintf("Commit created: %s", commit.String()), nil
 
 	case "log":
-		// ... implementation
-		return "Log not implemented yet", nil
+		// Options
+		oneline := false
+		if len(args) > 1 && args[1] == "--oneline" {
+			oneline = true
+		}
 
+		cIter, err := session.Repo.Log(&git.LogOptions{All: false}) // HEAD only usually
+		if err != nil {
+			return "", err
+		}
+
+		var sb strings.Builder
+		err = cIter.ForEach(func(c *object.Commit) error {
+			if oneline {
+				// 7-char hash + message
+				sb.WriteString(fmt.Sprintf("%s %s\n", c.Hash.String()[:7], strings.Split(c.Message, "\n")[0]))
+			} else {
+				sb.WriteString(fmt.Sprintf("commit %s\nAuthor: %s <%s>\nDate:   %s\n\n    %s\n\n",
+					c.Hash.String(),
+					c.Author.Name,
+					c.Author.Email,
+					c.Author.When.Format(time.RFC3339),
+					strings.TrimSpace(c.Message),
+				))
+			}
+			return nil
+		})
+		if err != nil {
+			return "", err
+		}
+		return sb.String(), nil
+
+	case "tag":
+		// List tags
+		if len(args) == 1 {
+			tags, err := session.Repo.Tags()
+			if err != nil {
+				return "", err
+			}
+			var sb strings.Builder
+			tags.ForEach(func(r *plumbing.Reference) error {
+				sb.WriteString(r.Name().Short() + "\n")
+				return nil
+			})
+			return sb.String(), nil
+		}
+
+		// Delete tag
+		if args[1] == "-d" {
+			if len(args) < 3 {
+				return "", fmt.Errorf("tag name required")
+			}
+			tagName := args[2]
+			if err := session.Repo.DeleteTag(tagName); err != nil {
+				return "", err
+			}
+			return "Deleted tag " + tagName, nil
+		}
+
+		// Create Tag
+		// Check for options
+		if args[1] == "-a" {
+			if len(args) < 4 {
+				return "", fmt.Errorf("tag name and message required for annotated tag") // usage: git tag -a v1 -m "msg"
+			}
+			tagName := args[2]
+			msg := "Tag message"
+			if len(args) >= 5 && args[3] == "-m" {
+				msg = args[4]
+			}
+			headRef, err := session.Repo.Head()
+			if err != nil {
+				return "", err
+			}
+			_, err = session.Repo.CreateTag(tagName, headRef.Hash(), &git.CreateTagOptions{
+				Message: msg,
+				Tagger: &object.Signature{
+					Name:  "User",
+					Email: "user@example.com",
+					When:  time.Now(),
+				},
+			})
+			if err != nil {
+				return "", err
+			}
+			return "Created annotated tag " + tagName, nil
+		}
+
+		// Lightweight tag
+		tagName := args[1]
+		headRef, err := session.Repo.Head()
+		if err != nil {
+			return "", err
+		}
+		_, err = session.Repo.CreateTag(tagName, headRef.Hash(), nil) // nil opts = lightweight?? No, CreateTag creates annotated usually. 
+		// Actually go-git `CreateTag` creates an object. For lightweight we just set ref.
+		// Let's use CreateTag for now as lightweight might need manual Storer manipulation which is verbose.
+		// Wait, CreateTag doc says: "If opts is nil, an annotated tag is created with default values". 
+		// Real lightweight tag is just a ref to a commit.
+		refName := plumbing.ReferenceName("refs/tags/" + tagName)
+		ref := plumbing.NewHashReference(refName, headRef.Hash())
+		if err := session.Repo.Storer.SetReference(ref); err != nil {
+			return "", err
+		}
+		return "Created tag " + tagName, nil
+
+		return "Created tag " + tagName, nil
+
+	case "diff":
+		if len(args) < 3 {
+			// Naive: just show status diff is hard to implement nicely without full patch engine for worktree
+			// For now, let's just support diffing two commits/refs
+			return "usage: git diff <ref1> <ref2>\n(Worktree diff not yet supported)", nil
+		}
+		ref1 := args[1]
+		ref2 := args[2]
+
+		// Resolve refs
+		h1, err := session.Repo.ResolveRevision(plumbing.Revision(ref1))
+		if err != nil {
+			return "", err
+		}
+		h2, err := session.Repo.ResolveRevision(plumbing.Revision(ref2))
+		if err != nil {
+			return "", err
+		}
+
+		c1, err := session.Repo.CommitObject(*h1)
+		if err != nil {
+			return "", err
+		}
+		c2, err := session.Repo.CommitObject(*h2)
+		if err != nil {
+			return "", err
+		}
+
+		tree1, err := c1.Tree()
+		if err != nil {
+			return "", err
+		}
+		tree2, err := c2.Tree()
+		if err != nil {
+			return "", err
+		}
+
+		patch, err := tree1.Patch(tree2)
+		if err != nil {
+			return "", err
+		}
+
+		return patch.String(), nil
+
+	case "reset":
+		// git reset [<mode>] [<commit>]
+		// modes: --soft, --mixed, --hard
+		// default mixed
+		mode := git.MixedReset
+		target := "HEAD"
+
+		argsIdx := 1
+		if len(args) > argsIdx && strings.HasPrefix(args[argsIdx], "--") {
+			switch args[argsIdx] {
+			case "--soft":
+				mode = git.SoftReset
+			case "--mixed":
+				mode = git.MixedReset
+			case "--hard":
+				mode = git.HardReset
+			default:
+				return "", fmt.Errorf("unknown reset mode: %s", args[argsIdx])
+			}
+			argsIdx++
+		}
+
+		if len(args) > argsIdx {
+			target = args[argsIdx]
+		}
+
+		// Resolve target
+		h, err := session.Repo.ResolveRevision(plumbing.Revision(target))
+		if err != nil {
+			return "", err
+		}
+
+		w, _ := session.Repo.Worktree()
+		if err := w.Reset(&git.ResetOptions{
+			Commit: *h,
+			Mode:   mode,
+		}); err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("HEAD is now at %s", h.String()[:7]), nil
+	
 	case "branch":
 		if len(args) == 1 {
 			// List branches
@@ -197,7 +434,32 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 	case "checkout":
 		w, _ := session.Repo.Worktree()
 		if len(args) < 2 {
-			return "", fmt.Errorf("usage: git checkout <branch> | git checkout -b <branch>")
+			return "", fmt.Errorf("usage: git checkout <branch> | git checkout -b <branch> | git checkout -- <file>")
+		}
+
+		// Handle file checkout (git checkout -- <file>)
+		if args[1] == "--" {
+			if len(args) < 3 {
+				return "", fmt.Errorf("filename required after --")
+			}
+			filename := args[2]
+
+			// Restore file from HEAD
+			headRef, err := session.Repo.Head()
+			if err == nil {
+				headCommit, _ := session.Repo.CommitObject(headRef.Hash())
+				file, err := headCommit.File(filename)
+				if err != nil {
+					return "", fmt.Errorf("file %s not found in HEAD", filename)
+				}
+				content, _ := file.Contents()
+				
+				f, _ := session.Filesystem.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+				f.Write([]byte(content))
+				f.Close()
+				return "Updated " + filename, nil
+			}
+			return "", fmt.Errorf("cannot checkout file without HEAD")
 		}
 
 		// Handle -b
@@ -207,17 +469,12 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 			}
 			branchName := args[2]
 
-			// Create branch reference manually first (like git branch <name>)
-			// We do this because Checkout with Create: true might fail if we don't handle it right,
-			// or we can use the CheckoutOptions.Create but let's stick to standard go-git flow.
-			// Actually go-git CheckoutOptions has Create: true.
-
-			err := w.Checkout(&git.CheckoutOptions{
+			opts := &git.CheckoutOptions{
 				Create: true,
 				Force:  false,
 				Branch: plumbing.ReferenceName("refs/heads/" + branchName),
-			})
-			if err != nil {
+			}
+			if err := w.Checkout(opts); err != nil {
 				return "", err
 			}
 			return fmt.Sprintf("Switched to a new branch '%s'", branchName), nil
