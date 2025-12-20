@@ -170,4 +170,20 @@ func TestGitPhase2Features(t *testing.T) {
 			t.Errorf("help output missing commands: %s", out)
 		}
 	})
+
+	// 8. Test Help Subcommand
+	t.Run("HelpDetails", func(t *testing.T) {
+		out, err := exec("help", "commit")
+		if err != nil {
+			t.Fatalf("help commit failed: %v", err)
+		}
+		if !strings.Contains(out, "--amend") {
+			t.Errorf("help commit missing --amend: %s", out)
+		}
+
+		out, _ = exec("help", "log")
+		if !strings.Contains(out, "--oneline") {
+			t.Errorf("help log missing --oneline: %s", out)
+		}
+	})
 }

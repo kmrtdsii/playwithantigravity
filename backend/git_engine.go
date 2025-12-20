@@ -68,6 +68,35 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 		return status.String(), nil
 	
 	case "help":
+		if len(args) > 1 {
+			subcmd := args[1]
+			switch subcmd {
+			case "init":
+				return "usage: git init\n\nInitialize a new git repository.", nil
+			case "status":
+				return "usage: git status\n\nShow the working tree status.", nil
+			case "add":
+				return "usage: git add <file>...\n\nAdd file contents to the index.", nil
+			case "commit":
+				return "usage: git commit [-m <msg>] [--amend]\n\nRecord changes to the repository.\n\nOptions:\n  -m <msg>    Use the given <msg> as the commit message\n  --amend     Redo the previous commit", nil
+			case "log":
+				return "usage: git log [--oneline]\n\nShow commit logs.\n\nOptions:\n  --oneline   Show a concise one-line log", nil
+			case "branch":
+				return "usage: git branch [-d] [<branchname>]\n\nList, create, or delete branches.\n\nOptions:\n  -d          Delete a branch", nil
+			case "checkout":
+				return "usage: git checkout [-b] <branch>|-- <file>\n\nSwitch branches or restore working tree files.\n\nOptions:\n  -b          Create and checkout a new branch\n  -- <file>   Discard changes in working directory for file", nil
+			case "merge":
+				return "usage: git merge <commit>\n\nJoin two or more development histories together.", nil
+			case "diff":
+				return "usage: git diff <commit> <commit>\n\nShow changes between two commits.", nil
+			case "tag":
+				return "usage: git tag [-a] [-m <msg>] [-d] <tagname>\n\nCreate, list, delete tags.\n\nOptions:\n  -a          Make an annotated tag\n  -m <msg>    Tag message\n  -d          Delete a tag", nil
+			case "reset":
+				return "usage: git reset [--soft | --mixed | --hard] <commit>\n\nReset current HEAD to the specified state.\n\nOptions:\n  --soft      Reset HEAD only\n  --mixed     Reset HEAD and index (default)\n  --hard      Reset HEAD, index, and working tree", nil
+			default:
+				return fmt.Sprintf("git help: unknown command '%s'", subcmd), nil
+			}
+		}
 		return `Supported commands:
    init       Initialize a repository
    status     Show the working tree status
@@ -79,7 +108,9 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
    merge      Join two or more development histories together
    diff       Show changes between commits, commit and working tree, etc
    tag        Create, list, delete or verify a tag object signed with GPG
-   reset      Reset current HEAD to the specified state`, nil
+   reset      Reset current HEAD to the specified state
+
+Type 'git help <command>' for more information about a specific command.`, nil
 
 	case "init":
 		if session.Repo != nil {
