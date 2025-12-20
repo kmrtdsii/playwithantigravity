@@ -214,7 +214,108 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 			return fmt.Sprintf("Note: switching to '%s'.\n\nYou are in 'detached HEAD' state.", target), nil
 		}
 
-		return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", target)
+
+	case "merge":
+		w, _ := session.Repo.Worktree()
+		if len(args) < 2 {
+			return "", fmt.Errorf("usage: git merge <branch>")
+		}
+		targetName := args[1]
+
+		// 1. Resolve HEAD
+		headRef, err := session.Repo.Head()
+		if err != nil {
+			return "", err
+		}
+		headCommit, err := session.Repo.CommitObject(headRef.Hash())
+		if err != nil {
+			return "", err
+		}
+
+		// 2. Resolve Target
+		// Try resolving as branch first
+		targetRef, err := session.Repo.Reference(plumbing.ReferenceName("refs/heads/"+targetName), true)
+		var targetHash plumbing.Hash
+		if err == nil {
+			targetHash = targetRef.Hash()
+		} else {
+			// Try as hash
+			targetHash = plumbing.NewHash(targetName)
+		}
+
+		targetCommit, err := session.Repo.CommitObject(targetHash)
+		if err != nil {
+			return "", fmt.Errorf("merge: %s - not something we can merge", targetName)
+		}
+
+		// 3. Analyze Ancestry
+		base, err := targetCommit.MergeBase(headCommit)
+		if err == nil && len(base) > 0 {
+			// Check for "Already up to date"
+			// If target is ancestor of HEAD (base == target), then we have nothing to do
+			if base[0].Hash == targetCommit.Hash {
+				return "Already up to date.", nil
+			}
+
+			// Check for Fast-Forward
+			// If HEAD is ancestor of target (base == head), then we can FF
+			if base[0].Hash == headCommit.Hash {
+				// Perform Checkout (Fast-Forward)
+				err = w.Checkout(&git.CheckoutOptions{
+					Hash: targetCommit.Hash,
+				})
+				if err != nil {
+					return "", err
+				}
+				
+				// If we were on a branch, update the branch ref too? 
+				// w.Checkout(Hash) puts us in Detached HEAD if we don't specify Branch.
+				// But we want to move the current branch pointer.
+				// go-git's w.Checkout behavior:
+				// If we are on a branch, and we merge, we want to update THAT branch to point to new commit.
+				
+				// If we use w.Checkout with Hash, it creates detached HEAD.
+				// We need to manually update the reference of the current HEAD branch.
+				
+				if headRef.Name().IsBranch() {
+					newRef := plumbing.NewHashReference(headRef.Name(), targetCommit.Hash)
+					session.Repo.Storer.SetReference(newRef)
+					// And we need to update working tree files? 
+					// w.Checkout with Keep: true? 
+					// Or just w.Reset?
+					w.Reset(&git.ResetOptions{
+						Commit: targetCommit.Hash,
+						Mode:   git.HardReset,
+					})
+					return fmt.Sprintf("Updating %s..%s\nFast-forward", headCommit.Hash.String()[:7], targetCommit.Hash.String()[:7]), nil
+				}
+				
+				// If we were detached, just checkout target
+				w.Checkout(&git.CheckoutOptions{Hash: targetCommit.Hash})
+				return fmt.Sprintf("Fast-forward to %s", targetName), nil
+			}
+		}
+
+		// 4. Merge Commit
+		// Simplified "Strategy Ours" for file content (ignoring conflicts for visualization demo)
+		// We just create a commit with 2 parents.
+		
+		msg := fmt.Sprintf("Merge branch '%s'", targetName)
+		parents := []plumbing.Hash{headCommit.Hash, targetCommit.Hash}
+		
+		newCommitHash, err := w.Commit(msg, &git.CommitOptions{
+			Parents: parents,
+			Author: &object.Signature{
+				Name:  "User",
+				Email: "user@example.com",
+				When:  time.Now(),
+			},
+		})
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("Merge made by the 'ort' strategy.\n %s", newCommitHash.String()), nil
 
 	default:
 		return "", fmt.Errorf("command not supported: %s", cmd)
