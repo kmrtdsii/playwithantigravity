@@ -212,6 +212,10 @@ Type 'git help <command>' for more information about a specific command.`, nil
 				msg = headCommit.Message
 			}
 
+			// Save ORIG_HEAD before amending
+			updateOrigHead(session)
+
+
 			// 4. Commit with HEAD's parents
 			newCommitHash, err := w.Commit(msg, &git.CommitOptions{
 				Parents: parents, 
@@ -959,9 +963,66 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 	if session.Repo != nil {
 		if showAll {
 			// Scan ALL objects to find every commit (including dangling ones)
+			// Strategy: Collect all object.Commit pointers first, then Sort, then Convert.
+			var collectedCommits []*object.Commit
+			
 			cIter, err := session.Repo.CommitObjects()
 			if err == nil {
 				cIter.ForEach(func(c *object.Commit) error {
+					collectedCommits = append(collectedCommits, c)
+					return nil
+				})
+
+				// Sort collected commits by FULL timestamp (high precision)
+				// Use SliceStable to preserve BFS order (Child < Parent) where applicable
+				// Note: CommitObjects() iteration order is undefined (not BFS), so the "Stable" part 
+				// acts on the arbitrary iterator order. BUT, our primary sorting key is Time.
+				// The specific logic for Tie-Breaker (Parent/Child check) is robust regardless of input order.
+				sort.SliceStable(collectedCommits, func(i, j int) bool {
+					tI := collectedCommits[i].Committer.When
+					tJ := collectedCommits[j].Committer.When
+					
+					if tI.Equal(tJ) {
+						// Time is Equal.
+						// Use Topology Check: if i is parent of j, i is Older => j > i => return false (j comes first)
+						// If j is parent of i, j is Older => i > j => return true (i comes first)
+						
+						// Check if i is Parent of j (j is Child)
+						isIParentOfJ := false
+						for _, p := range collectedCommits[j].ParentHashes {
+							if p == collectedCommits[i].Hash {
+								isIParentOfJ = true
+								break
+							}
+						}
+						// If i is Parent of j, i is OLDER. We want Newest First.
+						// So j should come before i. "Less(i, j)" asks "Is i Newer?". No.
+						if isIParentOfJ {
+							return false
+						}
+
+						// Check if j is Parent of i (i is Child)
+						isJParentOfI := false
+						for _, p := range collectedCommits[i].ParentHashes {
+							if p == collectedCommits[j].Hash {
+								isJParentOfI = true
+								break
+							}
+						}
+						// If j is Parent of i, i is NEWER.
+						// "Less(i, j)" asks "Is i Newer?". Yes.
+						if isJParentOfI {
+							return true
+						}
+
+						// Fallback: Deterministic ID comparison
+						return collectedCommits[i].Hash.String() > collectedCommits[j].Hash.String()
+					}
+					return tI.After(tJ) // i > j (Newest first)
+				})
+
+				// Convert to View Model
+				for _, c := range collectedCommits {
 					parentID := ""
 					if len(c.ParentHashes) > 0 {
 						parentID = c.ParentHashes[0].String()
@@ -977,15 +1038,7 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 						SecondParentID: secondParentID,
 						Timestamp:      c.Committer.When.Format(time.RFC3339),
 					})
-					return nil
-				})
-				// Sort by timestamp newly created first
-				sort.Slice(state.Commits, func(i, j int) bool {
-					if state.Commits[i].Timestamp == state.Commits[j].Timestamp {
-						return state.Commits[i].ID > state.Commits[j].ID // Deterministic tie-breaker
-					}
-					return state.Commits[i].Timestamp > state.Commits[j].Timestamp
-				})
+				}
 			}
 		} else {
 			// Standard Graph Traversal (Reachable from Branches/Tags/HEAD only)
