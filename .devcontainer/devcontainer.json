@@ -29,7 +29,9 @@
                 "dbaeumer.vscode-eslint",
                 "esbenp.prettier-vscode",
                 "ms-azuretools.vscode-docker",
-                "ms-playwright.playwright"
+                "ms-playwright.playwright",
+                "antigravity.quota",
+                "antigravity.cockpit"
             ],
             "settings": {
                 "go.toolsManagement.checkForUpdates": "local",
