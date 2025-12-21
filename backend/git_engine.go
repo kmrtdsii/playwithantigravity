@@ -906,6 +906,9 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 				})
 				// Sort by timestamp newly created first
 				sort.Slice(state.Commits, func(i, j int) bool {
+					if state.Commits[i].Timestamp == state.Commits[j].Timestamp {
+						return state.Commits[i].ID > state.Commits[j].ID // Deterministic tie-breaker
+					}
 					return state.Commits[i].Timestamp > state.Commits[j].Timestamp
 				})
 			}

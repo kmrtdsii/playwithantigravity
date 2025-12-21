@@ -47,7 +47,12 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
 
     // 0. Ensure Sort order (Newest first)
     const sortedCommits = [...commits].sort((a, b) => {
-        return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+        const timeA = new Date(a.timestamp).getTime();
+        const timeB = new Date(b.timestamp).getTime();
+        if (timeA === timeB) {
+            return b.id.localeCompare(a.id); // Deterministic tie-breaker
+        }
+        return timeB - timeA;
     });
 
     // --- REACHABILITY ANALYSIS ---
