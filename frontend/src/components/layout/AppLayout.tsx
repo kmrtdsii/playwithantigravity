@@ -21,38 +21,71 @@ const AppLayout = () => {
     const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
 
-    // Resizable Pane State
+    // Resizable Pane State (Vertical - Side Panes)
+    const [leftPaneWidth, setLeftPaneWidth] = useState(250);
+    const [rightPaneWidth, setRightPaneWidth] = useState(250);
+    const isResizingLeft = useRef(false);
+    const isResizingRight = useRef(false);
+
+    // Resizable Pane State (Horizontal - Center Split)
     const [vizHeight, setVizHeight] = useState(300); // Initial height in pixels
     const vizRef = useRef<HTMLDivElement>(null);
     const centerContentRef = useRef<HTMLDivElement>(null);
-    const isResizing = useRef(false);
+    const isResizingViz = useRef(false);
 
-    const startResizing = useCallback(() => {
-        isResizing.current = true;
+    const startResizingViz = useCallback(() => {
+        isResizingViz.current = true;
         document.body.style.cursor = 'row-resize';
-        document.body.style.userSelect = 'none'; // Prevent selection during drag
+        document.body.style.userSelect = 'none';
+    }, []);
+
+    const startResizingLeft = useCallback(() => {
+        isResizingLeft.current = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    }, []);
+
+    const startResizingRight = useCallback(() => {
+        isResizingRight.current = true;
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
     }, []);
 
     const stopResizing = useCallback(() => {
-        isResizing.current = false;
+        isResizingViz.current = false;
+        isResizingLeft.current = false;
+        isResizingRight.current = false;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
     }, []);
 
     const resize = useCallback((e: MouseEvent) => {
-        if (!isResizing.current || !centerContentRef.current) return;
+        // Horizontal Resize (Center Viz)
+        if (isResizingViz.current && centerContentRef.current) {
+            const centerRect = centerContentRef.current.getBoundingClientRect();
+            const newHeight = e.clientY - centerRect.top;
+            const minHeight = 100;
+            const maxHeight = centerRect.height - 100;
 
-        // Calculate relative height
-        // We want the new height of the viz pane to be (MouseY - CenterPaneTop)
-        const centerRect = centerContentRef.current.getBoundingClientRect();
-        const newHeight = e.clientY - centerRect.top;
+            if (newHeight >= minHeight && newHeight <= maxHeight) {
+                setVizHeight(newHeight);
+            }
+        }
 
-        // Min/Max constraints
-        const minHeight = 100;
-        const maxHeight = centerRect.height - 100; // Keep space for terminal
+        // Vertical Resize (Left Pane)
+        if (isResizingLeft.current) {
+            const newWidth = e.clientX;
+            if (newWidth >= 150 && newWidth <= 600) {
+                setLeftPaneWidth(newWidth);
+            }
+        }
 
-        if (newHeight >= minHeight && newHeight <= maxHeight) {
-            setVizHeight(newHeight);
+        // Vertical Resize (Right Pane)
+        if (isResizingRight.current) {
+            const newWidth = window.innerWidth - e.clientX;
+            if (newWidth >= 150 && newWidth <= 600) {
+                setRightPaneWidth(newWidth);
+            }
         }
     }, []);
 
@@ -71,8 +104,11 @@ const AppLayout = () => {
 
     return (
         <div className="layout-container">
-            {/* LEFT PANE: Explorer (1/4) */}
-            <aside className={`left-pane ${!isLeftPaneOpen ? 'collapsed' : ''}`}>
+            {/* LEFT PANE: Explorer */}
+            <aside
+                className={`left-pane ${!isLeftPaneOpen ? 'collapsed' : ''}`}
+                style={{ width: isLeftPaneOpen ? leftPaneWidth : undefined, minWidth: isLeftPaneOpen ? undefined : '40px' }}
+            >
                 <div
                     className="pane-header"
                     style={{ justifyContent: 'space-between', paddingLeft: isLeftPaneOpen ? '16px' : '8px', paddingRight: isLeftPaneOpen ? '16px' : '8px' }}
@@ -105,7 +141,10 @@ const AppLayout = () => {
                 )}
             </aside>
 
-            {/* CENTER PANE: Viz & Terminal (2/4) */}
+            {/* Resizer Left */}
+            <div className="resizer-vertical" onMouseDown={startResizingLeft} style={{ display: isLeftPaneOpen ? 'block' : 'none' }} />
+
+            {/* CENTER PANE: Viz & Terminal */}
             <main className="center-pane">
                 {/* Unified Header for Center Pane */}
                 <div className="pane-header" style={{ justifyContent: 'space-between' }}>
@@ -176,8 +215,8 @@ const AppLayout = () => {
                         )}
                     </div>
 
-                    {/* Resizer Handle */}
-                    <div className="resizer" onMouseDown={startResizing} />
+                    {/* Resizer Handle (Horizontal) */}
+                    <div className="resizer" onMouseDown={startResizingViz} />
 
                     {/* Lower: Terminal */}
                     <div className="terminal-pane" style={{ flex: 1, minHeight: 0 }}>
@@ -186,8 +225,14 @@ const AppLayout = () => {
                 </div>
             </main>
 
-            {/* RIGHT PANE: Object Inspector (1/4) */}
-            <aside className="right-pane">
+            {/* Resizer Right */}
+            <div className="resizer-vertical" onMouseDown={startResizingRight} />
+
+            {/* RIGHT PANE: Object Inspector */}
+            <aside
+                className="right-pane"
+                style={{ width: rightPaneWidth }}
+            >
                 <div className="pane-header">Object Inspector</div>
                 <div className="pane-content">
                     <ObjectInspector selectedObject={selectedObject} />
