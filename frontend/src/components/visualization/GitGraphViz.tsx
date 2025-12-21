@@ -426,7 +426,16 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId })
                             )}
 
                             {/* Message */}
-                            <span style={{ color: 'var(--text-secondary)' }}>
+                            <span
+                                title={node.message} // Tooltip for full message
+                                style={{
+                                    color: 'var(--text-secondary)',
+                                    flex: 1,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    minWidth: 0,
+                                }}
+                            >
                                 {node.message}
                             </span>
 
@@ -434,7 +443,9 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId })
                             <span style={{
                                 color: 'var(--text-tertiary)',
                                 fontSize: '10px',
-                                marginLeft: 'auto',
+                                width: '100px', // Fixed width for timestamp
+                                textAlign: 'right',
+                                flexShrink: 0,
                                 marginRight: '8px'
                             }}>
                                 {new Date(node.timestamp).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
@@ -444,7 +455,9 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId })
                             <span style={{
                                 color: isSelected ? 'var(--accent-primary, #3b82f6)' : 'var(--text-tertiary)',
                                 fontSize: '10px',
-                                // marginLeft: 'auto', // Removed auto margin
+                                width: '60px', // Fixed width for ID
+                                textAlign: 'right',
+                                flexShrink: 0,
                                 fontWeight: isSelected ? 'bold' : 'normal',
                                 backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
                                 padding: isSelected ? '2px 6px' : '0',
