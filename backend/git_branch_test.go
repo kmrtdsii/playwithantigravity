@@ -17,6 +17,9 @@ func TestGitBranchDelete(t *testing.T) {
 	}
 
 	// 2. Need a commit to create a branch
+	if err := TouchFile(sessionID, "README.md"); err != nil {
+		t.Fatalf("Failed to create file: %v", err)
+	}
 	if _, err := ExecuteGitCommand(sessionID, []string{"add", "README.md"}); err != nil {
 		t.Fatalf("Failed to add file: %v", err)
 	}

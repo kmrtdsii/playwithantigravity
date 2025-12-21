@@ -18,6 +18,7 @@ func TestGitPhase2Features(t *testing.T) {
 
 	// Init
 	exec("init")
+	TouchFile(sessionID, "README.md")
 	exec("add", "README.md")
 	exec("commit", "-m", "Initial commit")
 
@@ -125,7 +126,8 @@ func TestGitPhase2Features(t *testing.T) {
 		// Need 2 commits
 		exec("commit", "--amend", "-m", "Base") // reset state
 		// Create new file
-		f_create, _ := sessions[sessionID].Filesystem.Create("new.txt")
+		session, _ := GetSession(sessionID)
+		f_create, _ := session.Filesystem.Create("new.txt")
 		f_create.Write([]byte("hello"))
 		f_create.Close()
 		exec("add", "new.txt")
