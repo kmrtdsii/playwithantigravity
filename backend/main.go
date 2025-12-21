@@ -102,6 +102,14 @@ func execCommand(w http.ResponseWriter, r *http.Request) {
 			}
 			json.NewEncoder(w).Encode(map[string]string{"output": "File updated"})
 			return
+		} else if parts[0] == "ls" {
+			output, err := ListFiles(req.SessionID)
+			if err != nil {
+				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				return
+			}
+			json.NewEncoder(w).Encode(map[string]string{"output": output})
+			return
 		}
 	}
 	
