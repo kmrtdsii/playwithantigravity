@@ -18,7 +18,8 @@ func (c *ReflogCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 

@@ -22,13 +22,14 @@ func (c *TagCommand) Execute(ctx context.Context, s *git.Session, args []string)
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
 	// List tags
 	if len(args) == 1 {
-		tags, err := s.Repo.Tags()
+		tags, err := repo.Tags()
 		if err != nil {
 			return "", err
 		}
@@ -46,7 +47,7 @@ func (c *TagCommand) Execute(ctx context.Context, s *git.Session, args []string)
 			return "", fmt.Errorf("tag name required")
 		}
 		tagName := args[2]
-		if err := s.Repo.DeleteTag(tagName); err != nil {
+		if err := repo.DeleteTag(tagName); err != nil {
 			return "", err
 		}
 		return "Deleted tag " + tagName, nil
@@ -63,11 +64,11 @@ func (c *TagCommand) Execute(ctx context.Context, s *git.Session, args []string)
 		if len(args) >= 5 && args[3] == "-m" {
 			msg = args[4]
 		}
-		headRef, err := s.Repo.Head()
+		headRef, err := repo.Head()
 		if err != nil {
 			return "", err
 		}
-		_, err = s.Repo.CreateTag(tagName, headRef.Hash(), &gogit.CreateTagOptions{
+		_, err = repo.CreateTag(tagName, headRef.Hash(), &gogit.CreateTagOptions{
 			Message: msg,
 			Tagger: &object.Signature{
 				Name:  "User",
@@ -83,14 +84,14 @@ func (c *TagCommand) Execute(ctx context.Context, s *git.Session, args []string)
 
 	// Lightweight tag
 	tagName := args[1]
-	headRef, err := s.Repo.Head()
+	headRef, err := repo.Head()
 	if err != nil {
 		return "", err
 	}
 
 	refName := plumbing.ReferenceName("refs/tags/" + tagName)
 	ref := plumbing.NewHashReference(refName, headRef.Hash())
-	if err := s.Repo.Storer.SetReference(ref); err != nil {
+	if err := repo.Storer.SetReference(ref); err != nil {
 		return "", err
 	}
 	return "Created tag " + tagName, nil

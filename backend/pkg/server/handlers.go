@@ -159,12 +159,20 @@ func (s *Server) handleExecCommand(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]string{"output": "File updated"})
 			return
 
-		} else if parts[0] == "ls" {
-			output, err := s.SessionManager.ListFiles(req.SessionID)
+		} else if parts[0] == "ls" || parts[0] == "cd" {
+			session, err := s.SessionManager.GetSession(req.SessionID)
 			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 				return
 			}
+			output, err := git.Dispatch(r.Context(), session, parts[0], parts)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]string{"output": output})
 			return
 		}

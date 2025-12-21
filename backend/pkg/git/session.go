@@ -15,7 +15,8 @@ import (
 type Session struct {
 	ID         string
 	Filesystem billy.Filesystem
-	Repo       *git.Repository
+	Repos      map[string]*git.Repository // Map path (e.g., "repo1") to Repository
+	CurrentDir string                     // e.g., "/", "/repo1"
 	CreatedAt  time.Time
 	Reflog     []ReflogEntry
 	mu         sync.RWMutex
@@ -58,7 +59,8 @@ func (sm *SessionManager) CreateSession(id string) (*Session, error) {
 	session := &Session{
 		ID:         id,
 		Filesystem: fs,
-		Repo:       nil,
+		Repos:      make(map[string]*git.Repository),
+		CurrentDir: "/",
 		CreatedAt:  time.Now(),
 		Reflog:     []ReflogEntry{},
 	}
@@ -66,13 +68,34 @@ func (sm *SessionManager) CreateSession(id string) (*Session, error) {
 	return session, nil
 }
 
+// GetRepo returns the repository associated with the current directory
+// Returns nil if no repository is active in the current directory
+func (s *Session) GetRepo() *git.Repository {
+    // Simple logic: if CurrentDir is a repo root, return it.
+    // If CurrentDir is "/", return nil (or handle nested if we supported it, but flat is easier)
+    
+    // Normalize path
+    path := s.CurrentDir
+    if len(path) > 0 && path[0] == '/' {
+        path = path[1:]
+    }
+    
+    // Direct match (assuming we are at root of repo)
+    if repo, ok := s.Repos[path]; ok {
+        return repo
+    }
+    
+    return nil
+}
+
 // RecordReflog adds an entry to the session's reflog.
 // Note: Callers must hold the session lock.
 func (s *Session) RecordReflog(msg string) {
-	if s.Repo == nil {
+    repo := s.GetRepo()
+	if repo == nil {
 		return
 	}
-	headRef, err := s.Repo.Head()
+	headRef, err := repo.Head()
 	hash := ""
 	if err == nil {
 		hash = headRef.Hash().String()
@@ -94,15 +117,18 @@ func (s *Session) Unlock() {
 
 // UpdateOrigHead saves the current HEAD to ORIG_HEAD ref.
 // Note: Callers must hold the session lock.
+// UpdateOrigHead saves the current HEAD to ORIG_HEAD ref.
+// Note: Callers must hold the session lock.
 func (s *Session) UpdateOrigHead() error {
-	if s.Repo == nil {
+    repo := s.GetRepo()
+	if repo == nil {
 		return nil
 	}
-	headRef, err := s.Repo.Head()
+	headRef, err := repo.Head()
 	if err != nil {
 		return err // No HEAD to save
 	}
 	
 	origHeadRef := plumbing.NewHashReference(plumbing.ReferenceName("ORIG_HEAD"), headRef.Hash())
-	return s.Repo.Storer.SetReference(origHeadRef)
+	return repo.Storer.SetReference(origHeadRef)
 }

@@ -18,7 +18,8 @@ func (c *DiffCommand) Execute(ctx context.Context, s *git.Session, args []string
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
@@ -29,20 +30,20 @@ func (c *DiffCommand) Execute(ctx context.Context, s *git.Session, args []string
 	ref2 := args[2]
 
 	// Resolve refs
-	h1, err := s.Repo.ResolveRevision(plumbing.Revision(ref1))
+	h1, err := repo.ResolveRevision(plumbing.Revision(ref1))
 	if err != nil {
 		return "", err
 	}
-	h2, err := s.Repo.ResolveRevision(plumbing.Revision(ref2))
+	h2, err := repo.ResolveRevision(plumbing.Revision(ref2))
 	if err != nil {
 		return "", err
 	}
 
-	c1, err := s.Repo.CommitObject(*h1)
+	c1, err := repo.CommitObject(*h1)
 	if err != nil {
 		return "", err
 	}
-	c2, err := s.Repo.CommitObject(*h2)
+	c2, err := repo.CommitObject(*h2)
 	if err != nil {
 		return "", err
 	}

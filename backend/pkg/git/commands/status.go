@@ -33,11 +33,12 @@ func (c *StatusCommand) Execute(ctx context.Context, s *git.Session, args []stri
     // Let's modify session.go to export Mu first? Or add Lock/Unlock?
     // Adding Lock/Unlock to Session is cleaner.
     
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
-	w, _ := s.Repo.Worktree()
+	w, _ := repo.Worktree()
 	status, _ := w.Status()
 	return status.String(), nil
 }

@@ -22,7 +22,8 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
@@ -36,21 +37,21 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	upstreamName := args[1]
 	
 	// 1. Resolve Upstream
-	upstreamHash, err := s.Repo.ResolveRevision(plumbing.Revision(upstreamName))
+	upstreamHash, err := repo.ResolveRevision(plumbing.Revision(upstreamName))
 	if err != nil {
 		return "", fmt.Errorf("invalid upstream '%s': %v", upstreamName, err)
 	}
-	upstreamCommit, err := s.Repo.CommitObject(*upstreamHash)
+	upstreamCommit, err := repo.CommitObject(*upstreamHash)
 	if err != nil {
 		return "", err
 	}
 
 	// 2. Resolve HEAD
-	headRef, err := s.Repo.Head()
+	headRef, err := repo.Head()
 	if err != nil {
 		return "", err
 	}
-	headCommit, err := s.Repo.CommitObject(headRef.Hash())
+	headCommit, err := repo.CommitObject(headRef.Hash())
 	if err != nil {
 		return "", err
 	}
@@ -92,7 +93,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	}
 
 	// 5. Hard Reset to Upstream
-	w, _ := s.Repo.Worktree()
+	w, _ := repo.Worktree()
 	if err := w.Reset(&gogit.ResetOptions{Commit: *upstreamHash, Mode: gogit.HardReset}); err != nil {
 		return "", fmt.Errorf("failed to reset to upstream: %v", err)
 	}
@@ -112,7 +113,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			from, to := fp.Files()
 			if to == nil {
 				if from != nil {
-					s.Filesystem.Remove(from.Path())
+					w.Filesystem.Remove(from.Path())
 				}
 				continue
 			}
@@ -122,7 +123,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			content, err := file.Contents()
 			if err != nil { continue }
 			
-			f, _ := s.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+			f, _ := w.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 			f.Write([]byte(content))
 			f.Close()
 			w.Add(path)

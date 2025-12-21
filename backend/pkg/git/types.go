@@ -18,6 +18,8 @@ type GraphState struct {
 	Modified   []string          `json:"modified"`
 	Untracked  []string          `json:"untracked"`
 	FileStatuses map[string]string `json:"fileStatuses"`
+    CurrentPath  string            `json:"currentPath"`
+    Projects     []string          `json:"projects"`
 }
 
 type Commit struct {

@@ -21,11 +21,12 @@ func (c *CheckoutCommand) Execute(ctx context.Context, s *git.Session, args []st
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
-	w, _ := s.Repo.Worktree()
+	w, _ := repo.Worktree()
 	if len(args) < 2 {
 		return "", fmt.Errorf("usage: git checkout <branch> | git checkout -b <branch> | git checkout -- <file>")
 	}
@@ -38,16 +39,16 @@ func (c *CheckoutCommand) Execute(ctx context.Context, s *git.Session, args []st
 		filename := args[2]
 
 		// Restore file from HEAD
-		headRef, err := s.Repo.Head()
+		headRef, err := repo.Head()
 		if err == nil {
-			headCommit, _ := s.Repo.CommitObject(headRef.Hash())
+			headCommit, _ := repo.CommitObject(headRef.Hash())
 			file, err := headCommit.File(filename)
 			if err != nil {
 				return "", fmt.Errorf("file %s not found in HEAD", filename)
 			}
 			content, _ := file.Contents()
 			
-			f, _ := s.Filesystem.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+			f, _ := w.Filesystem.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 			f.Write([]byte(content))
 			f.Close()
 			return "Updated " + filename, nil
@@ -63,7 +64,7 @@ func (c *CheckoutCommand) Execute(ctx context.Context, s *git.Session, args []st
 		branchName := args[2]
 
 		// Get current HEAD to set the branch to
-		headRef, err := s.Repo.Head()
+		headRef, err := repo.Head()
 		if err != nil {
 			return "", fmt.Errorf("cannot checkout -B without HEAD")
 		}
@@ -72,7 +73,7 @@ func (c *CheckoutCommand) Execute(ctx context.Context, s *git.Session, args []st
 		refName := plumbing.ReferenceName("refs/heads/" + branchName)
 		newRef := plumbing.NewHashReference(refName, headRef.Hash())
 		
-		if err := s.Repo.Storer.SetReference(newRef); err != nil {
+		if err := repo.Storer.SetReference(newRef); err != nil {
 			return "", err
 		}
 		
@@ -123,10 +124,10 @@ func (c *CheckoutCommand) Execute(ctx context.Context, s *git.Session, args []st
 
 	// 2. Try as hash (Detached HEAD) / Tag / Short Hash
 	// Use ResolveRevision to handle short hashes, tags, etc. properly AND verify existence.
-	hash, err := s.Repo.ResolveRevision(plumbing.Revision(target))
+	hash, err := repo.ResolveRevision(plumbing.Revision(target))
 	if err == nil {
 		// Verify it's a commit
-		if _, err := s.Repo.CommitObject(*hash); err != nil {
+		if _, err := repo.CommitObject(*hash); err != nil {
 			return "", fmt.Errorf("reference is not a commit: %v", err)
 		}
 		
@@ -154,11 +155,12 @@ func (c *SwitchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	w, _ := s.Repo.Worktree()
+	w, _ := repo.Worktree()
 	if len(args) < 2 {
 		return "", fmt.Errorf("usage: git switch [-c] <branch>")
 	}
@@ -188,7 +190,7 @@ func (c *SwitchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	
 	// Validate that target is actually a branch (local)
 	branchRefName := "refs/heads/" + target
-	_, err := s.Repo.Reference(plumbing.ReferenceName(branchRefName), true)
+	_, err := repo.Reference(plumbing.ReferenceName(branchRefName), true)
 	if err != nil {
 		return "", fmt.Errorf("invalid reference: %s", target)
 	}

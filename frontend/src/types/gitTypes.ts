@@ -13,12 +13,14 @@ export interface GitState {
     branches: Record<string, string>; // branchName -> commitId
     tags: Record<string, string>; // tagName -> commitId
     references: Record<string, string>; // references like ORIG_HEAD -> commitId
-    HEAD: { type: 'branch' | 'commit', ref: string | null, id?: string };
+    HEAD: { type: 'branch' | 'commit' | 'none', ref: string | null, id?: string };
     staging: string[];
     modified: string[];
     untracked: string[];
     fileStatuses: Record<string, string>;
     files: string[];
+    currentPath?: string;
+    projects?: string[];
 
     output: string[];
     commandCount: number;

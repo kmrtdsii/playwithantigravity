@@ -16,7 +16,7 @@ export interface SelectedObject {
 type ViewMode = 'graph' | 'branches' | 'tags';
 
 const AppLayout = () => {
-    const { showAllCommits, toggleShowAllCommits } = useGit();
+    const { state, showAllCommits, toggleShowAllCommits } = useGit();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
@@ -202,17 +202,32 @@ const AppLayout = () => {
                         style={{ height: vizHeight, flex: 'none', minHeight: 0 }}
                         ref={vizRef}
                     >
-                        {viewMode === 'graph' ? (
-                            <GitGraphViz
-                                onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
-                                selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
-                            />
+                        {state.HEAD && state.HEAD.type !== 'none' ? (
+                            viewMode === 'graph' ? (
+                                <GitGraphViz
+                                    onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
+                                    selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
+                                />
+                            ) : (
+                                <GitReferenceList
+                                    type={viewMode === 'branches' ? 'branches' : 'tags'}
+                                    onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
+                                    selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
+                                />
+                            )
                         ) : (
-                            <GitReferenceList
-                                type={viewMode === 'branches' ? 'branches' : 'tags'}
-                                onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
-                                selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
-                            />
+                            <div style={{
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--text-tertiary)',
+                                flexDirection: 'column',
+                                gap: '12px'
+                            }}>
+                                <span style={{ fontSize: '24px', opacity: 0.5 }}>📦</span>
+                                <div>Select a project from Workspaces to view Git Graph</div>
+                            </div>
                         )}
                     </div>
 

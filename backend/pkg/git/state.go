@@ -1,13 +1,10 @@
 package git
 
 import (
-	"os"
-	"path/filepath"
 	"sort"
 	"time"
 
-	"github.com/go-git/go-billy/v5/util"
-	"github.com/go-git/go-git/v5"
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
@@ -28,13 +25,15 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 		Tags:         make(map[string]string),
 		References:   make(map[string]string),
 		FileStatuses: make(map[string]string),
+        CurrentPath:  session.CurrentDir,
 	}
 
 	// 1. Get HEAD
-	if session.Repo == nil {
+    repo := session.GetRepo()
+	if repo == nil {
 		state.HEAD = Head{Type: "none"}
 	} else {
-		ref, err := session.Repo.Head()
+		ref, err := repo.Head()
 		if err != nil {
 			if err.Error() == "reference not found" {
 				state.HEAD = Head{Type: "branch", Ref: "main"} // Default
@@ -51,8 +50,8 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	}
 
 	// 2. Get Branches
-	if session.Repo != nil {
-		iter, err := session.Repo.Branches()
+	if repo != nil {
+		iter, err := repo.Branches()
 		if err != nil {
 			return nil, err
 		}
@@ -62,13 +61,13 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 		})
 
 		// Get Special Refs (ORIG_HEAD)
-		origHeadRef, err := session.Repo.Reference("ORIG_HEAD", true)
+		origHeadRef, err := repo.Reference("ORIG_HEAD", true)
 		if err == nil {
 			state.References["ORIG_HEAD"] = origHeadRef.Hash().String()
 		}
 
 		// Get Tags
-		tIter, err := session.Repo.Tags()
+		tIter, err := repo.Tags()
 		if err == nil {
 			tIter.ForEach(func(r *plumbing.Reference) error {
 				state.Tags[r.Name().Short()] = r.Hash().String()
@@ -78,12 +77,12 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	}
 
 	// 3. Walk Commits
-	if session.Repo != nil {
+	if repo != nil {
 		var collectedCommits []*object.Commit
 
 		if showAll {
 			// Scan ALL objects to find every commit
-			cIter, err := session.Repo.CommitObjects()
+			cIter, err := repo.CommitObjects()
 			if err == nil {
 				cIter.ForEach(func(c *object.Commit) error {
 					collectedCommits = append(collectedCommits, c)
@@ -96,18 +95,18 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 			var queue []plumbing.Hash
 
 			// 1. HEAD
-			h, err := session.Repo.Head()
+			h, err := repo.Head()
 			if err == nil {
 				queue = append(queue, h.Hash())
 			}
 			// 2. Branches
-			bIter, _ := session.Repo.Branches()
+			bIter, _ := repo.Branches()
 			bIter.ForEach(func(r *plumbing.Reference) error {
 				queue = append(queue, r.Hash())
 				return nil
 			})
 			// 3. Tags
-			tIter, _ := session.Repo.Tags()
+			tIter, _ := repo.Tags()
 			tIter.ForEach(func(r *plumbing.Reference) error {
 				queue = append(queue, r.Hash())
 				return nil
@@ -123,7 +122,7 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 				}
 				seen[current.String()] = true
 
-				c, err := session.Repo.CommitObject(current)
+				c, err := repo.CommitObject(current)
 				if err != nil {
 					continue
 				}
@@ -227,38 +226,50 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	}
 
 	// 4. Get Status (Files, Staging, Modified)
-	util.Walk(session.Filesystem, "/", func(path string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if fi.IsDir() {
-			if path == ".git" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		// Clean path
-		if path != "" && path[0] == '/' {
-			path = path[1:]
-		}
-		state.Files = append(state.Files, path)
-		return nil
-	})
+    walkPath := session.CurrentDir
+    if len(walkPath) > 0 && walkPath[0] == '/' {
+        walkPath = walkPath[1:]
+    }
+    if walkPath == "" {
+        walkPath = "."
+    }
 
-	if session.Repo != nil {
-		w, _ := session.Repo.Worktree()
+    // Use ReadDir for shallow listing (File Explorer style)
+    infos, err := session.Filesystem.ReadDir(walkPath)
+    if err == nil {
+        for _, info := range infos {
+            name := info.Name()
+            if info.IsDir() {
+                if name == ".git" {
+                    continue
+                }
+                name = name + "/"
+            }
+            state.Files = append(state.Files, name)
+        }
+    }
+    
+    // Legacy Walk logic removed to support directory navigation
+    /*
+	util.Walk(session.Filesystem, walkPath, func(path string, fi os.FileInfo, err error) error {
+        // ...
+	})
+    */
+
+	if repo != nil {
+		w, _ := repo.Worktree()
 		status, _ := w.Status()
 		for file, s := range status {
 			// Untracked
-			if s.Staging == git.Untracked {
+			if s.Staging == gogit.Untracked {
 				state.Untracked = append(state.Untracked, file)
 			}
 			// Modified
-			if s.Worktree != git.Unmodified && s.Staging != git.Untracked {
+			if s.Worktree != gogit.Unmodified && s.Staging != gogit.Untracked {
 				state.Modified = append(state.Modified, file)
 			}
 			// Staged
-			if s.Staging != git.Unmodified && s.Staging != git.Untracked {
+			if s.Staging != gogit.Unmodified && s.Staging != gogit.Untracked {
 				state.Staging = append(state.Staging, file)
 			}
 			// Status Codes
@@ -268,26 +279,36 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 		}
 	}
 
+    // 5. Get Projects (always scan root)
+    rootInfos, err := session.Filesystem.ReadDir(".")
+    if err == nil {
+        for _, info := range rootInfos {
+            if info.IsDir() && info.Name() != ".git" {
+                state.Projects = append(state.Projects, info.Name())
+            }
+        }
+    }
+
 	return state, nil
 }
 
-func statusCodeToChar(c git.StatusCode) rune {
+func statusCodeToChar(c gogit.StatusCode) rune {
 	switch c {
-	case git.Unmodified:
+	case gogit.Unmodified:
 		return ' '
-	case git.Modified:
+	case gogit.Modified:
 		return 'M'
-	case git.Added:
+	case gogit.Added:
 		return 'A'
-	case git.Deleted:
+	case gogit.Deleted:
 		return 'D'
-	case git.Renamed:
+	case gogit.Renamed:
 		return 'R'
-	case git.Copied:
+	case gogit.Copied:
 		return 'C'
-	case git.UpdatedButUnmerged:
+	case gogit.UpdatedButUnmerged:
 		return 'U'
-	case git.Untracked:
+	case gogit.Untracked:
 		return '?'
 	default:
 		return '-'

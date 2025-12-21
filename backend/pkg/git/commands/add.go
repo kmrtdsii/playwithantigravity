@@ -17,11 +17,12 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
-	w, _ := s.Repo.Worktree()
+	w, _ := repo.Worktree()
 	if len(args) < 2 {
 		return "", fmt.Errorf("usage: git add <file>")
 	}

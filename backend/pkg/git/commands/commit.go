@@ -21,11 +21,12 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
-	w, _ := s.Repo.Worktree()
+	w, _ := repo.Worktree()
 	
 	// Parse options
 	msg := "Default commit message"
@@ -43,11 +44,11 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	if amend {
 		// Amend logic
-		headRef, err := s.Repo.Head()
+		headRef, err := repo.Head()
 		if err != nil {
 			return "", fmt.Errorf("cannot amend without HEAD: %v", err)
 		}
-		headCommit, err := s.Repo.CommitObject(headRef.Hash())
+		headCommit, err := repo.CommitObject(headRef.Hash())
 		if err != nil {
 			return "", err
 		}

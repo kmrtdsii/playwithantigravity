@@ -22,11 +22,12 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	w, _ := s.Repo.Worktree()
+	w, _ := repo.Worktree()
 	if len(args) < 2 {
 		return "", fmt.Errorf("usage: git merge [--squash] <branch>")
 	}
@@ -42,18 +43,18 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	// 1. Resolve HEAD
-	headRef, err := s.Repo.Head()
+	headRef, err := repo.Head()
 	if err != nil {
 		return "", err
 	}
-	headCommit, err := s.Repo.CommitObject(headRef.Hash())
+	headCommit, err := repo.CommitObject(headRef.Hash())
 	if err != nil {
 		return "", err
 	}
 
 	// 2. Resolve Target
 	// Try resolving as branch first
-	targetRef, err := s.Repo.Reference(plumbing.ReferenceName("refs/heads/"+targetName), true)
+	targetRef, err := repo.Reference(plumbing.ReferenceName("refs/heads/"+targetName), true)
 	var targetHash plumbing.Hash
 	if err == nil {
 		targetHash = targetRef.Hash()
@@ -62,7 +63,7 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		targetHash = plumbing.NewHash(targetName)
 	}
 
-	targetCommit, err := s.Repo.CommitObject(targetHash)
+	targetCommit, err := repo.CommitObject(targetHash)
 	if err != nil {
 		return "", fmt.Errorf("merge: %s - not something we can merge", targetName)
 	}
@@ -89,7 +90,7 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 			path := f.Name
 			
 			// Write to FS
-			fsFile, err := s.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+			fsFile, err := w.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
 			if err != nil {
 				return err
 			}

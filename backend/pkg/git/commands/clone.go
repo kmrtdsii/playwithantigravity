@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/storage/memory"
@@ -25,24 +26,42 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 	url := args[1]
 
-	if s.Repo != nil {
-		return "", fmt.Errorf("repository already initialized")
+	// Extract repo name from URL
+	// Simple parsing: last part of path, strip .git
+	parts := strings.Split(url, "/")
+	if len(parts) == 0 {
+		return "", fmt.Errorf("invalid url")
+	}
+	repoName := parts[len(parts)-1]
+	repoName = strings.TrimSuffix(repoName, ".git")
+
+	if _, exists := s.Repos[repoName]; exists {
+		return "", fmt.Errorf("repository '%s' already exists", repoName)
+	}
+
+	// Create chrooted filesystem for the repo
+	if err := s.Filesystem.MkdirAll(repoName, 0755); err != nil {
+		return "", fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	repoFS, err := s.Filesystem.Chroot(repoName)
+	if err != nil {
+		return "", fmt.Errorf("failed to chroot: %w", err)
 	}
 
 	st := memory.NewStorage()
-	repo, err := gogit.Clone(st, s.Filesystem, &gogit.CloneOptions{
+	repo, err := gogit.Clone(st, repoFS, &gogit.CloneOptions{
 		URL:      url,
 		Progress: os.Stdout,
 	})
 	if err != nil {
+		// Clean up on failure?
 		return "", fmt.Errorf("clone failed: %w", err)
 	}
 
-	s.Repo = repo
+	s.Repos[repoName] = repo
 
-	// We might want to set ORIG_HEAD or similar, but Clone usually sets everything up.
-
-	return fmt.Sprintf("Cloned into '.' from %s", url), nil
+	return fmt.Sprintf("Cloned into '%s'...", repoName), nil
 }
 
 func (c *CloneCommand) Help() string {

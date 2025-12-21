@@ -21,7 +21,8 @@ func (c *LogCommand) Execute(ctx context.Context, s *git.Session, args []string)
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
@@ -30,7 +31,7 @@ func (c *LogCommand) Execute(ctx context.Context, s *git.Session, args []string)
 		oneline = true
 	}
 
-	cIter, err := s.Repo.Log(&gogit.LogOptions{All: false}) // HEAD only usually
+	cIter, err := repo.Log(&gogit.LogOptions{All: false}) // HEAD only usually
 	if err != nil {
 		return "", err
 	}

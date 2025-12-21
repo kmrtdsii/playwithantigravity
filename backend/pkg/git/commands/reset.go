@@ -20,7 +20,8 @@ func (c *ResetCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	s.Lock()
 	defer s.Unlock()
 
-	if s.Repo == nil {
+	repo := s.GetRepo()
+	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
@@ -50,12 +51,12 @@ func (c *ResetCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	// Resolve target
-	h, err := s.Repo.ResolveRevision(plumbing.Revision(target))
+	h, err := repo.ResolveRevision(plumbing.Revision(target))
 	if err != nil {
 		return "", err
 	}
 
-	w, _ := s.Repo.Worktree()
+	w, _ := repo.Worktree()
 	
 	// Update ORIG_HEAD before reset
 	s.UpdateOrigHead()
