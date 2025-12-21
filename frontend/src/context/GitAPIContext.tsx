@@ -19,7 +19,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         branches: {},
         tags: {},
         references: {},
-        HEAD: { type: 'branch', ref: null },
+        HEAD: { type: 'none', ref: null },
         staging: [],
         modified: [],
         untracked: [],

@@ -39,7 +39,7 @@ func (c *CdCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 	// Ensure valid path (simple check: root exists, subdirs need check)
 	if newPath == "/" || newPath == "." {
 		s.CurrentDir = "/"
-		return "/", nil
+		return "", nil
 	}
 
 	// Check if directory exists in FS
@@ -62,7 +62,7 @@ func (c *CdCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 	}
 
 	s.CurrentDir = displayPath // Keep the absolute path convention for state
-	return s.CurrentDir, nil
+	return "", nil
 }
 
 func (c *CdCommand) Help() string {
