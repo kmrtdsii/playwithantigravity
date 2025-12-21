@@ -5,7 +5,6 @@ import GitTerminal from '../terminal/GitTerminal';
 import GitGraphViz from '../visualization/GitGraphViz';
 import FileExplorer from './FileExplorer';
 import ObjectInspector from './ObjectInspector';
-import CloneModal from '../modals/CloneModal';
 
 export interface SelectedObject {
     type: 'commit' | 'file';
@@ -14,20 +13,12 @@ export interface SelectedObject {
 }
 
 const AppLayout = () => {
-    const { showAllCommits, toggleShowAllCommits, runCommand } = useGit();
+    const { showAllCommits, toggleShowAllCommits } = useGit();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
-    const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
 
     const handleObjectSelect = (obj: SelectedObject) => {
         setSelectedObject(obj);
-    };
-
-    const handleClone = async (url: string) => {
-        console.log("Cloning from:", url);
-        // Execute git clone command
-        // Note: The CloneCommand implementation expects "clone <url>"
-        await runCommand(`clone ${url}`);
     };
 
     return (
@@ -70,24 +61,7 @@ const AppLayout = () => {
             <main className="center-pane">
                 {/* Unified Header for Center Pane */}
                 <div className="pane-header" style={{ justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span>Repository Visualization & Terminal</span>
-                        <button
-                            onClick={() => setIsCloneModalOpen(true)}
-                            style={{
-                                background: 'var(--accent-primary)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '0.75rem',
-                                cursor: 'pointer',
-                                fontWeight: 500
-                            }}
-                        >
-                            Clone Repo
-                        </button>
-                    </div>
+                    <span>Repository Visualization & Terminal</span>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         {/* Toggle Button */}
@@ -136,13 +110,6 @@ const AppLayout = () => {
                     <ObjectInspector selectedObject={selectedObject} />
                 </div>
             </aside>
-
-            {/* Modals */}
-            <CloneModal
-                isOpen={isCloneModalOpen}
-                onClose={() => setIsCloneModalOpen(false)}
-                onClone={handleClone}
-            />
         </div>
     );
 };
