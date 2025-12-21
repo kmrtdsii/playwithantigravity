@@ -687,14 +687,23 @@ Type 'git help <command>' for more information about a specific command.`, nil
 			return fmt.Sprintf("Switched to branch '%s'", target), nil
 		}
 
-		// 2. Try as hash (Detached HEAD)
-		hash := plumbing.NewHash(target)
-		err = w.Checkout(&git.CheckoutOptions{
-			Hash: hash,
-		})
+		// 2. Try as hash (Detached HEAD) / Tag / Short Hash
+		// Use ResolveRevision to handle short hashes, tags, etc. properly AND verify existence.
+		hash, err := session.Repo.ResolveRevision(plumbing.Revision(target))
 		if err == nil {
-			session.recordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", target))
-			return fmt.Sprintf("Note: switching to '%s'.\n\nYou are in 'detached HEAD' state.", target), nil
+			// Verify it's a commit
+			if _, err := session.Repo.CommitObject(*hash); err != nil {
+				return "", fmt.Errorf("reference is not a commit: %v", err)
+			}
+			
+			err = w.Checkout(&git.CheckoutOptions{
+				Hash: *hash,
+			})
+			if err == nil {
+				session.recordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", target))
+				return fmt.Sprintf("Note: switching to '%s'.\n\nYou are in 'detached HEAD' state.", target), nil
+			}
+			return "", err
 		}
 
 		return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", target)

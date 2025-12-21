@@ -256,9 +256,10 @@ const createBezierPath = (x1: number, y1: number, x2: number, y2: number) => {
 
 interface GitGraphVizProps {
     onSelect?: (commit: Commit) => void;
+    selectedCommitId?: string;
 }
 
-const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
+const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId }) => {
     const { state } = useGit();
     const { commits, branches, HEAD } = state;
 
@@ -266,6 +267,14 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
         computeLayout(commits, branches, HEAD),
         [commits, branches, HEAD]
     );
+
+    // Resolve HEAD commit ID for Halo
+    let headCommitId: string | undefined;
+    if (HEAD.type === 'commit') {
+        headCommitId = HEAD.id;
+    } else if (HEAD.type === 'branch' && HEAD.ref) {
+        headCommitId = branches[HEAD.ref];
+    }
 
     if (!state.initialized) {
         return (
@@ -314,12 +323,32 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
                             opacity={node.opacity}
                         />
                     ))}
+
+                    {/* Render HEAD Halo (Current Tip) */}
+                    {nodes.map(node => {
+                        if (node.id === headCommitId) {
+                            return (
+                                <circle
+                                    key={`halo-${node.id}`}
+                                    cx={node.x}
+                                    cy={node.y}
+                                    r={CIRCLE_RADIUS + 4}
+                                    fill="none"
+                                    stroke="var(--accent-primary, #3b82f6)"
+                                    strokeWidth="2"
+                                    opacity={0.8}
+                                />
+                            );
+                        }
+                        return null;
+                    })}
                 </svg>
 
                 {/* Render Text Content (Clickable Rows) */}
                 {nodes.map(node => {
                     const textX = 140; // Fixed gutter for rails
                     const hasBadges = badgesMap[node.id] && badgesMap[node.id].length > 0;
+                    const isSelected = node.id === selectedCommitId;
 
                     return (
                         <div
@@ -362,7 +391,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
                                                 opacity: 0.9
                                             }}
                                         >
-                                            {badge.isActive && '● '}
+                                            {/* Removed bullet: {badge.isActive && '● '} */}
                                             {badge.text}
                                         </span>
                                     ))}
@@ -374,8 +403,18 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
                                 {node.message}
                             </span>
 
-                            {/* ID (faded) */}
-                            <span style={{ color: 'var(--text-tertiary)', fontSize: '10px', marginLeft: '4px' }}>
+                            {/* ID (Highlighted if selected) */}
+                            <span style={{
+                                color: isSelected ? 'var(--accent-primary, #3b82f6)' : 'var(--text-tertiary)',
+                                fontSize: '10px',
+                                marginLeft: 'auto', // Push to right? Or just margin 4px? User said "visual tree commit ID". 
+                                // Let's keep it near message but distinct.
+                                // Actually user said "highlight form".
+                                fontWeight: isSelected ? 'bold' : 'normal',
+                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                padding: isSelected ? '2px 6px' : '0',
+                                borderRadius: '4px'
+                            }}>
                                 {node.id.substring(0, 7)}
                             </span>
                         </div>

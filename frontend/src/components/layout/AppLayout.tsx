@@ -63,7 +63,10 @@ const AppLayout = () => {
                 <div className="center-content">
                     {/* Upper: Visualization */}
                     <div className="viz-pane">
-                        <GitGraphViz onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })} />
+                        <GitGraphViz
+                            onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
+                            selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
+                        />
                     </div>
 
                     {/* Lower: Terminal */}
