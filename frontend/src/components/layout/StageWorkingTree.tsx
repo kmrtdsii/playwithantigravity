@@ -28,8 +28,8 @@ const StageWorkingTree: React.FC<StageWorkingTreeProps> = ({ onSelect }) => {
         return (
             <div
                 style={{
-                    padding: '8px 12px',
-                    marginBottom: '8px',
+                    padding: '4px 8px',
+                    marginBottom: '4px',
                     background: 'var(--bg-tertiary)',
                     borderRadius: '6px',
                     borderLeft: `4px solid ${statusColor}`,
