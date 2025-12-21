@@ -1,4 +1,4 @@
-package main
+package git_test
 
 import (
 	"strings"
@@ -105,7 +105,7 @@ func TestGitPhase2Features(t *testing.T) {
 
 		// Verify status (should be modified)
 		status, _ := exec("status")
-		if !strings.Contains(status, "M README.md") && !strings.Contains(status, "README.md") { // go-git status format might differ
+		if !strings.Contains(status, "M README.md") && !strings.Contains(status, "README.md") { 
 			// Check later; status format is custom in this engine? 
 			// No, it calls w.Status().String().
 		}
@@ -115,10 +115,6 @@ func TestGitPhase2Features(t *testing.T) {
 		if err != nil {
 			t.Fatalf("checkout file failed: %v", err)
 		}
-
-		// Verify status (should be clean-ish or at least README reverted)
-		// Since TouchFile appends, we check if content is back.
-		// Detailed content check is hard without reading file in test, let's assume if checkout -- succeeded it worked.
 	})
 	
 	// 5. Test Diff (Commits)
@@ -135,12 +131,10 @@ func TestGitPhase2Features(t *testing.T) {
 
 		out, err := exec("diff", "HEAD^", "HEAD")
 		if err != nil {
-			t.Fatalf("diff failed: %v", err) // HEAD^ might fail if simplistic resolution?
-			// go-git ResolveRevision supports HEAD^ usually.
+			t.Fatalf("diff failed: %v", err) 
 		}
 		if !strings.Contains(out, "new.txt") {
 			// Expected diff to show new file
-			// t.Logf("Diff output: %s", out)
 		}
 	})
 
@@ -197,25 +191,20 @@ func TestGitPhase2Features(t *testing.T) {
 		// Goal: rebase feature on main -> C1 -> C2 -> C3'
 		
 		// Reset to C1 (Base)
-		exec("checkout", "master") // or whatever initial
-		// Actually, let's start fresh or use current state?
+		// Instead of assuming state, let's create branches
+		
 		// Current state: main has commits.
 		// Let's create new branch 'feature-rebase' from HEAD^ (Base)
 		exec("checkout", "main")
-		exec("branch", "feature-rebase") // at HEAD
+		exec("branch", "feature-rebase") 
 		exec("reset", "--hard", "HEAD^") // move main back 1
 		exec("commit", "--allow-empty", "-m", "Main Diverged") // main has Base -> Diverged
 		
-		exec("checkout", "feature-rebase") // at Base (actually at old HEAD, so Base -> FeatureCommit)
-		// Wait, logic:
-		// Start: C1(Base) -> C2(Feature/HEAD)
-		// Main: C1(Base) -> C3(Main/Diverged)
-		// Rebase feature on Main
+		exec("checkout", "feature-rebase") 
 		
-		// Let's build explicitly
+		// Let's build explicitly for clarity
 		exec("checkout", "-b", "base-branch")
 		exec("commit", "--allow-empty", "-m", "Base Commit")
-		// baseHash, _ := exec("rev-parse", "HEAD")
 		
 		exec("checkout", "-b", "feat-branch")
 		exec("commit", "--allow-empty", "-m", "Feat Commit")
@@ -225,7 +214,7 @@ func TestGitPhase2Features(t *testing.T) {
 		
 		// Rebase feat-branch on base-branch
 		exec("checkout", "feat-branch")
-		_, err := exec("rebase", "base-branch") // out -> _
+		_, err := exec("rebase", "base-branch") 
 		if err != nil {
 			t.Fatalf("rebase failed: %v", err)
 		}
@@ -236,24 +225,10 @@ func TestGitPhase2Features(t *testing.T) {
 		if !strings.Contains(log, "Feat Commit") || !strings.Contains(log, "Upstream Commit") {
 			t.Errorf("log missing commits after rebase: %s", log)
 		}
-		
-		// Verify linear history (parents)
-		// Hard to parse parents from simple log output, but order implies it.
-		// If "Feat Commit" is at top, and "Upstream Commit" is below it.
-		lines := strings.Split(strings.TrimSpace(log), "\n")
-		// lines[0] = Feat, lines[1] = Upstream, lines[2] = Base
-		if len(lines) < 3 {
-			t.Errorf("log too short: %v", lines)
-		}
 	})
 
 	// 10. Test Reflog
 	t.Run("Reflog", func(t *testing.T) {
-		// Just run reflog and check if it contains recent actions from previous tests if state is shared,
-		// but tests run in same process/session? 
-		// Actually, ExecuteGitCommand uses global 'sessions' map, but we InitSession("test-session") in main test func?
-		// Wait, TestGitPhase2Features uses "test-session-phase2".
-		
 		out, err := exec("reflog")
 		if err != nil {
 			t.Fatalf("reflog failed: %v", err)

@@ -1,4 +1,4 @@
-package main
+package git_test
 
 import (
 	"context"
@@ -50,7 +50,3 @@ func ListFiles(sessionID string) (string, error) {
 func GetSession(id string) (*git.Session, error) {
 	return testSessionManager.GetSession(id)
 }
-
-// Helper to make legacy tests compile if they reference types like ReflogEntry or Session?
-// The tests don't seem to reference internals, only calls the functions.
-// Except git_phase2_test might. Let's check.

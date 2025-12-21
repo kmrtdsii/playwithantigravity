@@ -1,4 +1,4 @@
-package main
+package git_test
 
 import (
 	"strings"
@@ -6,7 +6,7 @@ import (
 )
 
 func TestGitBranchDelete(t *testing.T) {
-	sessionID := "test-session"
+	sessionID := "test-session-branch"
 	if err := InitSession(sessionID); err != nil {
 		t.Fatalf("Failed to init session: %v", err)
 	}
