@@ -1,79 +1,95 @@
-  :root {
-    font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
-    line-height: 1.5;
-    font-weight: 400;
+/* Global CSS with Theme Support */
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
 
-    color-scheme: dark;
-    color: #E6EDF3;
-    /* GitHub Lightest */
-    background-color: #0D1117;
-    /* GitHub Dark Base */
+  color-scheme: dark;
+  /* Default to dark */
 
-    font-synthesis: none;
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  /* Color Palette - Dark (Default) */
+  --bg-primary: #0d1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --text-tertiary: #484f58;
 
-    --bg-primary: #0D1117;
-    --bg-secondary: #161B22;
-    /* Slightly lighter for panels */
-    --bg-tertiary: #21262D;
-    /* Borders / Inputs */
-    --bg-hover: #30363D;
+  --border-subtle: #30363d;
+  --border-active: #8b949e;
 
-    --text-primary: #E6EDF3;
-    --text-secondary: #8B949E;
-    --text-tertiary: #6E7681;
+  --accent-primary: #238636;
+  --accent-hover: #2ea043;
 
-    --border-subtle: #30363D;
-    --accent-primary: #2F81F7;
-    /* Blue accent like many learning tools, or keep green? Lets stick closer to the greenish blue or a nice blue */
-    /* Reverting to a pleasant Blue for primary actions/highlights */
+  --terminal-bg: #0d1117;
 
-    --terminal-bg: #0D1117;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+}
 
-    --radius-md: 6px;
-    --radius-lg: 12px;
-  }
+/* Light Mode Overrides */
+body.light-mode {
+  color-scheme: light;
 
-  a {
-    font-weight: 500;
-    color: #646cff;
-    text-decoration: inherit;
-  }
+  /* Color Palette - Light */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f6f8fa;
+  --bg-tertiary: #eaeef2;
 
-  a:hover {
-    color: #535bf2;
-  }
+  --text-primary: #24292f;
+  --text-secondary: #57606a;
+  --text-tertiary: #6e7781;
 
-  body {
-    margin: 0;
-    min-width: 320px;
-    min-height: 100vh;
-  }
+  --border-subtle: #d0d7de;
+  --border-active: #afb8c1;
 
-  h1 {
-    font-size: 3.2em;
-    line-height: 1.1;
-  }
+  --accent-primary: #1f883d;
+  --accent-hover: #1a7f37;
 
-  button {
-    border-radius: 8px;
-    border: 1px solid transparent;
-    padding: 0.6em 1.2em;
-    font-size: 1em;
-    font-weight: 500;
-    font-family: inherit;
-    background-color: #1a1a1a;
-    cursor: pointer;
-    transition: border-color 0.25s;
-  }
+  --terminal-bg: #0d1117;
+  /* Keep terminal dark-ish or adapt if requested, usually dark is better for dev tools */
+}
 
-  button:hover {
-    border-color: #646cff;
-  }
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
 
-  button:focus,
-  button:focus-visible {
-    outline: 4px auto -webkit-focus-ring-color;
-  }
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  /* Ensure body uses variable */
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+
+button:hover {
+  border-color: #646cff;
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}

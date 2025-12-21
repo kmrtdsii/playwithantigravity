@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import './AppLayout.css';
 import { useGit } from '../../context/GitAPIContext';
+import { useTheme } from '../../context/ThemeContext';
 import GitTerminal from '../terminal/GitTerminal';
 import GitGraphViz from '../visualization/GitGraphViz';
 import GitReferenceList from '../visualization/GitReferenceList';
@@ -17,6 +18,7 @@ type ViewMode = 'graph' | 'branches' | 'tags';
 
 const AppLayout = () => {
     const { state, showAllCommits, toggleShowAllCommits } = useGit();
+    const { theme, toggleTheme } = useTheme();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
@@ -192,6 +194,25 @@ const AppLayout = () => {
                             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e' }} />
                             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f' }} />
                         </div>
+
+                        {/* Theme Toggle */}
+                        <button
+                            onClick={toggleTheme}
+                            style={{
+                                background: 'transparent',
+                                border: '1px solid var(--border-subtle)',
+                                color: 'var(--text-secondary)',
+                                padding: '4px 8px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+                        >
+                            {theme === 'dark' ? '☀️' : '🌙'}
+                        </button>
                     </div>
                 </div>
 
