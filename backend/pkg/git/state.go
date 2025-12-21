@@ -100,18 +100,10 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 			if err == nil {
 				queue = append(queue, h.Hash())
 			}
-			// 2. Branches
-			bIter, _ := repo.Branches()
-			bIter.ForEach(func(r *plumbing.Reference) error {
-				queue = append(queue, r.Hash())
-				return nil
-			})
-			// 3. Tags
-			tIter, _ := repo.Tags()
-			tIter.ForEach(func(r *plumbing.Reference) error {
-				queue = append(queue, r.Hash())
-				return nil
-			})
+            
+            // Note: In default mode (showAll=false), we only show history reachable from HEAD.
+            // Branches and Tags that are not reachable from HEAD will not be shown.
+            // This mimics standard 'git log'.
 
 			// BFS
 			for len(queue) > 0 {
