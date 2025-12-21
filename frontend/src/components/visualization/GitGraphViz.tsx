@@ -443,12 +443,12 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId })
                             <span style={{
                                 color: 'var(--text-tertiary)',
                                 fontSize: '10px',
-                                width: '100px', // Fixed width for timestamp
+                                width: '140px', // Fixed width for timestamp
                                 textAlign: 'right',
                                 flexShrink: 0,
                                 marginRight: '8px'
                             }}>
-                                {new Date(node.timestamp).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                {new Date(node.timestamp).toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                             </span>
 
                             {/* ID (Highlighted if selected) */}

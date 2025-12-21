@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import './AppLayout.css';
 import { useGit } from '../../context/GitAPIContext';
 import GitTerminal from '../terminal/GitTerminal';
@@ -16,6 +16,50 @@ const AppLayout = () => {
     const { showAllCommits, toggleShowAllCommits } = useGit();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
+
+    // Resizable Pane State
+    const [vizHeight, setVizHeight] = useState(300); // Initial height in pixels
+    const vizRef = useRef<HTMLDivElement>(null);
+    const centerContentRef = useRef<HTMLDivElement>(null);
+    const isResizing = useRef(false);
+
+    const startResizing = useCallback(() => {
+        isResizing.current = true;
+        document.body.style.cursor = 'row-resize';
+        document.body.style.userSelect = 'none'; // Prevent selection during drag
+    }, []);
+
+    const stopResizing = useCallback(() => {
+        isResizing.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+    }, []);
+
+    const resize = useCallback((e: MouseEvent) => {
+        if (!isResizing.current || !centerContentRef.current) return;
+
+        // Calculate relative height
+        // We want the new height of the viz pane to be (MouseY - CenterPaneTop)
+        const centerRect = centerContentRef.current.getBoundingClientRect();
+        const newHeight = e.clientY - centerRect.top;
+
+        // Min/Max constraints
+        const minHeight = 100;
+        const maxHeight = centerRect.height - 100; // Keep space for terminal
+
+        if (newHeight >= minHeight && newHeight <= maxHeight) {
+            setVizHeight(newHeight);
+        }
+    }, []);
+
+    useEffect(() => {
+        window.addEventListener('mousemove', resize);
+        window.addEventListener('mouseup', stopResizing);
+        return () => {
+            window.removeEventListener('mousemove', resize);
+            window.removeEventListener('mouseup', stopResizing);
+        };
+    }, [resize, stopResizing]);
 
     const handleObjectSelect = (obj: SelectedObject) => {
         setSelectedObject(obj);
@@ -87,17 +131,24 @@ const AppLayout = () => {
                     </div>
                 </div>
 
-                <div className="center-content">
+                <div className="center-content" ref={centerContentRef}>
                     {/* Upper: Visualization */}
-                    <div className="viz-pane">
+                    <div
+                        className="viz-pane"
+                        style={{ height: vizHeight, flex: 'none', minHeight: 0 }}
+                        ref={vizRef}
+                    >
                         <GitGraphViz
                             onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
                             selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
                         />
                     </div>
 
+                    {/* Resizer Handle */}
+                    <div className="resizer" onMouseDown={startResizing} />
+
                     {/* Lower: Terminal */}
-                    <div className="terminal-pane">
+                    <div className="terminal-pane" style={{ flex: 1, minHeight: 0 }}>
                         <GitTerminal />
                     </div>
                 </div>
