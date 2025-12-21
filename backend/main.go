@@ -77,6 +77,40 @@ func execCommand(w http.ResponseWriter, r *http.Request) {
 	// For now assume "git <cmd> <args>"
 
 	parts := strings.Fields(req.Command)
+	
+	// Handle Shortcuts
+	if len(parts) > 0 {
+		switch parts[0] {
+		case "br": // git branch
+			newParts := []string{"git", "branch"}
+			parts = append(newParts, parts[1:]...)
+		case "sw": // git switch
+			newParts := []string{"git", "switch"}
+			parts = append(newParts, parts[1:]...)
+		case "co": // git checkout
+			newParts := []string{"git", "checkout"}
+			parts = append(newParts, parts[1:]...)
+		case "reset": // git reset
+			newParts := []string{"git", "reset"}
+			parts = append(newParts, parts[1:]...)
+		case "add": // git add
+			newParts := []string{"git", "add"}
+			parts = append(newParts, parts[1:]...)
+		case "commit": // git commit
+			newParts := []string{"git", "commit", "-m"}
+			parts = append(newParts, parts[1:]...)
+		case "merge": // git merge
+			newParts := []string{"git", "merge"}
+			parts = append(newParts, parts[1:]...)
+		case "tag": // git tag
+			newParts := []string{"git", "tag"}
+			parts = append(newParts, parts[1:]...)
+		case "rebase": // git rebase
+			newParts := []string{"git", "rebase"}
+			parts = append(newParts, parts[1:]...)
+		}
+	}
+
 	log.Printf("Command received: user=%s cmd=%s parts=%v", req.SessionID, req.Command, parts)
 	// Basic check
 	if len(parts) > 0 {

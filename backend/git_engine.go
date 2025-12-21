@@ -856,6 +856,9 @@ Type 'git help <command>' for more information about a specific command.`, nil
 
 		return fmt.Sprintf("Merge made by the 'ort' strategy.\n %s", newCommitHash.String()), nil
 
+	case "rebase":
+		return "Rebase integration is not yet implemented in this demo.", nil
+
 	default:
 		return "", fmt.Errorf("command not supported: %s", cmd)
 	}
