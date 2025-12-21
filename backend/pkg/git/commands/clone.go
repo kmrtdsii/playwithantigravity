@@ -24,6 +24,12 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	if len(args) < 2 {
 		return "", fmt.Errorf("usage: git clone <url>")
 	}
+    
+    // Ensure we are in root
+    if s.CurrentDir != "/" && s.CurrentDir != "" {
+        return "", fmt.Errorf("git clone invalid permissions: you can only clone from the root directory")
+    }
+
 	url := args[1]
 
 	// Extract repo name from URL
