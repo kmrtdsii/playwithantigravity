@@ -46,7 +46,8 @@ const GitTerminal = () => {
         let p = '';
 
         // SEGMENT 1: Path
-        p += `${BLUE_BG}${WHITE_FG} 📂 ${displayPath} `;
+        // Use Nerd Font folder icon (\uf07c) instead of Emoji to avoid width issues
+        p += `${BLUE_BG}${WHITE_FG} \uf07c ${displayPath} `;
 
         if (hasRepo) {
             // TRANSITION 1: Blue -> Yellow
@@ -152,7 +153,16 @@ const GitTerminal = () => {
             }
             else if (code === 127) { // Backspace
                 if (currentLine.length > 0) {
-                    term.write('\b \b');
+                    const charToRemove = currentLine.slice(-1);
+                    // Simple CJK detection (incomplete but covers most common cases)
+                    // Regular expression for Full-width characters
+                    const isWide = !!charToRemove.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/);
+
+                    if (isWide) {
+                        term.write('\b\b  \b\b'); // Move back 2, clear 2, move back 2
+                    } else {
+                        term.write('\b \b');
+                    }
                     currentLine = currentLine.slice(0, -1);
                 }
             }
