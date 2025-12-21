@@ -51,8 +51,26 @@ const StageWorkingTree: React.FC<StageWorkingTreeProps> = ({ onSelect }) => {
         );
     };
 
+    // Loading state
+    if (!state.initialized) {
+        return (
+            <div style={{ padding: '16px', display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', minHeight: '100px' }}>
+                Loading...
+            </div>
+        );
+    }
+
     return (
-        <div style={{ padding: '16px', height: '100%', overflowY: 'auto' }}>
+        <div style={{ padding: '16px', flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {/* DEBUG INFO - REMOVE LATER */}
+            <div style={{ padding: '8px', border: '1px dashed red', marginBottom: '16px', fontSize: '0.75rem', color: 'red' }}>
+                DEBUG:
+                Staged: {staging.length} |
+                Modified: {modified.length} |
+                Untracked: {untracked.length} |
+                Files: {state.files?.length}
+            </div>
+
             <div style={{ marginBottom: '24px' }}>
                 <h3 style={{
                     fontSize: '0.85rem',
