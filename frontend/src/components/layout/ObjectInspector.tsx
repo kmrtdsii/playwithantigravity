@@ -50,10 +50,10 @@ const ObjectInspector: React.FC<ObjectInspectorProps> = ({ selectedObject }) => 
                         <span style={valueStyle}>{commit.data.author}</span>
                     </div>
                 )}
-                {commit.data?.date && (
+                {commit.data?.timestamp && (
                     <div style={itemStyle}>
                         <span style={labelStyle}>Date:</span>
-                        <span style={valueStyle}>{commit.data.date}</span>
+                        <span style={valueStyle}>{new Date(commit.data.timestamp).toLocaleString()}</span>
                     </div>
                 )}
             </div>

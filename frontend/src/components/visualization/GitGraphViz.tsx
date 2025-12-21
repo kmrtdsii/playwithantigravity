@@ -403,13 +403,21 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId })
                                 {node.message}
                             </span>
 
+                            {/* Timestamp */}
+                            <span style={{
+                                color: 'var(--text-tertiary)',
+                                fontSize: '10px',
+                                marginLeft: 'auto',
+                                marginRight: '8px'
+                            }}>
+                                {new Date(node.timestamp).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+
                             {/* ID (Highlighted if selected) */}
                             <span style={{
                                 color: isSelected ? 'var(--accent-primary, #3b82f6)' : 'var(--text-tertiary)',
                                 fontSize: '10px',
-                                marginLeft: 'auto', // Push to right? Or just margin 4px? User said "visual tree commit ID". 
-                                // Let's keep it near message but distinct.
-                                // Actually user said "highlight form".
+                                // marginLeft: 'auto', // Removed auto margin
                                 fontWeight: isSelected ? 'bold' : 'normal',
                                 backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
                                 padding: isSelected ? '2px 6px' : '0',
