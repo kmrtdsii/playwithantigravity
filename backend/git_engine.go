@@ -153,10 +153,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 		headRef := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.ReferenceName("refs/heads/main"))
 		session.Repo.Storer.SetReference(headRef)
 
-		// Create initial files (simulating project start)
-		f, _ := session.Filesystem.Create("README.md")
-		f.Write([]byte("# My Project\n"))
-		f.Close()
+
 
 		return "Initialized empty Git repository in /", nil
 
@@ -967,7 +964,19 @@ func TouchFile(sessionID, filename string) error {
 		return fmt.Errorf("session not found")
 	}
 
-	// Append a newline to ensure checksum changes (go-git relies on hash)
+	// Check if file exists
+	_, err := session.Filesystem.Stat(filename)
+	if err != nil {
+		// File likely doesn't exist, create it (empty)
+		f, err := session.Filesystem.Create(filename)
+		if err != nil {
+			return err
+		}
+		f.Close()
+		return nil
+	}
+
+	// File exists, append to it to update hash/modification
 	f, err := session.Filesystem.OpenFile(filename, os.O_APPEND|os.O_RDWR, 0644)
 	if err != nil {
 		return err
