@@ -624,6 +624,52 @@ Type 'git help <command>' for more information about a specific command.`, nil
 
 		return "Created branch " + branchName, nil
 
+	case "switch":
+		w, _ := session.Repo.Worktree()
+		if len(args) < 2 {
+			return "", fmt.Errorf("usage: git switch [-c] <branch>")
+		}
+
+		// Handle -c (create and switch)
+		if args[1] == "-c" {
+			if len(args) < 3 {
+				return "", fmt.Errorf("usage: git switch -c <branch>")
+			}
+			branchName := args[2]
+
+			// Create new branch logic (similar to checkout -b)
+			opts := &git.CheckoutOptions{
+				Create: true,
+				Force:  false,
+				Branch: plumbing.ReferenceName("refs/heads/" + branchName),
+			}
+			if err := w.Checkout(opts); err != nil {
+				return "", err
+			}
+			session.recordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", branchName))
+			return fmt.Sprintf("Switched to a new branch '%s'", branchName), nil
+		}
+
+		// Handle normal switch (existing branch)
+		target := args[1]
+		
+		// Validate that target is actually a branch (local)
+		branchRefName := "refs/heads/" + target
+		_, err := session.Repo.Reference(plumbing.ReferenceName(branchRefName), true)
+		if err != nil {
+			return "", fmt.Errorf("invalid reference: %s", target)
+		}
+
+		branchRef := plumbing.ReferenceName(branchRefName)
+		err = w.Checkout(&git.CheckoutOptions{
+			Branch: branchRef,
+		})
+		if err == nil {
+			session.recordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", target))
+			return fmt.Sprintf("Switched to branch '%s'", target), nil
+		}
+		return "", err
+
 	case "checkout":
 		w, _ := session.Repo.Worktree()
 		if len(args) < 2 {
