@@ -65,6 +65,15 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 		if err == nil {
 			state.References["ORIG_HEAD"] = origHeadRef.Hash().String()
 		}
+
+		// Get Tags
+		tIter, err := session.Repo.Tags()
+		if err == nil {
+			tIter.ForEach(func(r *plumbing.Reference) error {
+				state.References[r.Name().Short()] = r.Hash().String()
+				return nil
+			})
+		}
 	}
 
 	// 3. Walk Commits
