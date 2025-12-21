@@ -34,6 +34,8 @@ export const gitService = {
             modified: data.modified || [],
             untracked: data.untracked || [],
             fileStatuses: data.fileStatuses || {},
+            currentPath: data.currentPath || '',
+            projects: data.projects || [],
             initialized: true,
             output: [], // State API doesn't return output history
             commandCount: 0 // Managed by context

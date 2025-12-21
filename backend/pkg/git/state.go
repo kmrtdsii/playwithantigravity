@@ -1,6 +1,7 @@
 package git
 
 import (
+	"log"
 	"sort"
 	"time"
 
@@ -280,13 +281,16 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	}
 
     // 5. Get Projects (always scan root)
-    rootInfos, err := session.Filesystem.ReadDir(".")
+    rootInfos, err := session.Filesystem.ReadDir("/")
     if err == nil {
         for _, info := range rootInfos {
             if info.IsDir() && info.Name() != ".git" {
                 state.Projects = append(state.Projects, info.Name())
             }
         }
+        log.Printf("Scan Projects: found %d projects: %v", len(state.Projects), state.Projects)
+    } else {
+        log.Printf("Scan Projects Error: %v", err)
     }
 
 	return state, nil
