@@ -127,8 +127,10 @@ func getGraphState(w http.ResponseWriter, r *http.Request) {
 	if sessionID == "" {
 		sessionID = "user-session-1" // Default
 	}
+	
+	showAll := r.URL.Query().Get("showAll") == "true"
 
-	state, err := GetGraphState(sessionID)
+	state, err := GetGraphState(sessionID, showAll)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

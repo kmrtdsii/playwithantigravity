@@ -28,6 +28,8 @@ export interface GitState {
 interface GitContextType {
     state: GitState;
     runCommand: (cmd: string) => Promise<void>;
+    showAllCommits: boolean;
+    toggleShowAllCommits: () => void;
 }
 
 const GitContext = createContext<GitContextType | undefined>(undefined);
@@ -50,6 +52,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const [sessionId, setSessionId] = useState<string>('');
+    const [showAllCommits, setShowAllCommits] = useState<boolean>(false);
 
     // Init session on mount
     useEffect(() => {
@@ -72,7 +75,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const fetchState = async (sid: string) => {
         try {
-            const res = await fetch(`/api/state?sessionId=${sid}&t=${Date.now()}`);
+            const res = await fetch(`/api/state?sessionId=${sid}&t=${Date.now()}&showAll=${showAllCommits}`);
             if (!res.ok) throw new Error('Failed to fetch state');
             const data = await res.json();
 
@@ -129,8 +132,19 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    const toggleShowAllCommits = () => {
+        setShowAllCommits(prev => !prev);
+    };
+
+    // Re-fetch when toggle changes
+    useEffect(() => {
+        if (sessionId) {
+            fetchState(sessionId);
+        }
+    }, [showAllCommits]);
+
     return (
-        <GitContext.Provider value={{ state, runCommand }}>
+        <GitContext.Provider value={{ state, runCommand, showAllCommits, toggleShowAllCommits }}>
             {children}
         </GitContext.Provider>
     );

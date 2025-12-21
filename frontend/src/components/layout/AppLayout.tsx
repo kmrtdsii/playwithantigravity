@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './AppLayout.css';
+import { useGit } from '../../context/GitAPIContext';
 import GitTerminal from '../terminal/GitTerminal';
 import GitGraphViz from '../visualization/GitGraphViz';
 import StageWorkingTree from './StageWorkingTree';
@@ -12,6 +13,7 @@ export interface SelectedObject {
 }
 
 const AppLayout = () => {
+    const { showAllCommits, toggleShowAllCommits } = useGit();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
 
     const handleObjectSelect = (obj: SelectedObject) => {
@@ -33,11 +35,28 @@ const AppLayout = () => {
                 {/* Unified Header for Center Pane */}
                 <div className="pane-header" style={{ justifyContent: 'space-between' }}>
                     <span>Repository Visualization & Terminal</span>
-                    {/* Traffic Lights - Premium Feel */}
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56' }} />
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e' }} />
-                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f' }} />
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                        {/* Toggle Button */}
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                            <input
+                                type="checkbox"
+                                checked={showAllCommits}
+                                onChange={toggleShowAllCommits}
+                                style={{
+                                    accentColor: 'var(--accent-primary)',
+                                    cursor: 'pointer'
+                                }}
+                            />
+                            Show All Commits
+                        </label>
+
+                        {/* Traffic Lights - Premium Feel */}
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ff5f56' }} />
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#ffbd2e' }} />
+                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f' }} />
+                        </div>
                     </div>
                 </div>
 

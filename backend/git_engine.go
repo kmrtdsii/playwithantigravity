@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -832,7 +833,7 @@ type Head struct {
 	ID   string `json:"id,omitempty"`
 }
 
-func GetGraphState(sessionID string) (*GraphState, error) {
+func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 	session, ok := sessions[sessionID]
 	if !ok {
 		return nil, fmt.Errorf("session not found")
@@ -881,27 +882,56 @@ func GetGraphState(sessionID string) (*GraphState, error) {
 
 	// 3. Walk Commits
 	if session.Repo != nil {
-		cIter, err := session.Repo.Log(&git.LogOptions{All: true})
-		if err == nil {
-			cIter.ForEach(func(c *object.Commit) error {
-				parentID := ""
-				if len(c.ParentHashes) > 0 {
-					parentID = c.ParentHashes[0].String()
-				}
-				secondParentID := ""
-				if len(c.ParentHashes) > 1 {
-					secondParentID = c.ParentHashes[1].String()
-				}
-
-				state.Commits = append(state.Commits, Commit{
-					ID:             c.Hash.String(),
-					Message:        c.Message,
-					ParentID:       parentID,
-					SecondParentID: secondParentID,
-					Timestamp:      c.Committer.When.Format(time.RFC3339),
+		if showAll {
+			// Scan ALL objects to find every commit (including dangling ones)
+			cIter, err := session.Repo.CommitObjects()
+			if err == nil {
+				cIter.ForEach(func(c *object.Commit) error {
+					parentID := ""
+					if len(c.ParentHashes) > 0 {
+						parentID = c.ParentHashes[0].String()
+					}
+					secondParentID := ""
+					if len(c.ParentHashes) > 1 {
+						secondParentID = c.ParentHashes[1].String()
+					}
+					state.Commits = append(state.Commits, Commit{
+						ID:             c.Hash.String(),
+						Message:        c.Message,
+						ParentID:       parentID,
+						SecondParentID: secondParentID,
+						Timestamp:      c.Committer.When.Format(time.RFC3339),
+					})
+					return nil
 				})
-				return nil
-			})
+				// Sort by timestamp newly created first
+				sort.Slice(state.Commits, func(i, j int) bool {
+					return state.Commits[i].Timestamp > state.Commits[j].Timestamp
+				})
+			}
+		} else {
+			// Standard Graph Traversal (Reachable commits only)
+			cIter, err := session.Repo.Log(&git.LogOptions{All: true})
+			if err == nil {
+				cIter.ForEach(func(c *object.Commit) error {
+					parentID := ""
+					if len(c.ParentHashes) > 0 {
+						parentID = c.ParentHashes[0].String()
+					}
+					secondParentID := ""
+					if len(c.ParentHashes) > 1 {
+						secondParentID = c.ParentHashes[1].String()
+					}
+					state.Commits = append(state.Commits, Commit{
+						ID:             c.Hash.String(),
+						Message:        c.Message,
+						ParentID:       parentID,
+						SecondParentID: secondParentID,
+						Timestamp:      c.Committer.When.Format(time.RFC3339),
+					})
+					return nil
+				})
+			}
 		}
 	}
 
