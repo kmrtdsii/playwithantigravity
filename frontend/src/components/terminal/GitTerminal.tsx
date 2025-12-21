@@ -72,6 +72,7 @@ const GitTerminal = () => {
         term.writeln('\x1b[1;32mGitForge Terminal\x1b[0m v1.0.0');
         term.writeln('Type "git init" to start.');
         term.write('$ ');
+        term.write('(/workspaces/gitgym) $ '); // Changed initial prompt
 
         xtermRef.current = term;
 
@@ -87,7 +88,7 @@ const GitTerminal = () => {
                 if (cmd) {
                     if (cmd === 'clear') {
                         term.clear();
-                        let prompt = '$ ';
+                        let prompt = '(/workspaces/gitgym) $ '; // Changed default prompt
                         if (stateRef.current.initialized) {
                             const branch = stateRef.current.HEAD.ref || stateRef.current.HEAD.id?.substring(0, 7) || 'DETACHED'; // Use stateRef
                             prompt = `(${branch}) $ `;

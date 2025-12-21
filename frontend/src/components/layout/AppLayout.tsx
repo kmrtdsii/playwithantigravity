@@ -3,7 +3,7 @@ import './AppLayout.css';
 import { useGit } from '../../context/GitAPIContext';
 import GitTerminal from '../terminal/GitTerminal';
 import GitGraphViz from '../visualization/GitGraphViz';
-import StageWorkingTree from './StageWorkingTree';
+import FileExplorer from './FileExplorer';
 import ObjectInspector from './ObjectInspector';
 
 export interface SelectedObject {
@@ -23,14 +23,14 @@ const AppLayout = () => {
 
     return (
         <div className="layout-container">
-            {/* LEFT PANE: Stage & Working Tree (1/4) */}
+            {/* LEFT PANE: Explorer (1/4) */}
             <aside className={`left-pane ${!isLeftPaneOpen ? 'collapsed' : ''}`}>
                 <div
                     className="pane-header"
                     style={{ justifyContent: 'space-between', paddingLeft: isLeftPaneOpen ? '16px' : '8px', paddingRight: isLeftPaneOpen ? '16px' : '8px' }}
                     onClick={() => !isLeftPaneOpen && setIsLeftPaneOpen(true)} // Click header to expand if collapsed
                 >
-                    {isLeftPaneOpen && <span>Stage & Working Tree</span>}
+                    {isLeftPaneOpen && <span>EXPLORER</span>}
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
@@ -52,7 +52,7 @@ const AppLayout = () => {
                 </div>
                 {isLeftPaneOpen && (
                     <div className="pane-content">
-                        <StageWorkingTree onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
+                        <FileExplorer onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
                     </div>
                 )}
             </aside>
