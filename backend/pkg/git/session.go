@@ -132,3 +132,37 @@ func (s *Session) UpdateOrigHead() error {
 	origHeadRef := plumbing.NewHashReference(plumbing.ReferenceName("ORIG_HEAD"), headRef.Hash())
 	return repo.Storer.SetReference(origHeadRef)
 }
+
+// RemoveAll removes path and any children it contains.
+func (s *Session) RemoveAll(path string) error {
+    // memfs Remove might not be recursive.
+    // We implement a simple recursive removal.
+    
+    fi, err := s.Filesystem.Stat(path)
+    if err != nil {
+        return nil // Already gone?
+    }
+    
+    if !fi.IsDir() {
+        return s.Filesystem.Remove(path)
+    }
+    
+    // Directory: ReadDir and remove children first
+    entries, err := s.Filesystem.ReadDir(path)
+    if err != nil {
+        return err
+    }
+    
+    for _, entry := range entries {
+        childPath := path + "/" + entry.Name()
+        if path == "/" {
+             childPath = entry.Name() // Handle root special case if needed, though usually strict paths
+        }
+        
+        if err := s.RemoveAll(childPath); err != nil {
+            return err
+        }
+    }
+    
+    return s.Filesystem.Remove(path)
+}

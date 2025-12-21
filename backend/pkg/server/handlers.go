@@ -159,7 +159,7 @@ func (s *Server) handleExecCommand(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]string{"output": "File updated"})
 			return
 
-		} else if parts[0] == "ls" || parts[0] == "cd" {
+		} else if parts[0] == "ls" || parts[0] == "cd" || parts[0] == "rm" {
 			session, err := s.SessionManager.GetSession(req.SessionID)
 			if err != nil {
 				w.Header().Set("Content-Type", "application/json")

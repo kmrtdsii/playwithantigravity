@@ -99,6 +99,18 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
         toggleFolder(node.path, e);
     };
 
+    const handleDeleteProject = (projectName: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (confirm(`Are you sure you want to delete project '${projectName}'? This cannot be undone.`)) {
+            // Need to change directory if we are inside the deleted project
+            if (activeProject === projectName) {
+                runCommand('cd /');
+            }
+            // Execute Delete
+            runCommand(`rm -rf ${projectName}`);
+        }
+    };
+
     const getStatusColor = (status?: string) => {
         if (!status) return 'var(--text-secondary)';
         if (status.includes('?')) return '#ff5f56';
@@ -206,6 +218,15 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
                                     }}>▶</span>
                                     <span className="icon">📦</span>
                                     <span className="name" style={{ fontWeight: isActive ? 'bold' : 'normal' }}>{project}</span>
+
+                                    <span
+                                        className="delete-btn"
+                                        title="Delete Project"
+                                        onClick={(e) => handleDeleteProject(project, e)}
+                                        style={{ marginLeft: '8px', opacity: 0.5, cursor: 'pointer', fontSize: '12px' }}
+                                    >
+                                        🗑️
+                                    </span>
                                 </div>
                                 {isActive && (
                                     <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', marginLeft: '19px' }}>
