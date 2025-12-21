@@ -5,20 +5,27 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/kmrtdsii/playwithantigravity/backend/pkg/git"
+	_ "github.com/kmrtdsii/playwithantigravity/backend/pkg/git/commands" // Register commands
 )
 
+var sessionManager *git.SessionManager
+
 func main() {
+	sessionManager = git.NewSessionManager()
+	
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": "pong",
-			"system":  "GitForge Backend (net/http)",
+			"system":  "GitForge Backend (Refactored)",
 		})
 	})
 
-	// Placeholder for Git Engine API
+	// Git Engine API
 	mux.HandleFunc("/api/session/init", initSession)
 	mux.HandleFunc("/api/command", execCommand)
 	mux.HandleFunc("/api/state", getGraphState)
@@ -35,10 +42,9 @@ func initSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Generate simple ID
-	// In real app, use UUID
 	sessionID := "user-session-1" // Fixed for now
 
-	if err := InitSession(sessionID); err != nil {
+	if _, err := sessionManager.CreateSession(sessionID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -72,16 +78,11 @@ func execCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Naive split of command string
-	// "git add ." -> ["git", "add", "."]
-	// "touch file.txt" -> handled separately?
-	// For now assume "git <cmd> <args>"
-
 	parts := strings.Fields(req.Command)
 	
 	// Handle Shortcuts
 	if len(parts) > 0 {
 		switch parts[0] {
-
 		case "reset": // git reset
 			newParts := []string{"git", "reset"}
 			parts = append(newParts, parts[1:]...)
@@ -113,10 +114,34 @@ func execCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Command received: user=%s cmd=%s parts=%v", req.SessionID, req.Command, parts)
-	// Basic check
+	
 	if len(parts) > 0 {
 		if parts[0] == "git" {
-			output, err := ExecuteGitCommand(req.SessionID, parts[1:])
+			session, err := sessionManager.GetSession(req.SessionID)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+				return
+			}
+			
+			cmdName := ""
+			args := []string{}
+			if len(parts) > 1 {
+				cmdName = parts[1]
+				args = parts[1:] // Note: args usually include the command name or not? 
+				// git.Dispatch: Execute(ctx, session, args)
+				// Arg parsing in commands usually expects args[0] to be the command ("add", "commit") 
+				// or maybe "init". 
+				// My implementations checked args[0] in some cases?
+				// add.go: file := args[1] (implies args[0] is "add")
+				// init.go: checks nothing.
+				// branch.go: args[1]
+				// So yes, args should include the command name at index 0.
+			}
+			
+			// parts = ["git", "add", "."] -> args = ["add", "."]
+			
+			output, err := git.Dispatch(r.Context(), session, cmdName, args)
 			if err != nil {
 				w.Header().Set("Content-Type", "application/json")
 				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -125,20 +150,22 @@ func execCommand(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]string{"output": output})
 			return
+
 		} else if parts[0] == "touch" {
 			if len(parts) < 2 {
 				http.Error(w, "Filename required", http.StatusBadRequest)
 				return
 			}
-			err := TouchFile(req.SessionID, parts[1])
+			err := sessionManager.TouchFile(req.SessionID, parts[1])
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 				return
 			}
 			json.NewEncoder(w).Encode(map[string]string{"output": "File updated"})
 			return
+
 		} else if parts[0] == "ls" {
-			output, err := ListFiles(req.SessionID)
+			output, err := sessionManager.ListFiles(req.SessionID)
 			if err != nil {
 				json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 				return
@@ -165,7 +192,7 @@ func getGraphState(w http.ResponseWriter, r *http.Request) {
 	
 	showAll := r.URL.Query().Get("showAll") == "true"
 
-	state, err := GetGraphState(sessionID, showAll)
+	state, err := sessionManager.GetGraphState(sessionID, showAll)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
