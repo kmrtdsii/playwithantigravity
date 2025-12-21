@@ -46,14 +46,20 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
     if (commits.length === 0) return { nodes: [], edges: [], height: 0, badgesMap: {} };
 
     // 0. Ensure Sort order (Newest first)
-    const sortedCommits = [...commits].sort((a, b) => {
-        const timeA = new Date(a.timestamp).getTime();
-        const timeB = new Date(b.timestamp).getTime();
-        if (timeA === timeB) {
-            return b.id.localeCompare(a.id); // Deterministic tie-breaker
-        }
-        return timeB - timeA;
-    });
+    // Stable sort respecting Backend's topological order (index) if timestamps are equal.
+    const sortedCommits = commits
+        .map((c, i) => ({ c, i }))
+        .sort((a, b) => {
+            const timeA = new Date(a.c.timestamp).getTime();
+            const timeB = new Date(b.c.timestamp).getTime();
+            if (timeA === timeB) {
+                // If times are equal, respect original backend order (Topological Child First)
+                // Lower index = Newer
+                return a.i - b.i;
+            }
+            return timeB - timeA;
+        })
+        .map(wrapper => wrapper.c);
 
     // --- REACHABILITY ANALYSIS ---
     const commitMap = new Map(commits.map(c => [c.id, c]));
