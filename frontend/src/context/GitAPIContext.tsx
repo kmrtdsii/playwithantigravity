@@ -18,6 +18,7 @@ export interface GitState {
     staging: string[];
     modified: string[];
     untracked: string[];
+    fileStatuses: Record<string, string>;
     files: string[];
 
     output: string[];
@@ -41,6 +42,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         staging: [],
         modified: [],
         untracked: [],
+        fileStatuses: {},
         files: [],
 
         output: [],
@@ -85,6 +87,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 staging: data.staging || [],
                 modified: data.modified || [],
                 untracked: data.untracked || [],
+                fileStatuses: data.fileStatuses || {},
                 initialized: true
             }));
         } catch (e) {

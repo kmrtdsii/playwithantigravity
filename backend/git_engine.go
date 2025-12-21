@@ -814,6 +814,7 @@ type GraphState struct {
 	Staging  []string          `json:"staging"`
 	Modified []string          `json:"modified"`
 	Untracked []string         `json:"untracked"`
+	FileStatuses map[string]string `json:"fileStatuses"`
 }
 
 type Commit struct {
@@ -838,8 +839,9 @@ func GetGraphState(sessionID string) (*GraphState, error) {
 	}
 
 	state := &GraphState{
-		Commits:  []Commit{},
-		Branches: make(map[string]string),
+		Commits:      []Commit{},
+		Branches:     make(map[string]string),
+		FileStatuses: make(map[string]string),
 	}
 
 	// 1. Get HEAD
@@ -951,10 +953,38 @@ func GetGraphState(sessionID string) (*GraphState, error) {
 			if s.Staging != git.Unmodified && s.Staging != git.Untracked {
 				state.Staging = append(state.Staging, file)
 			}
+
+			// 4. Status Codes (XY)
+			x := statusCodeToChar(s.Staging)
+			y := statusCodeToChar(s.Worktree)
+			state.FileStatuses[file] = string(x) + string(y)
 		}
 	}
 
 	return state, nil
+}
+
+func statusCodeToChar(c git.StatusCode) rune {
+	switch c {
+	case git.Unmodified:
+		return ' '
+	case git.Modified:
+		return 'M'
+	case git.Added:
+		return 'A'
+	case git.Deleted:
+		return 'D'
+	case git.Renamed:
+		return 'R'
+	case git.Copied:
+		return 'C'
+	case git.UpdatedButUnmerged:
+		return 'U'
+	case git.Untracked:
+		return '?'
+	default:
+		return '-'
+	}
 }
 
 // TouchFile updates the modification time and appends content to a file to ensure it's treated as modified
@@ -988,4 +1018,36 @@ func TouchFile(sessionID, filename string) error {
 	}
 
 	return nil
+}
+
+// ListFiles returns a list of files in the worktree
+func ListFiles(sessionID string) (string, error) {
+	session, ok := sessions[sessionID]
+	if !ok {
+		return "", fmt.Errorf("session not found")
+	}
+
+	var files []string
+	util.Walk(session.Filesystem, "/", func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if fi.IsDir() {
+			if path == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		// Clean path
+		if path != "" && path[0] == '/' {
+			path = path[1:]
+		}
+		files = append(files, path)
+		return nil
+	})
+
+	if len(files) == 0 {
+		return "", nil
+	}
+	return strings.Join(files, "\n"), nil
 }
