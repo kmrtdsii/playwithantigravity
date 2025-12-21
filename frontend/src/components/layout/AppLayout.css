@@ -15,7 +15,31 @@
     border-right: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
+    transition: all 0.3s ease;
+    /* Animate width change */
+    position: relative;
+    white-space: nowrap;
+    /* Prevent text wrapping during collapse */
 }
+
+.left-pane.collapsed {
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    cursor: pointer;
+}
+
+.left-pane.collapsed .pane-content {
+    opacity: 0;
+    pointer-events: none;
+    display: none;
+    /* Fully hide to prevent layout issues */
+}
+
+.left-pane.collapsed .pane-header span {
+    display: none;
+}
+
 
 /* CENTER PANE (Viz & Terminal) */
 .center-pane {

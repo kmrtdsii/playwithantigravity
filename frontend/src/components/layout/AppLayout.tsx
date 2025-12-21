@@ -15,6 +15,7 @@ export interface SelectedObject {
 const AppLayout = () => {
     const { showAllCommits, toggleShowAllCommits } = useGit();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
+    const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
 
     const handleObjectSelect = (obj: SelectedObject) => {
         setSelectedObject(obj);
@@ -23,11 +24,37 @@ const AppLayout = () => {
     return (
         <div className="layout-container">
             {/* LEFT PANE: Stage & Working Tree (1/4) */}
-            <aside className="left-pane">
-                <div className="pane-header">Stage & Working Tree</div>
-                <div className="pane-content">
-                    <StageWorkingTree onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
+            <aside className={`left-pane ${!isLeftPaneOpen ? 'collapsed' : ''}`}>
+                <div
+                    className="pane-header"
+                    style={{ justifyContent: 'space-between', paddingLeft: isLeftPaneOpen ? '16px' : '8px', paddingRight: isLeftPaneOpen ? '16px' : '8px' }}
+                    onClick={() => !isLeftPaneOpen && setIsLeftPaneOpen(true)} // Click header to expand if collapsed
+                >
+                    {isLeftPaneOpen && <span>Stage & Working Tree</span>}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsLeftPaneOpen(!isLeftPaneOpen);
+                        }}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-tertiary)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        {isLeftPaneOpen ? '◀' : '▶'}
+                    </button>
                 </div>
+                {isLeftPaneOpen && (
+                    <div className="pane-content">
+                        <StageWorkingTree onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
+                    </div>
+                )}
             </aside>
 
             {/* CENTER PANE: Viz & Terminal (2/4) */}
@@ -71,7 +98,6 @@ const AppLayout = () => {
 
                     {/* Lower: Terminal */}
                     <div className="terminal-pane">
-                        {/* Terminal header removed as per plan to reduce clutter, relying on main header */}
                         <GitTerminal />
                     </div>
                 </div>
