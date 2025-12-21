@@ -378,6 +378,9 @@ Type 'git help <command>' for more information about a specific command.`, nil
 				f.Close()
 				w.Add(path)
 			}
+			
+			// Ensure timestamp distinctness
+			time.Sleep(10 * time.Millisecond)
 
 			_, err = w.Commit(c.Message, &git.CommitOptions{
 				Author: &object.Signature{
@@ -1033,30 +1036,24 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 			}
 			
 			// Sort collected commits by FULL timestamp (high precision)
-			sort.Slice(collectedCommits, func(i, j int) bool {
+			// Use SliceStable to preserve BFS order (Child < Parent) when times are equal
+			sort.SliceStable(collectedCommits, func(i, j int) bool {
 				tI := collectedCommits[i].Committer.When
 				tJ := collectedCommits[j].Committer.When
 				
 				if tI.Equal(tJ) {
-					// Tie-breaker: Parent check?
-					// If i is parent of j, j is newer (j > i). So j comes first. 
-					// sort.Slice is "Less".
-					// We want "Newest First". So "Greater".
-					
-					// If Collected[i].Hash is in Collected[j].ParentHashes => i is older => j comes first => return false
-					for _, p := range collectedCommits[j].ParentHashes {
-						if p == collectedCommits[i].Hash {
-							return false
-						}
-					}
-					// If Collected[j].Hash is in Collected[i].ParentHashes => j is older => i comes first => return true
-					for _, p := range collectedCommits[i].ParentHashes {
-						if p == collectedCommits[j].Hash {
-							return true
-						}
-					}
-
-					return collectedCommits[i].Hash.String() > collectedCommits[j].Hash.String()
+					// Time is Equal.
+					// BFS traversal guarantees children are visited before parents.
+					// collectedCommits has children at lower indices than parents.
+					// We want "Newest First".
+					// Children (Index Small) are Newer. Parents (Index Large) are Older.
+					// So if Equal Time:
+					// We want Small Index (Child) to come BEFORE Large Index (Parent).
+					// sort.SliceStable preserves strict original order if Less returns false.
+					// Less(i, j) -> Is i newer than j?
+					// If Equal, neither is newer. Return False.
+					// Stable sort keeps i before j if i < j.
+					return false
 				}
 				return tI.After(tJ) // i > j (Newest first)
 			})
