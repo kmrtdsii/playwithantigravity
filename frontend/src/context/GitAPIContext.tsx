@@ -1,30 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-// Types (shared with Backend ideally, but defined here for now)
-export interface Commit {
-    id: string;
-    message: string;
-    parentId: string | null;
-    secondParentId: string | null;
-    branch: string;
-    timestamp: string;
-}
-
-export interface GitState {
-    initialized: boolean;
-    commits: Commit[];
-    branches: Record<string, string>; // branchName -> commitId
-    references: Record<string, string>; // references like ORIG_HEAD -> commitId
-    HEAD: { type: 'branch' | 'commit', ref: string | null, id?: string };
-    staging: string[];
-    modified: string[];
-    untracked: string[];
-    fileStatuses: Record<string, string>;
-    files: string[];
-
-    output: string[];
-    commandCount: number;
-}
+import type { GitState } from '../types/gitTypes';
+import { gitService } from '../services/gitService';
 
 interface GitContextType {
     state: GitState;
@@ -48,7 +24,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         untracked: [],
         fileStatuses: {},
         files: [],
-
         output: [],
         commandCount: 0
     });
@@ -60,9 +35,8 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         const init = async () => {
             try {
-                const res = await fetch('/api/session/init', { method: 'POST' });
-                const data = await res.json();
-                console.log("GitAPI: Session init response:", data); // Log the session init response
+                const data = await gitService.initSession();
+                console.log("GitAPI: Session init response:", data);
                 if (data.sessionId) {
                     setSessionId(data.sessionId);
                     await fetchState(data.sessionId);
@@ -77,24 +51,13 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const fetchState = async (sid: string) => {
         try {
-            const res = await fetch(`/api/state?sessionId=${sid}&t=${Date.now()}&showAll=${showAllCommits}`);
-            if (!res.ok) throw new Error('Failed to fetch state');
-            const data = await res.json();
-
-            // Transform backend state to frontend structure if needed
-            // Currently they match closely
+            const newState = await gitService.fetchState(sid, showAllCommits);
             setState(prev => ({
                 ...prev,
-                commits: data.commits || [],
-                branches: data.branches || {},
-                references: data.references || {},
-                HEAD: data.HEAD || { type: 'branch', ref: 'main' },
-                files: data.files || [],
-                staging: data.staging || [],
-                modified: data.modified || [],
-                untracked: data.untracked || [],
-                fileStatuses: data.fileStatuses || {},
-                initialized: true
+                ...newState,
+                // Preserve UI state that isn't in backend response
+                output: prev.output,
+                commandCount: prev.commandCount
             }));
         } catch (e) {
             console.error(e);
@@ -109,19 +72,13 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         console.log(`Executing command: ${cmd}`);
         try {
-            const res = await fetch('/api/command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionId, command: cmd })
-            });
-            const data = await res.json();
-
+            const data = await gitService.executeCommand(sessionId, cmd);
             console.log("GitAPI: Command response:", data);
 
             if (data.error) {
                 setState(prev => ({ ...prev, output: [...prev.output, `Error: ${data.error}`] }));
             } else if (data.output) {
-                setState(prev => ({ ...prev, output: [...prev.output, data.output] }));
+                setState(prev => ({ ...prev, output: [...prev.output, data.output || ""] }));
             }
 
             // Always fetch fresh state after command
@@ -160,3 +117,4 @@ export const useGit = () => {
     }
     return context;
 };
+export type { GitState, Commit } from '../types/gitTypes';

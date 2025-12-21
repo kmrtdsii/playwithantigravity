@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useGit } from '../../context/GitAPIContext';
-import type { Commit, GitState } from '../../context/GitAPIContext';
+import type { Commit, GitState } from '../../types/gitTypes';
 
 // --- Constants & Config ---
 const ROW_HEIGHT = 36; // Taller rows
