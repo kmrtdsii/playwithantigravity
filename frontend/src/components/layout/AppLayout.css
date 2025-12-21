@@ -9,14 +9,12 @@
 /* LEFT PANE (Stage & Working Tree) */
 .left-pane {
     width: 25%;
-    min-width: 250px;
-    max-width: 400px;
+    /* min/max width handled by JS resizing logic */
     background-color: var(--bg-secondary);
     border-right: 1px solid var(--border-subtle);
     display: flex;
     flex-direction: column;
-    transition: all 0.3s ease;
-    /* Animate width change */
+    /* transition removed to allow smooth resizing */
     position: relative;
     white-space: nowrap;
     /* Prevent text wrapping during collapse */
@@ -53,8 +51,7 @@
 /* RIGHT PANE (Object Inspector) */
 .right-pane {
     width: 25%;
-    min-width: 250px;
-    max-width: 400px;
+    /* min/max width handled by JS resizing logic */
     background-color: var(--bg-secondary);
     display: flex;
     flex-direction: column;
@@ -134,5 +131,20 @@
 
 .resizer:hover,
 .resizer:active {
+    background-color: var(--accent-primary);
+}
+
+/* Vertical Resizer Handle */
+.resizer-vertical {
+    width: 4px;
+    background-color: var(--border-subtle);
+    cursor: col-resize;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+    z-index: 10;
+}
+
+.resizer-vertical:hover,
+.resizer-vertical:active {
     background-color: var(--accent-primary);
 }
