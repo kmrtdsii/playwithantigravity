@@ -280,6 +280,10 @@ Type 'git help <command>' for more information about a specific command.`, nil
 		if len(args) < 2 {
 			return "", fmt.Errorf("usage: git rebase <upstream>")
 		}
+		
+		// Update ORIG_HEAD before rebase starts
+		updateOrigHead(session)
+		
 		upstreamName := args[1]
 		
 		// 1. Resolve Upstream
@@ -551,6 +555,10 @@ Type 'git help <command>' for more information about a specific command.`, nil
 		}
 
 		w, _ := session.Repo.Worktree()
+		
+		// Update ORIG_HEAD before reset
+		updateOrigHead(session)
+
 		if err := w.Reset(&git.ResetOptions{
 			Commit: *h,
 			Mode:   mode,
@@ -822,6 +830,10 @@ Type 'git help <command>' for more information about a specific command.`, nil
 					// And we need to update working tree files?
 					// w.Checkout with Keep: true?
 					// Or just w.Reset?
+					
+					// Update ORIG_HEAD before reset
+					updateOrigHead(session)
+					
 					w.Reset(&git.ResetOptions{
 						Commit: targetCommit.Hash,
 						Mode:   git.HardReset,
@@ -830,6 +842,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 				}
 
 				// If we were detached, just checkout target
+				updateOrigHead(session)
 				w.Checkout(&git.CheckoutOptions{Hash: targetCommit.Hash})
 				return fmt.Sprintf("Fast-forward to %s", targetName), nil
 			}
@@ -841,7 +854,10 @@ Type 'git help <command>' for more information about a specific command.`, nil
 
 		msg := fmt.Sprintf("Merge branch '%s'", targetName)
 		parents := []plumbing.Hash{headCommit.Hash, targetCommit.Hash}
-
+		
+		// Update ORIG_HEAD before merge commit
+		updateOrigHead(session)
+		
 		newCommitHash, err := w.Commit(msg, &git.CommitOptions{
 			Parents: parents,
 			Author: &object.Signature{
@@ -856,8 +872,6 @@ Type 'git help <command>' for more information about a specific command.`, nil
 
 		return fmt.Sprintf("Merge made by the 'ort' strategy.\n %s", newCommitHash.String()), nil
 
-	case "rebase":
-		return "Rebase integration is not yet implemented in this demo.", nil
 
 	default:
 		return "", fmt.Errorf("command not supported: %s", cmd)
@@ -1141,4 +1155,23 @@ func ListFiles(sessionID string) (string, error) {
 		return "", nil
 	}
 	return strings.Join(files, "\n"), nil
+}
+
+// updateOrigHead saves the current HEAD to ORIG_HEAD ref
+func updateOrigHead(session *Session) error {
+	if session.Repo == nil {
+		return nil
+	}
+	headRef, err := session.Repo.Head()
+	if err != nil {
+		return err // No HEAD to save
+	}
+	
+	// Store ORIG_HEAD
+	// We can use plumbing.ReferenceName("ORIG_HEAD")
+	// But go-git might expect full ref paths or specialized handling.
+	// Let's try to set it as a simplified reference.
+	
+	origHeadRef := plumbing.NewHashReference(plumbing.ReferenceName("ORIG_HEAD"), headRef.Hash())
+	return session.Repo.Storer.SetReference(origHeadRef)
 }
