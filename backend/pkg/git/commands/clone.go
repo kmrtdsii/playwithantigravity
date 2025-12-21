@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"os"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/storage/memory"
@@ -31,7 +32,7 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	st := memory.NewStorage()
 	repo, err := gogit.Clone(st, s.Filesystem, &gogit.CloneOptions{
 		URL:      url,
-		Progress: nil, // TODO: Maybe wire up progress to stdout?
+		Progress: os.Stdout,
 	})
 	if err != nil {
 		return "", fmt.Errorf("clone failed: %w", err)
