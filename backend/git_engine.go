@@ -986,10 +986,10 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 			}
 		} else {
 			// Standard Graph Traversal (Reachable from Branches/Tags/HEAD only)
-			// We cannot use LogOptions{All: true} because it includes ORIG_HEAD which keeps deleted branches visible.
 			
 			seen := make(map[string]bool)
 			var queue []plumbing.Hash
+			var collectedCommits []*object.Commit
 
 			if session.Repo != nil {
 				// 1. HEAD
@@ -1026,7 +1026,43 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 					continue
 				}
 
-				// Add to state
+				collectedCommits = append(collectedCommits, c)
+				
+				// Enqueue parents
+				queue = append(queue, c.ParentHashes...)
+			}
+			
+			// Sort collected commits by FULL timestamp (high precision)
+			sort.Slice(collectedCommits, func(i, j int) bool {
+				tI := collectedCommits[i].Committer.When
+				tJ := collectedCommits[j].Committer.When
+				
+				if tI.Equal(tJ) {
+					// Tie-breaker: Parent check?
+					// If i is parent of j, j is newer (j > i). So j comes first. 
+					// sort.Slice is "Less".
+					// We want "Newest First". So "Greater".
+					
+					// If Collected[i].Hash is in Collected[j].ParentHashes => i is older => j comes first => return false
+					for _, p := range collectedCommits[j].ParentHashes {
+						if p == collectedCommits[i].Hash {
+							return false
+						}
+					}
+					// If Collected[j].Hash is in Collected[i].ParentHashes => j is older => i comes first => return true
+					for _, p := range collectedCommits[i].ParentHashes {
+						if p == collectedCommits[j].Hash {
+							return true
+						}
+					}
+
+					return collectedCommits[i].Hash.String() > collectedCommits[j].Hash.String()
+				}
+				return tI.After(tJ) // i > j (Newest first)
+			})
+
+			// Convert to View Model
+			for _, c := range collectedCommits {
 				parentID := ""
 				if len(c.ParentHashes) > 0 {
 					parentID = c.ParentHashes[0].String()
@@ -1042,18 +1078,7 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 					SecondParentID: secondParentID,
 					Timestamp:      c.Committer.When.Format(time.RFC3339),
 				})
-				
-				// Enqueue parents
-				queue = append(queue, c.ParentHashes...)
 			}
-			
-			// Sort by timestamp newly created first
-			sort.Slice(state.Commits, func(i, j int) bool {
-				if state.Commits[i].Timestamp == state.Commits[j].Timestamp {
-					return state.Commits[i].ID > state.Commits[j].ID
-				}
-				return state.Commits[i].Timestamp > state.Commits[j].Timestamp
-			})
 		}
 	}
 
