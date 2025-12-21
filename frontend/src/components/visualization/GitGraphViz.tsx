@@ -46,10 +46,40 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
     if (commits.length === 0) return { nodes: [], edges: [], height: 0, badgesMap: {} };
 
     // 0. Ensure Sort order (Newest first)
-    // We create a copy to avoid mutating props, though typically props are immutable.
     const sortedCommits = [...commits].sort((a, b) => {
         return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
     });
+
+    // --- REACHABILITY ANALYSIS ---
+    const commitMap = new Map(commits.map(c => [c.id, c]));
+    const reachable = new Set<string>();
+    const queue: string[] = [];
+
+    // Seed from Branches
+    Object.values(branches).forEach(hash => {
+        if (hash && commitMap.has(hash)) queue.push(hash);
+    });
+
+    // Seed from HEAD (if detached or pointing to a commit)
+    if (HEAD.id && commitMap.has(HEAD.id)) {
+        queue.push(HEAD.id);
+    }
+
+    // Traverse
+    const visited = new Set<string>();
+    while (queue.length > 0) {
+        const currentId = queue.shift()!;
+        if (visited.has(currentId)) continue;
+        visited.add(currentId);
+        reachable.add(currentId);
+
+        const commit = commitMap.get(currentId);
+        if (commit) {
+            if (commit.parentId) queue.push(commit.parentId);
+            if (commit.secondParentId) queue.push(commit.secondParentId);
+        }
+    }
+    // -----------------------------
 
     const nodes: VizNode[] = [];
     const edges: VizEdge[] = [];
@@ -72,16 +102,11 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
     branchNames.forEach((name, index) => {
         const hash = branches[name];
         if (hash) {
-            // If lane is already taken by a previous branch (pointing to same commit),
-            // we could skip it to merge trails, OR we can force it to reserve a new lane (index)
-            // to show distinct tips initially.
-            // Let's force distinct start lanes by index.
-            // But we must respect the array index = lane logic.
             activePaths[index] = hash;
         }
     });
 
-    // Helper to find a lane for a target commit hash
+    // Helper ...
     const getLaneForHash = (h: string) => {
         for (let i = 0; i < activePaths.length; i++) {
             if (activePaths[i] === h) return i;
@@ -89,40 +114,45 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
         return -1;
     };
 
-    // Helper to get next free lane
     const getFreeLane = () => {
         for (let i = 0; i < activePaths.length; i++) {
             if (activePaths[i] === null) return i;
         }
-        // If we are appending a new lane, make sure we don't accidentally take Lane 0 
-        // if it was reserved (activePaths[0] != null) but just not matched yet.
-        // Actually, if activePaths[0] is set (waiting for main), getFreeLane won't return 0. 
-        // It will return index > length.
         return activePaths.length;
     };
 
     sortedCommits.forEach((c, i) => {
         let lane = getLaneForHash(c.id);
 
-        // If this commit was not expected by any lane (start of a new branch / ref)
         if (lane === -1) {
             lane = getFreeLane();
         }
 
-        // Use this lane.
-        // If we "found" the commit activePaths[lane] was looking for, we consume it.
-        // We will set the NEW expectation (parent) below.
         activePaths[lane] = null;
 
-        // Assign color based on lane index
         const color = LANE_COLORS[lane % LANE_COLORS.length];
-
         const x = GRAPH_LEFT_PADDING + lane * LANE_WIDTH + LANE_WIDTH / 2;
         const y = PADDING_TOP + i * ROW_HEIGHT + ROW_HEIGHT / 2;
 
+        // Determine opacity
+        // If no branches exist (empty repo init state?), everything is arguably dangling or everything is head?
+        // But if we have commits, we usually have a branch or HEAD.
+        // If reachable is empty (maybe HEAD is none?), default to visible? 
+        // No, if we have commits but no refs, they ARE dangling.
+
+        // However, if we just did 'git init', we have 0 commits, logic handles it at top.
+        // If we have 1 commit and no branches/HEAD (weird), it is dangling.
+
+        // VISUAL TWEAK: logic implies "if reachable has ANY entries, use it, else assume all visible (fallback)"?
+        // No, strict reachability is better for "Show All" feature.
+        const isReachable = reachable.size === 0 ? true : reachable.has(c.id);
+        const opacity = isReachable ? 1 : 0.3;
+
         nodes.push({
             ...c,
-            x, y, lane, color
+            x, y, lane, color,
+            // @ts-ignore - Adding dynamic property for rendering
+            opacity
         });
 
         // Process Parents
@@ -131,23 +161,15 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
         if (c.secondParentId) parentIds.push(c.secondParentId);
 
         parentIds.forEach((pid, pIdx) => {
-            // Check if ANY lane is already looking for this parent
             let parentLane = getLaneForHash(pid);
-
             if (parentLane !== -1) {
-                // Parent already has a reserved lane (from a sibling).
-                // We will just draw a merge line to it later.
+                // already reserved
             } else {
-                // Parent not yet accounted for.
                 if (pIdx === 0) {
-                    // Primary parent: extend CURRENT lane
                     activePaths[lane] = pid;
-                    parentLane = lane;
                 } else {
-                    // Secondary parent: must fork to a NEW lane
                     const newLane = getFreeLane();
                     activePaths[newLane] = pid;
-                    parentLane = newLane;
                 }
             }
         });
@@ -163,15 +185,7 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
 
         parents.forEach(pid => {
             const parentNode = nodeMap.get(pid);
-            if (!parentNode) {
-                // Determine if parent is off-screen (not in list). 
-                // For now, ignore.
-                return;
-            }
-
-            // CURVE LOGIC
-            // Standard: Bezier S-curve
-            // If lane is same: Straight line
+            if (!parentNode) return;
 
             let path = '';
             if (node.lane === parentNode.lane) {
@@ -182,16 +196,16 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
 
             edges.push({
                 id: `${node.id}-${pid}`,
-                color: node.color, // Use child color? Or parent? Usually child.
-                path
+                color: node.color,
+                path,
+                // @ts-ignore
+                opacity: (node as any).opacity // Inherit opacity
             });
         });
     });
 
     // 2. Badges & Labels
     const badgesMap: Record<string, Badge[]> = {};
-
-    // Active Branch logic
     let activeBranchName = null;
     if (HEAD.type === 'branch' && HEAD.ref) {
         activeBranchName = HEAD.ref;
@@ -201,7 +215,6 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
         if (!commitId) return;
         if (!badgesMap[commitId]) badgesMap[commitId] = [];
         const isActive = name === activeBranchName;
-
         badgesMap[commitId].push({
             text: name,
             type: 'branch',
@@ -209,7 +222,6 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
         });
     });
 
-    // HEAD (only if detached)
     if (HEAD.type === 'commit' && HEAD.id) {
         if (!badgesMap[HEAD.id]) badgesMap[HEAD.id] = [];
         badgesMap[HEAD.id].push({ text: 'HEAD', type: 'head' });
@@ -278,6 +290,8 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
                             strokeWidth="2"
                             fill="none"
                             strokeLinecap="round"
+                            // @ts-ignore
+                            opacity={edge.opacity}
                         />
                     ))}
 
@@ -291,6 +305,8 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
                             fill={node.color}
                             stroke="var(--bg-primary)"
                             strokeWidth="1"
+                            // @ts-ignore
+                            opacity={node.opacity}
                         />
                     ))}
                 </svg>
@@ -315,7 +331,9 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
                                 gap: '8px',
                                 cursor: 'pointer',
                                 paddingRight: '16px',
-                                userSelect: 'none'
+                                userSelect: 'none',
+                                // @ts-ignore
+                                opacity: node.opacity
                             }}
                             className="commit-row"
                         >
