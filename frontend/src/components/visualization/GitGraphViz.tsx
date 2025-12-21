@@ -237,7 +237,11 @@ const createBezierPath = (x1: number, y1: number, x2: number, y2: number) => {
 
 // --- Component ---
 
-const GitGraphViz: React.FC = () => {
+interface GitGraphVizProps {
+    onSelect?: (commit: Commit) => void;
+}
+
+const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect }) => {
     const { state } = useGit();
     const { commits, branches, HEAD } = state;
 
@@ -291,21 +295,15 @@ const GitGraphViz: React.FC = () => {
                     ))}
                 </svg>
 
-                {/* Render Text Content (Positioned absolutely over the graph) */}
+                {/* Render Text Content (Clickable Rows) */}
                 {nodes.map(node => {
-                    // Text should start after the graph area.
-                    // Calculate max lane x to avoid overlapping text? 
-                    // Or just strict columns. 
-                    // Let's put text at a fixed offset + max lane width?
-                    // Simpler: x = (Graph Area) + 10px.
-                    // Graph Area Width ~ 150px or dynamic.
-
                     const textX = 140; // Fixed gutter for rails
                     const hasBadges = badgesMap[node.id] && badgesMap[node.id].length > 0;
 
                     return (
                         <div
                             key={node.id}
+                            onClick={() => onSelect && onSelect(node)}
                             style={{
                                 position: 'absolute',
                                 left: textX,
@@ -314,8 +312,12 @@ const GitGraphViz: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 whiteSpace: 'nowrap',
-                                gap: '8px'
+                                gap: '8px',
+                                cursor: 'pointer',
+                                paddingRight: '16px',
+                                userSelect: 'none'
                             }}
+                            className="commit-row"
                         >
                             {/* Badges */}
                             {hasBadges && (
