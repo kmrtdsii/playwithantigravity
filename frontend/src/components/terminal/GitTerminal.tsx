@@ -69,7 +69,7 @@ const GitTerminal = () => {
         term.open(terminalRef.current);
         fitAddon.fit();
 
-        term.writeln('\x1b[1;32mGitForge Terminal\x1b[0m v1.0.0');
+        term.writeln('\x1b[1;32mGitGym Terminal\x1b[0m v1.0.0');
         term.writeln('Type "git init" to start.');
         term.write('$ ');
         term.write('(/workspaces/gitgym) $ '); // Changed initial prompt

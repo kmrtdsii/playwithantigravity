@@ -2,14 +2,14 @@
 services:
   backend:
     build: ./backend
-    container_name: gitforge-backend
+    container_name: gitgym-backend
     ports:
       - "8080:8080" # Optional: expose for direct testing, but Nginx connects internally
     restart: unless-stopped
 
   frontend:
     build: ./frontend
-    container_name: gitforge-frontend
+    container_name: gitgym-frontend
     ports:
       - "80:80"
     depends_on:
