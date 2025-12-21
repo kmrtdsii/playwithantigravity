@@ -42,7 +42,7 @@ interface Badge {
 // --- Layout Engine ---
 
 // Helper to compute layout
-const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD: GitState['HEAD']) => {
+const computeLayout = (commits: Commit[], branches: Record<string, string>, references: Record<string, string>, HEAD: GitState['HEAD']) => {
     if (commits.length === 0) return { nodes: [], edges: [], height: 0, badgesMap: {} };
 
     // 0. Ensure Sort order (Newest first)
@@ -233,9 +233,30 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, HEAD
         });
     });
 
-    if (HEAD.type === 'commit' && HEAD.id) {
-        if (!badgesMap[HEAD.id]) badgesMap[HEAD.id] = [];
-        badgesMap[HEAD.id].push({ text: 'HEAD', type: 'head' });
+    // References (ORIG_HEAD)
+    if (references) {
+        Object.entries(references).forEach(([name, commitId]) => {
+            if (!commitId) return;
+            if (!badgesMap[commitId]) badgesMap[commitId] = [];
+            badgesMap[commitId].push({
+                text: name,
+                type: 'tag', // Re-use tag style or add new type
+                isActive: false // Usually not active branch
+            });
+        });
+    }
+
+    // Explicit HEAD Badge (Always show if we have a HEAD ID)
+    let headId = HEAD.id;
+    if (HEAD.type === 'branch' && HEAD.ref && branches[HEAD.ref]) {
+        headId = branches[HEAD.ref];
+    }
+
+    if (headId) {
+        if (!badgesMap[headId]) badgesMap[headId] = [];
+        // Check if HEAD badge already exists? No, we just add it.
+        // But we want it to be distinct.
+        badgesMap[headId].push({ text: 'HEAD', type: 'head' });
     }
 
     return {
@@ -267,11 +288,11 @@ interface GitGraphVizProps {
 
 const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId }) => {
     const { state } = useGit();
-    const { commits, branches, HEAD } = state;
+    const { commits, branches, references, HEAD } = state;
 
     const { nodes, edges, height, badgesMap } = useMemo(() =>
-        computeLayout(commits, branches, HEAD),
-        [commits, branches, HEAD]
+        computeLayout(commits, branches, references || {}, HEAD),
+        [commits, branches, references, HEAD]
     );
 
     // Resolve HEAD commit ID for Halo

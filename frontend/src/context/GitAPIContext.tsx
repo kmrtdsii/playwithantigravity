@@ -14,6 +14,7 @@ export interface GitState {
     initialized: boolean;
     commits: Commit[];
     branches: Record<string, string>; // branchName -> commitId
+    references: Record<string, string>; // references like ORIG_HEAD -> commitId
     HEAD: { type: 'branch' | 'commit', ref: string | null, id?: string };
     staging: string[];
     modified: string[];
@@ -40,6 +41,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         initialized: false,
         commits: [],
         branches: {},
+        references: {},
         HEAD: { type: 'branch', ref: null },
         staging: [],
         modified: [],
@@ -85,6 +87,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ...prev,
                 commits: data.commits || [],
                 branches: data.branches || {},
+                references: data.references || {},
                 HEAD: data.HEAD || { type: 'branch', ref: 'main' },
                 files: data.files || [],
                 staging: data.staging || [],

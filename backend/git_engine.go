@@ -889,6 +889,7 @@ Type 'git help <command>' for more information about a specific command.`, nil
 type GraphState struct {
 	Commits  []Commit          `json:"commits"`
 	Branches map[string]string `json:"branches"`
+	References map[string]string `json:"references"` // New field for other refs like ORIG_HEAD
 	HEAD     Head              `json:"HEAD"`
 	Files    []string          `json:"files"`
 	Staging  []string          `json:"staging"`
@@ -921,6 +922,7 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 	state := &GraphState{
 		Commits:      []Commit{},
 		Branches:     make(map[string]string),
+		References:   make(map[string]string),
 		FileStatuses: make(map[string]string),
 	}
 
@@ -957,6 +959,12 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 			state.Branches[r.Name().Short()] = r.Hash().String()
 			return nil
 		})
+
+		// Get Special Refs (ORIG_HEAD)
+		origHeadRef, err := session.Repo.Reference("ORIG_HEAD", true)
+		if err == nil {
+			state.References["ORIG_HEAD"] = origHeadRef.Hash().String()
+		}
 	}
 
 	// 3. Walk Commits
@@ -978,45 +986,74 @@ func GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
 				// Note: CommitObjects() iteration order is undefined (not BFS), so the "Stable" part 
 				// acts on the arbitrary iterator order. BUT, our primary sorting key is Time.
 				// The specific logic for Tie-Breaker (Parent/Child check) is robust regardless of input order.
+				// Pre-compute map for fast lookup
+				commitMap := make(map[string]*object.Commit)
+				for _, c := range collectedCommits {
+					commitMap[c.Hash.String()] = c
+				}
+
+				// Helper: Is i ancestor of j? (Is j reachable from i?)
+				// i is older, j is newer.
+				// SearchBFS: start from j, look for i.
+				isAncestor := func(i, j *object.Commit) bool {
+					// bfs queue
+					q := []string{j.Hash.String()}
+					visited := make(map[string]bool)
+					visited[j.Hash.String()] = true
+					
+					// Limit depth to avoid performance hit on large repos
+					depth := 0
+					maxDepth := 100 
+
+					for len(q) > 0 {
+						if depth > maxDepth {
+							return false
+						}
+						currID := q[0]
+						q = q[1:]
+
+						if currID == i.Hash.String() {
+							return true
+						}
+
+						// Expand parents
+						if c, ok := commitMap[currID]; ok {
+							for _, p := range c.ParentHashes {
+								pID := p.String()
+								if !visited[pID] {
+									visited[pID] = true
+									q = append(q, pID)
+								}
+							}
+						}
+						// Note: If parent is not in collectedCommits (e.g. standard view limited traversal), 
+						// we can't traverse it efficiently without repo access.
+						// BUT in 'showAll', we have all commits.
+						// In 'Standard View', we only have reachable commits.
+					}
+					return false
+				}
+
 				sort.SliceStable(collectedCommits, func(i, j int) bool {
 					tI := collectedCommits[i].Committer.When
 					tJ := collectedCommits[j].Committer.When
 					
 					if tI.Equal(tJ) {
-						// Time is Equal.
-						// Use Topology Check: if i is parent of j, i is Older => j > i => return false (j comes first)
-						// If j is parent of i, j is Older => i > j => return true (i comes first)
-						
-						// Check if i is Parent of j (j is Child)
-						isIParentOfJ := false
-						for _, p := range collectedCommits[j].ParentHashes {
-							if p == collectedCommits[i].Hash {
-								isIParentOfJ = true
-								break
-							}
-						}
-						// If i is Parent of j, i is OLDER. We want Newest First.
-						// So j should come before i. "Less(i, j)" asks "Is i Newer?". No.
-						if isIParentOfJ {
+						// Time Equal. Use Topology.
+						cI := collectedCommits[i]
+						cJ := collectedCommits[j]
+
+						// 1. Is i ancestor of j? (i reaches j) -> i is Older -> return false
+						if isAncestor(cI, cJ) {
 							return false
 						}
-
-						// Check if j is Parent of i (i is Child)
-						isJParentOfI := false
-						for _, p := range collectedCommits[i].ParentHashes {
-							if p == collectedCommits[j].Hash {
-								isJParentOfI = true
-								break
-							}
-						}
-						// If j is Parent of i, i is NEWER.
-						// "Less(i, j)" asks "Is i Newer?". Yes.
-						if isJParentOfI {
+						// 2. Is j ancestor of i? (j reaches i) -> j is Older -> return true
+						if isAncestor(cJ, cI) {
 							return true
 						}
 
 						// Fallback: Deterministic ID comparison
-						return collectedCommits[i].Hash.String() > collectedCommits[j].Hash.String()
+						return cI.Hash.String() > cJ.Hash.String()
 					}
 					return tI.After(tJ) // i > j (Newest first)
 				})
