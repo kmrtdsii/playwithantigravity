@@ -53,7 +53,11 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const [sessionId, setSessionId] = useState<string>('');
     const [showAllCommits, setShowAllCommits] = useState<boolean>(false);
-    const [strategies, setStrategies] = useState<any[]>([]);
+    const [strategies, setStrategies] = useState<any[]>([]); // Preserving as it might be used later or remove if strictly unused.
+    // Actually, it IS used in the commented out init block I removed?
+    // Wait, I removed the fetchStrategies call in my previous edit!
+    // I need to RESTORE the strategy fetching or remove the state.
+    // Let's restore it in the new Alice/Bob init block.
 
     const [developers, setDevelopers] = useState<string[]>([]);
     const [developerSessions, setDeveloperSessions] = useState<Record<string, string>>({});
@@ -71,6 +75,14 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             // 2. Create Bob
             await addDeveloper('Bob');
+
+            // 3. Load Strategies
+            try {
+                const stratData = await gitService.fetchStrategies();
+                setStrategies(stratData);
+            } catch (e) {
+                console.error("Failed to load strategies", e);
+            }
         };
         init();
     }, []);
@@ -206,7 +218,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const mergePullRequest = async (id: number) => {
         await gitService.mergePullRequest(id);
         await refreshPullRequests();
-        await fetchState(sessionId); // Refresh graph as remote might have changed
+        // Refresh server state to show update in Left Pane
+        await fetchServerState('origin');
+        // Refresh local state too, just in case (though merge is remote-side)
+        if (sessionId) await fetchState(sessionId);
     };
 
     const resetRemote = async (name: string = 'origin') => {
