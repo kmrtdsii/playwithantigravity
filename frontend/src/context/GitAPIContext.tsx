@@ -134,7 +134,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // AUTO-REFRESH SERVER STATE
             // If we have a server state loaded, refresh it too, as push might have updated it.
             // We blindly refresh 'origin' for now or whatever is active.
-            if (serverState && serverState.remotes.length === 0) {
+            if (serverState && serverState.remotes?.length === 0) {
                 // Wait, serverState.remotes was CLEARED by backend for visualization.
                 // We need to know which remote we are visualizing.
                 // For now, let's just refresh 'origin' if it exists.
