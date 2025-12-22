@@ -43,7 +43,7 @@ const AppLayout = () => {
     const [centerPaneWidth, setCenterPaneWidth] = useState(50); // Percentage of Main Area
 
     const [vizHeight, setVizHeight] = useState(500); // Height of Top Graph in Center
-    const [remoteGraphHeight, setRemoteGraphHeight] = useState(300); // Height of Top Graph in Left
+    const [remoteGraphHeight, setRemoteGraphHeight] = useState(500); // Height of Top Graph in Left (Synced with Center)
 
     const containerRef = useRef<HTMLDivElement>(null);
     const mainAreaRef = useRef<HTMLDivElement>(null);
@@ -135,7 +135,7 @@ const AppLayout = () => {
                 ref={leftContentRef}
             >
                 {/* Header */}
-                <div className="pane-header">SERVER (REMOTE)</div>
+                {/* Header Removed as per user request */}
 
                 {/* Content Split: Graph (Top) / Operations (Bottom) */}
                 <div className="pane-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
