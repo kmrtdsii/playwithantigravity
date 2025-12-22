@@ -201,7 +201,6 @@ const AppLayout = () => {
                         {state.HEAD && state.HEAD.type !== 'none' || viewMode === 'strategies' ? (
                             viewMode === 'graph' ? (
                                 <GitGraphViz
-                                    title="LOCAL GRAPH"
                                     state={localState}
                                     onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
                                     selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
