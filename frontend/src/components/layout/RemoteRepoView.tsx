@@ -69,8 +69,8 @@ const emptyStyle: React.CSSProperties = {
 };
 
 const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStart }) => {
-    // Removed unused 'addDeveloper'
-    const { state, serverState, fetchServerState, pullRequests, mergePullRequest, refreshPullRequests, createPullRequest, ingestRemote } = useGit();
+    // Removed unused 'addDeveloper' and 'state'
+    const { serverState, fetchServerState, pullRequests, mergePullRequest, refreshPullRequests, createPullRequest, ingestRemote } = useGit();
 
     // Use serverState for the remote graph
     // If not set, fallback to empty or loading
