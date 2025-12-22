@@ -163,6 +163,7 @@
 .resizer-vertical:active {
     background-color: var(--accent-primary);
 }
+
 /* Tabs */
 .user-tab {
     height: 32px;
@@ -187,7 +188,8 @@
 }
 
 .user-tab.active {
-    background-color: #1e1e1e; /* Matches command bar below */
+    background-color: var(--bg-toolbar);
+    /* Matches command bar below */
     color: var(--text-primary);
     font-weight: 500;
 }
@@ -208,7 +210,8 @@
     height: 28px;
     width: 28px;
     margin-left: 4px;
-    margin-bottom: 2px; /* Align slightly up */
+    margin-bottom: 2px;
+    /* Align slightly up */
     background: transparent;
     border: none;
     color: var(--text-tertiary);
@@ -219,8 +222,8 @@
     justify-content: center;
     font-size: 16px;
 }
+
 .tab-add-btn:hover {
     background-color: var(--bg-tertiary);
     color: var(--text-secondary);
 }
-
