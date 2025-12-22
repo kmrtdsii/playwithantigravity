@@ -24,6 +24,7 @@ type GraphState struct {
 	Projects         []string          `json:"projects"`
 	Remotes          []Remote          `json:"remotes"`
 	SharedRemotes    []string          `json:"sharedRemotes"`
+	Initialized      bool              `json:"initialized"`
 }
 
 type Remote struct {
