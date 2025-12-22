@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import './AppLayout.css';
 import { useGit } from '../../context/GitAPIContext';
-import { useTheme } from '../../context/ThemeContext';
 import GitTerminal from '../terminal/GitTerminal';
 import GitGraphViz from '../visualization/GitGraphViz';
 import GitReferenceList from '../visualization/GitReferenceList';
@@ -24,7 +23,9 @@ const AppLayout = () => {
         enterSandbox, exitSandbox, resetSandbox,
         developers, activeDeveloper, switchDeveloper
     } = useGit();
-    const { theme, toggleTheme } = useTheme();
+
+    // Theme removed from UI
+
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
 
@@ -37,32 +38,35 @@ const AppLayout = () => {
     }, [state]);
 
     // --- Layout State ---
-    // 3 Columns: Left (Remote), Center (Local), Right (Terminal)
-    // We track Left and Center widths; Right takes remaining.
-    const [columnWidths, setColumnWidths] = useState({ left: 33, center: 33 }); // Percentages
+    // [Left Pane] | [Main Area (Shared Header + Split Content)]
+    const [leftPaneWidth, setLeftPaneWidth] = useState(33); // Percentage
+    // Within Main Area: [Center] | [Right]
+    const [centerPaneWidth, setCenterPaneWidth] = useState(50); // Percentage of Main Area
+
     const [vizHeight, setVizHeight] = useState(500); // Height of Top Graph in Center
     const [remoteGraphHeight, setRemoteGraphHeight] = useState(300); // Height of Top Graph in Left
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const mainAreaRef = useRef<HTMLDivElement>(null);
     const centerContentRef = useRef<HTMLDivElement>(null);
     const leftContentRef = useRef<HTMLDivElement>(null);
 
     // Resize Refs
-    const isResizingCol1 = useRef(false); // Between Left & Center
-    const isResizingCol2 = useRef(false); // Between Center & Right
+    const isResizingLeft = useRef(false); // Between Left & Main
+    const isResizingRight = useRef(false); // Between Center & Right (inside Main)
     const isResizingCenterVertical = useRef(false); // Center Pane Split
     const isResizingLeftVertical = useRef(false); // Left Pane Split
 
     // --- Resize Handlers ---
 
-    const startResizeCol1 = useCallback(() => { isResizingCol1.current = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }, []);
-    const startResizeCol2 = useCallback(() => { isResizingCol2.current = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }, []);
+    const startResizeLeft = useCallback(() => { isResizingLeft.current = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }, []);
+    const startResizeRight = useCallback(() => { isResizingRight.current = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }, []);
     const startResizeCenterVert = useCallback(() => { isResizingCenterVertical.current = true; document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; }, []);
     const startResizeLeftVert = useCallback(() => { isResizingLeftVertical.current = true; document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; }, []);
 
     const stopResizing = useCallback(() => {
-        isResizingCol1.current = false;
-        isResizingCol2.current = false;
+        isResizingLeft.current = false;
+        isResizingRight.current = false;
         isResizingCenterVertical.current = false;
         isResizingLeftVertical.current = false;
         document.body.style.cursor = '';
@@ -73,46 +77,39 @@ const AppLayout = () => {
         if (!containerRef.current) return;
         const containerRect = containerRef.current.getBoundingClientRect();
 
-        // Column 1 Resize (Left | Center)
-        if (isResizingCol1.current) {
+        // 1. Resize Left Pane
+        if (isResizingLeft.current) {
             const newLeftPct = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-            if (newLeftPct > 10 && newLeftPct < (100 - columnWidths.center - 10)) {
-                const deltaPct = newLeftPct - columnWidths.left;
-                setColumnWidths(prev => ({
-                    left: newLeftPct,
-                    center: prev.center - deltaPct
-                }));
+            if (newLeftPct > 10 && newLeftPct < 90) {
+                setLeftPaneWidth(newLeftPct);
             }
         }
 
-        // Column 2 Resize (Center | Right)
-        if (isResizingCol2.current) {
-            const newLeftPlusCenterPct = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-            const newCenterPct = newLeftPlusCenterPct - columnWidths.left;
-
-            if (newCenterPct > 10 && newLeftPlusCenterPct < 90) {
-                setColumnWidths(prev => ({
-                    ...prev,
-                    center: newCenterPct
-                }));
+        // 2. Resize Center vs Right (Inside Main Area)
+        if (isResizingRight.current && mainAreaRef.current) {
+            const mainRect = mainAreaRef.current.getBoundingClientRect();
+            // Relative to Main Area
+            const newCenterPct = ((e.clientX - mainRect.left) / mainRect.width) * 100;
+            if (newCenterPct > 10 && newCenterPct < 90) {
+                setCenterPaneWidth(newCenterPct);
             }
         }
 
-        // Vertical Resize (Center Pane)
+        // 3. Vertical Resize (Center Pane)
         if (isResizingCenterVertical.current && centerContentRef.current) {
             const rect = centerContentRef.current.getBoundingClientRect();
             const newH = e.clientY - rect.top;
             if (newH > 100 && newH < rect.height - 100) setVizHeight(newH);
         }
 
-        // Vertical Resize (Left Pane)
+        // 4. Vertical Resize (Left Pane)
         if (isResizingLeftVertical.current && leftContentRef.current) {
             const rect = leftContentRef.current.getBoundingClientRect();
             const newH = e.clientY - rect.top;
             if (newH > 100 && newH < rect.height - 100) setRemoteGraphHeight(newH);
         }
 
-    }, [columnWidths]);
+    }, []);
 
     useEffect(() => {
         window.addEventListener('mousemove', resize);
@@ -135,7 +132,7 @@ const AppLayout = () => {
             {/* --- COLUMN 1: REMOTE SERVER --- */}
             <aside
                 className="left-pane"
-                style={{ width: `${columnWidths.left}%`, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-subtle)' }}
+                style={{ width: `${leftPaneWidth}%`, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-subtle)' }}
                 ref={leftContentRef}
             >
                 {/* Header */}
@@ -150,24 +147,22 @@ const AppLayout = () => {
                 </div>
             </aside>
 
-            {/* Resizer 1 */}
+            {/* Main Resizer (Left vs Main) */}
             <div
                 className="resizer-vertical"
-                onMouseDown={startResizeCol1}
-                style={{ cursor: 'col-resize', width: '4px', background: 'var(--border-subtle)', flexShrink: 0, zIndex: 10 }}
+                onMouseDown={startResizeLeft}
+                style={{ cursor: 'col-resize', width: '4px', background: 'var(--border-subtle)', flexShrink: 0, zIndex: 20 }}
             />
 
-            {/* --- COLUMN 2: LOCAL REPOSITORY --- */}
-            <main
-                className="center-pane"
-                style={{ width: `${columnWidths.center}%`, display: 'flex', flexDirection: 'column', minWidth: 0 }}
-            >
-                {/* Header */}
-                <div className="pane-header" style={{ justifyContent: 'space-between' }}>
+            {/* --- MAIN AREA: SHARED HEADER + [Center | Right] --- */}
+            <div ref={mainAreaRef} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 
+                {/* SHARED HEADER */}
+                <div className="pane-header" style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', padding: '0 12px', height: '36px', alignItems: 'center', background: 'var(--bg-secondary)' }}>
+                    {/* Controls Group */}
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         {/* View Mode Selectors */}
-                        <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-secondary)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', gap: '4px', background: 'var(--bg-tertiary)', padding: '2px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
                             {modes.map(mode => (
                                 <button
                                     key={mode}
@@ -178,9 +173,9 @@ const AppLayout = () => {
                                         border: 'none',
                                         borderRadius: '4px',
                                         padding: '4px 12px',
-                                        fontSize: '12px',
+                                        fontSize: '11px',
                                         cursor: 'pointer',
-                                        fontWeight: 500,
+                                        fontWeight: 600,
                                         textTransform: 'capitalize'
                                     }}
                                 >
@@ -191,7 +186,7 @@ const AppLayout = () => {
 
                         {/* Developer Switcher */}
                         {developers.length > 0 && (
-                            <div style={{ display: 'flex', gap: '4px', padding: '2px', background: 'rgba(0,0,0,0.1)', borderRadius: '6px' }}>
+                            <div style={{ display: 'flex', gap: '2px', padding: '2px', background: 'rgba(0,0,0,0.1)', borderRadius: '6px' }}>
                                 {developers.map(dev => (
                                     <button
                                         key={dev}
@@ -201,11 +196,14 @@ const AppLayout = () => {
                                             color: activeDeveloper === dev ? 'var(--accent-primary)' : 'var(--text-tertiary)',
                                             border: 'none',
                                             borderRadius: '4px',
-                                            padding: '4px 10px',
-                                            fontSize: '11px',
+                                            padding: '4px 8px',
+                                            fontSize: '10px',
                                             fontWeight: 700,
                                             cursor: 'pointer',
-                                            transition: 'all 0.2s'
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '4px',
+                                            opacity: activeDeveloper === dev ? 1 : 0.6
                                         }}
                                     >
                                         👤 {dev.toUpperCase()}
@@ -215,15 +213,15 @@ const AppLayout = () => {
                         )}
                     </div>
 
-                    {/* Right Side Controls */}
+                    {/* Right Side Controls & Banner */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         {/* Show All Toggle */}
-                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px', fontSize: '10px', color: 'var(--text-secondary)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                             <input
                                 type="checkbox"
                                 checked={showAllCommits}
                                 onChange={toggleShowAllCommits}
-                                style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
+                                style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer', width: '12px', height: '12px' }}
                             />
                             Show All
                         </label>
@@ -238,96 +236,109 @@ const AppLayout = () => {
                                 color: isSandbox ? 'white' : 'var(--text-secondary)',
                                 border: isSandbox ? '1px solid #f59f00' : '1px solid var(--border-subtle)',
                                 borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '12px',
-                                fontWeight: 600,
+                                padding: '3px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '6px'
+                                gap: '6px',
+                                textTransform: 'uppercase'
                             }}
                         >
-                            {isForking ? '⏳...' : (isSandbox ? 'EXIT ' : 'SANDBOX')}
+                            {isForking ? '⏳...' : (isSandbox ? 'EXIT SANDBOX' : 'SANDBOX MODE')}
                         </button>
-                        <button onClick={toggleTheme} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>{theme === 'dark' ? '☀️' : '🌙'}</button>
+
+
+                        {/* Terminal Label (Moved from removed header) */}
+                        <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em', paddingLeft: '12px', borderLeft: '1px solid var(--border-subtle)' }}>TERMINAL</span>
                     </div>
                 </div>
 
-                {/* Sandbox Banner */}
-                {isSandbox && (
-                    <div style={{
-                        background: '#f59f00',
-                        color: 'white',
-                        padding: '4px 12px',
-                        fontSize: '12px',
-                        fontWeight: 600,
-                        textAlign: 'center',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        borderBottom: '1px solid rgba(0,0,0,0.1)'
-                    }}>
-                        <span>🏝️ SANDBOX MODE</span>
-                        <button onClick={resetSandbox} disabled={isForking} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '10px', cursor: 'pointer' }}>
-                            {isForking ? 'RESETTING...' : 'RESET'}
-                        </button>
-                    </div>
-                )}
+                {/* Main Content Area (Split Center/Right) */}
+                <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
 
-                {/* Content Split: Graph (Top) / Explore (Bottom) */}
-                <div className="center-content" ref={centerContentRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                    {/* Top: Graph */}
-                    <div style={{ height: vizHeight, flex: 'none', position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--border-subtle)' }}>
-                        {state.HEAD && state.HEAD.type !== 'none' || viewMode === 'strategies' ? (
-                            viewMode === 'graph' ? (
-                                <GitGraphViz
-                                    title="LOCAL GRAPH"
-                                    state={localState}
-                                    onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
-                                    selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
-                                />
-                            ) : viewMode === 'strategies' ? (
-                                <BranchingStrategies />
-                            ) : (
-                                <GitReferenceList
-                                    type={viewMode === 'branches' ? 'branches' : 'tags'}
-                                    onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
-                                    selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
-                                />
-                            )
-                        ) : (
-                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>No Repository Loaded</div>
+                    {/* --- CENTER PANE (Local Graph & Files) --- */}
+                    <main
+                        style={{ width: `${centerPaneWidth}%`, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}
+                    >
+                        {/* Sandbox Banner (If Active) */}
+                        {isSandbox && (
+                            <div style={{
+                                background: '#f59f00',
+                                color: 'white',
+                                padding: '2px 12px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                textAlign: 'center',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                borderBottom: '1px solid rgba(0,0,0,0.1)'
+                            }}>
+                                <span>🏝️ SANDBOX ACTIVE</span>
+                                <button onClick={resetSandbox} disabled={isForking} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '1px 6px', borderRadius: '4px', fontSize: '9px', cursor: 'pointer' }}>
+                                    {isForking ? '...' : 'RESET'}
+                                </button>
+                            </div>
                         )}
-                    </div>
 
-                    {/* Resizer Center Viz */}
-                    <div className="resizer" onMouseDown={startResizeCenterVert} style={{ height: '4px', cursor: 'row-resize', background: 'var(--border-subtle)', width: '100%', zIndex: 10 }} />
+                        {/* Content Split: Graph (Top) / Explore (Bottom) */}
+                        <div className="center-content" ref={centerContentRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                            {/* Top: Graph */}
+                            <div style={{ height: vizHeight, flex: 'none', position: 'relative', overflow: 'hidden', borderBottom: '1px solid var(--border-subtle)' }}>
+                                {state.HEAD && state.HEAD.type !== 'none' || viewMode === 'strategies' ? (
+                                    viewMode === 'graph' ? (
+                                        <GitGraphViz
+                                            title="LOCAL GRAPH"
+                                            state={localState}
+                                            onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
+                                            selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
+                                        />
+                                    ) : viewMode === 'strategies' ? (
+                                        <BranchingStrategies />
+                                    ) : (
+                                        <GitReferenceList
+                                            type={viewMode === 'branches' ? 'branches' : 'tags'}
+                                            onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
+                                            selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
+                                        />
+                                    )
+                                ) : (
+                                    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>No Repository Loaded</div>
+                                )}
+                            </div>
 
-                    {/* Bottom: Explore (File Explorer) */}
-                    <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-                        <FileExplorer onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
-                    </div>
+                            {/* Resizer Center Viz */}
+                            <div className="resizer" onMouseDown={startResizeCenterVert} style={{ height: '4px', cursor: 'row-resize', background: 'var(--border-subtle)', width: '100%', zIndex: 10 }} />
+
+                            {/* Bottom: Explore (File Explorer) */}
+                            <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                                <FileExplorer onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
+                            </div>
+                        </div>
+                    </main>
+
+                    {/* Resizer 2 (Center vs Right) */}
+                    <div
+                        className="resizer-vertical"
+                        onMouseDown={startResizeRight}
+                        style={{ cursor: 'col-resize', width: '4px', background: 'var(--border-subtle)', flexShrink: 0, zIndex: 10 }}
+                    />
+
+                    {/* --- RIGHT PANE (Terminal) --- */}
+                    <aside
+                        style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border-subtle)' }}
+                    >
+                        <div style={{ flex: 1, minHeight: 0, background: '#1e1e1e' }}>
+                            <GitTerminal />
+                        </div>
+                    </aside>
+
                 </div>
-            </main>
 
-            {/* Resizer 2 */}
-            <div
-                className="resizer-vertical"
-                onMouseDown={startResizeCol2}
-                style={{ cursor: 'col-resize', width: '4px', background: 'var(--border-subtle)', flexShrink: 0, zIndex: 10 }}
-            />
-
-            {/* --- COLUMN 3: TERMINAL --- */}
-            <aside
-                className="right-pane"
-                style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border-subtle)' }}
-            >
-                <div className="pane-header">TERMINAL</div>
-                <div style={{ flex: 1, minHeight: 0, background: '#1e1e1e' }}>
-                    <GitTerminal />
-                </div>
-            </aside>
+            </div>
 
         </div>
     );

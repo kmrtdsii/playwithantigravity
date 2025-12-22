@@ -3,6 +3,7 @@ package git
 import (
 	"fmt"
 	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -362,15 +363,27 @@ func (sm *SessionManager) IngestRemote(name string, url string) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	// In a real app, this would git clone.
-	// For simulation, we create a bare repo.
+	// Clone REAL content from the URL
 	st := memory.NewStorage()
-	repo, err := git.Init(st, nil) // Bare
+
+	// Use Depth 50 to avoid downloading full history of huge repos like freeCodeCamp,
+	// but provide enough context for a graph.
+	repo, err := git.Clone(st, nil, &git.CloneOptions{
+		URL:      url,
+		Progress: os.Stdout,
+		Depth:    50,
+		Tags:     git.NoTags, // Skip tags to save time/space
+	})
+
 	if err != nil {
-		return err
+		// Fallback: If network clone fails, try empty init?
+		// No, user wants real content. Return error.
+		return fmt.Errorf("failed to ingest remote %s: %w", url, err)
 	}
 
+	// Store under Name AND URL so CloneCommand can find it by URL
 	sm.SharedRemotes[name] = repo
+	sm.SharedRemotes[url] = repo
 	return nil
 }
 

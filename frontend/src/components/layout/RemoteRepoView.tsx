@@ -78,7 +78,7 @@ const emptyStyle: React.CSSProperties = {
 };
 
 const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStart }) => {
-    const { state, pullRequests, mergePullRequest, refreshPullRequests, createPullRequest, ingestRemote, addDeveloper, resetRemote } = useGit();
+    const { state, pullRequests, mergePullRequest, refreshPullRequests, createPullRequest, ingestRemote, addDeveloper, resetRemote, runCommand, refreshState } = useGit();
     const { remoteBranches } = state;
 
     const remoteState: GitState = useMemo(() => {
@@ -141,9 +141,18 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
             await ingestRemote('origin', setupUrl);
 
             await new Promise(resolve => setTimeout(resolve, 1000));
-            setSetupLog(prev => [...prev, 'Cloning to local environments...']);
+            setSetupLog(prev => [...prev, 'Cloning to local environment...']);
+
+            // Auto-clone the project
+            // Extract project name from URL to use as folder name
+            const projectName = setupUrl.split('/').pop()?.replace('.git', '') || 'my-project';
+            await runCommand(`git clone ${setupUrl} ${projectName}`); // Clone into a folder
+            await runCommand(`cd ${projectName}`); // Switch to it (simulated in frontend context contextually via active path usually, but here just CLI)
+
             await addDeveloper('Alice');
             await addDeveloper('Bob');
+
+            await refreshState(); // Ensure UI updates with new files/graph
 
             await new Promise(resolve => setTimeout(resolve, 800));
             setSetupLog(prev => [...prev, 'Setup complete!']);

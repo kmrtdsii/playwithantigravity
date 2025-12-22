@@ -25,6 +25,7 @@ interface GitContextType {
     createPullRequest: (title: string, desc: string, source: string, target: string) => Promise<void>;
     mergePullRequest: (id: number) => Promise<void>;
     resetRemote: (name?: string) => Promise<void>;
+    refreshState: () => Promise<void>;
 }
 
 const GitContext = createContext<GitContextType | undefined>(undefined);
@@ -208,14 +209,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const addDeveloper = async (name: string) => {
         try {
             const data = await gitService.initSession();
-            // In a real multi-user app, we'd name the session more uniquely
-            // For now, we use the ID from server or decorate it
-            // Actually server init session returns a fixed ID currently, 
-            // we should ideally pass preferred ID or get a unique one.
-            // Let's just use the returned one and assume we create new ones.
-            // Update: Current backend handleInitSession returns "user-session-1" (fixed).
-            // I should probably update backend to be more unique.
-
             setDevelopers(prev => [...prev, name]);
             setDeveloperSessions(prev => ({ ...prev, [name]: data.sessionId }));
             if (!activeDeveloper) {
@@ -306,7 +299,8 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ingestRemote,
             createPullRequest,
             mergePullRequest,
-            resetRemote
+            resetRemote,
+            refreshState: async () => { if (sessionId) await fetchState(sessionId); }
         }}>
             {children}
         </GitContext.Provider>
