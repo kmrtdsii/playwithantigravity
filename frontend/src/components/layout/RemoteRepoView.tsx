@@ -143,13 +143,16 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     };
 
     const handleEditRemote = () => {
-        setSetupUrl(state.remotes?.[0]?.urls?.[0] || '');
+        // Pre-fill with the currently displayed URL (from setupUrl or serverState)
+        const currentUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || '';
+        setSetupUrl(currentUrl);
         setIsEditMode(true);
     };
 
     const handleCancelEdit = () => {
+        // Simply exit edit mode without modifying setupUrl
+        // This preserves whatever was there before (the original remote URL)
         setIsEditMode(false);
-        setSetupUrl(state.remotes?.[0]?.urls?.[0] || '');
     };
 
     const [isCompareMode, setIsCompareMode] = React.useState(false);
