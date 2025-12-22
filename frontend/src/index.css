@@ -31,6 +31,9 @@
 
   --radius-md: 6px;
   --radius-lg: 12px;
+
+  --bg-toolbar: #1e1e1e;
+  --bg-button-inactive: rgba(255, 255, 255, 0.05);
 }
 
 /* Light Mode Overrides */
@@ -54,6 +57,8 @@ body.light-mode {
 
   --terminal-bg: #0d1117;
   /* Keep terminal dark-ish or adapt if requested, usually dark is better for dev tools */
+  --bg-toolbar: #ffffff;
+  --bg-button-inactive: rgba(0, 0, 0, 0.05);
 }
 
 a {

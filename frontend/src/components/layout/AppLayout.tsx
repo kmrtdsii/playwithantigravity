@@ -150,7 +150,7 @@ const AppLayout = () => {
                 {/* ROW 2: View Toggles (Graph, Branches...) & Global Controls */}
                 <div style={{
                     height: '40px',
-                    background: '#1e1e1e', // Darker to separate from Tabs
+                    background: 'var(--bg-toolbar)', // Matches active tab
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -164,7 +164,7 @@ const AppLayout = () => {
                                 key={mode}
                                 onClick={() => setViewMode(mode)}
                                 style={{
-                                    background: viewMode === mode ? 'var(--accent-primary)' : 'rgba(255,255,255,0.05)',
+                                    background: viewMode === mode ? 'var(--accent-primary)' : 'var(--bg-button-inactive)',
                                     color: viewMode === mode ? 'white' : 'var(--text-secondary)',
                                     border: '1px solid transparent',
                                     borderRadius: '4px',
