@@ -42,7 +42,7 @@ interface Badge {
 // --- Layout Engine ---
 
 // Helper to compute layout
-const computeLayout = (commits: Commit[], branches: Record<string, string>, references: Record<string, string>, HEAD: GitState['HEAD']) => {
+const computeLayout = (commits: Commit[], branches: Record<string, string>, references: Record<string, string>, remoteBranches: Record<string, string>, HEAD: GitState['HEAD']) => {
     if (commits.length === 0) return { nodes: [], edges: [], height: 0, badgesMap: {} };
 
     // 0. Ensure Sort order (Newest first)
@@ -246,6 +246,19 @@ const computeLayout = (commits: Commit[], branches: Record<string, string>, refe
         });
     }
 
+    // Remote Branches
+    if (remoteBranches) {
+        Object.entries(remoteBranches).forEach(([name, commitId]) => {
+            if (!commitId) return;
+            if (!badgesMap[commitId]) badgesMap[commitId] = [];
+            badgesMap[commitId].push({
+                text: name,
+                type: 'tag',
+                isActive: false
+            });
+        });
+    }
+
     // Explicit HEAD Badge (Always show if we have a HEAD ID)
     let headId = HEAD.id;
     if (HEAD.type === 'branch' && HEAD.ref && branches[HEAD.ref]) {
@@ -288,11 +301,11 @@ interface GitGraphVizProps {
 
 const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId }) => {
     const { state } = useGit();
-    const { commits, branches, references, HEAD } = state;
+    const { commits, branches, references, remoteBranches, HEAD } = state;
 
     const { nodes, edges, height, badgesMap } = useMemo(() =>
-        computeLayout(commits, branches, references || {}, HEAD),
-        [commits, branches, references, HEAD]
+        computeLayout(commits, branches, references || {}, remoteBranches || {}, HEAD),
+        [commits, branches, references, remoteBranches, HEAD]
     );
 
     // Resolve HEAD commit ID for Halo

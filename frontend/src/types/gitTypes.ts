@@ -32,6 +32,7 @@ export interface GitState {
     initialized: boolean;
     commits: Commit[];
     branches: Record<string, string>; // branchName -> commitId
+    remoteBranches: Record<string, string>; // remote/branchName -> commitId
     tags: Record<string, string>; // tagName -> commitId
     references: Record<string, string>; // references like ORIG_HEAD -> commitId
     HEAD: { type: 'branch' | 'commit' | 'none', ref: string | null, id?: string };

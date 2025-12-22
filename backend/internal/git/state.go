@@ -22,14 +22,15 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	defer session.mu.RUnlock()
 
 	state := &GraphState{
-		Commits:      []Commit{},
-		Branches:     make(map[string]string),
-		Tags:         make(map[string]string),
-		References:   make(map[string]string),
-		FileStatuses: make(map[string]string),
-		CurrentPath:  session.CurrentDir,
-		Objects:      make(map[string]ObjectNode),
-		Remotes:      []Remote{},
+		Commits:        []Commit{},
+		Branches:       make(map[string]string),
+		RemoteBranches: make(map[string]string),
+		Tags:           make(map[string]string),
+		References:     make(map[string]string),
+		FileStatuses:   make(map[string]string),
+		CurrentPath:    session.CurrentDir,
+		Objects:        make(map[string]ObjectNode),
+		Remotes:        []Remote{},
 	}
 
 	repo := session.GetRepo()
@@ -104,6 +105,17 @@ func populateBranchesAndTags(repo *gogit.Repository, state *GraphState) error {
 		state.Branches[r.Name().Short()] = r.Hash().String()
 		return nil
 	})
+
+	// Get Remote Branches
+	refs, err := repo.References()
+	if err == nil {
+		refs.ForEach(func(r *plumbing.Reference) error {
+			if r.Name().IsRemote() {
+				state.RemoteBranches[r.Name().Short()] = r.Hash().String()
+			}
+			return nil
+		})
+	}
 
 	// Get Special Refs (ORIG_HEAD)
 	origHeadRef, err := repo.Reference("ORIG_HEAD", true)
