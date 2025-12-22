@@ -41,6 +41,7 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	sort.Strings(state.SharedRemotes)
 
 	repo := session.GetRepo()
+	state.Initialized = (repo != nil)
 
 	// 1. Get HEAD
 	populateHEAD(repo, state)
