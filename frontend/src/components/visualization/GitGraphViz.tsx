@@ -454,8 +454,23 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId, s
                                             }}
                                         >
                                             {/* Removed bullet: {badge.isActive && '● '} */}
-                                            {badge.type === 'tag' && <span style={{ marginRight: '3px', fontSize: '9px' }}></span>}
-                                            {badge.type === 'branch' && <span style={{ marginRight: '3px', fontSize: '9px' }}></span>}
+                                            {badge.type === 'tag' && (
+                                                <svg
+                                                    viewBox="0 0 24 24"
+                                                    width="10"
+                                                    height="10"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    fill="none"
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    style={{ marginRight: '4px', verticalAlign: 'middle', display: 'inline-block' }}
+                                                >
+                                                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                                                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                                                </svg>
+                                            )}
+                                            {/* Branch icon removed requested by user */}
                                             {badge.text}
                                         </span>
                                     ))}
