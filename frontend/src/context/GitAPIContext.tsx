@@ -21,6 +21,8 @@ interface GitContextType {
     mergePullRequest: (id: number) => Promise<void>;
     resetRemote: (name?: string) => Promise<void>;
     refreshState: () => Promise<void>;
+    serverState: GitState | null;
+    fetchServerState: (name: string) => Promise<void>;
 }
 
 const GitContext = createContext<GitContextType | undefined>(undefined);
@@ -46,6 +48,8 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         output: [],
         commandCount: 0
     });
+
+    const [serverState, setServerState] = useState<GitState | null>(null);
 
     const [sessionId, setSessionId] = useState<string>('');
     const [showAllCommits, setShowAllCommits] = useState<boolean>(false);
@@ -91,6 +95,16 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }));
         } catch (e) {
             console.error(e);
+        }
+    };
+
+    const fetchServerState = async (name: string) => {
+        try {
+            const sState = await gitService.getRemoteState(name);
+            setServerState(sState);
+        } catch (e) {
+            console.error("Failed to fetch server state", e);
+            setServerState(null);
         }
     };
 
@@ -221,7 +235,9 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             createPullRequest,
             mergePullRequest,
             resetRemote,
-            refreshState: async () => { if (sessionId) await fetchState(sessionId); }
+            refreshState: async () => { if (sessionId) await fetchState(sessionId); },
+            serverState,
+            fetchServerState
         }}>
             {children}
         </GitContext.Provider>

@@ -40,11 +40,39 @@ export const gitService = {
             currentPath: data.currentPath || '',
             projects: data.projects || [],
             sharedRemotes: data.sharedRemotes || [],
-            initialized: true,
+            initialized: data.initialized || false,
             output: [], // State API doesn't return output history
             commandCount: 0 // Managed by context
         };
     },
+
+    async getRemoteState(name: string): Promise<GitState> {
+        const res = await fetch(`/api/remote/state?name=${name}&t=${Date.now()}`);
+        if (!res.ok) throw new Error('Failed to fetch remote state');
+        const data = await res.json();
+        return {
+            commits: data.commits || [],
+            branches: data.branches || {},
+            tags: data.tags || {},
+            references: data.references || {},
+            remotes: data.remotes || [],
+            remoteBranches: data.remoteBranches || {},
+            HEAD: data.HEAD || { type: 'none' },
+            files: [],
+            potentialCommits: [],
+            staging: [],
+            modified: [],
+            untracked: [],
+            fileStatuses: {},
+            currentPath: '',
+            projects: [],
+            sharedRemotes: [], // Or pass back if relevant
+            initialized: data.initialized || false,
+            output: [],
+            commandCount: 0
+        };
+    },
+
 
     async executeCommand(sessionId: string, cmd: string): Promise<CommandResponse> {
         const res = await fetch('/api/command', {

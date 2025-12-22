@@ -29,6 +29,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("/api/session/init", s.handleInitSession)
 	s.Mux.HandleFunc("/api/command", s.handleExecCommand)
 	s.Mux.HandleFunc("/api/state", s.handleGetGraphState)
+	s.Mux.HandleFunc("/api/remote/state", s.handleGetRemoteState)
 	// s.Mux.HandleFunc("/api/sandbox/fork", s.handleForkSession) // REMOVED
 	s.Mux.HandleFunc("/api/strategies", s.handleGetStrategies)
 	s.Mux.HandleFunc("/api/remote/ingest", s.handleIngestRemote)
@@ -152,6 +153,37 @@ func (s *Server) handleGetGraphState(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(state)
 }
+
+func (s *Server) handleGetRemoteState(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		http.Error(w, "name required", http.StatusBadRequest)
+		return
+	}
+
+	repo, ok := s.SessionManager.GetSharedRemote(name)
+
+	if !ok {
+		// Return empty/uninitialized state instead of 404 to avoid frontend crash?
+		// Or 404. 404 is cleaner.
+		http.Error(w, "remote not found", http.StatusNotFound)
+		return
+	}
+
+	// Build state from the shared repo
+	state := git.BuildGraphState(repo)
+	// Add logic to populate shared remotes
+	state.SharedRemotes = []string{name} // The requested one is definitely there.
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
+}
+
 func (s *Server) handleIngestRemote(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

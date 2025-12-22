@@ -20,18 +20,17 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	session.mu.RLock()
 	defer session.mu.RUnlock()
 
-	state := &GraphState{
-		Commits:          []Commit{},
-		PotentialCommits: session.PotentialCommits,
-		Branches:         make(map[string]string),
-		RemoteBranches:   make(map[string]string),
-		Tags:             make(map[string]string),
-		References:       make(map[string]string),
-		FileStatuses:     make(map[string]string),
-		CurrentPath:      session.CurrentDir,
-		Remotes:          []Remote{},
-		SharedRemotes:    []string{},
-	}
+	repo := session.GetRepo()
+
+	// Delegate to BuildGraphState for the repo-specific data
+	// But we need to merge it with Session-specific data (Projects, proper Path)
+
+	// Create base structure from Session data
+	state := BuildGraphState(repo)
+
+	// Override/Augment with Session Data
+	state.PotentialCommits = session.PotentialCommits
+	state.CurrentPath = session.CurrentDir
 
 	sm.mu.Lock()
 	for name := range sm.SharedRemotes {
@@ -40,8 +39,29 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	sm.mu.Unlock()
 	sort.Strings(state.SharedRemotes)
 
-	repo := session.GetRepo()
-	state.Initialized = (repo != nil)
+	// 6. File System (Explorer) - Session specific
+	populateFiles(session, state)
+
+	// 7. Projects - Session specific
+	populateProjects(session, state)
+
+	return state, nil
+}
+
+// BuildGraphState constructs a GraphState from a git.Repository.
+// It can be used for both local session repos and shared remotes.
+func BuildGraphState(repo *gogit.Repository) *GraphState {
+	state := &GraphState{
+		Commits:        []Commit{},
+		Branches:       make(map[string]string),
+		RemoteBranches: make(map[string]string),
+		Tags:           make(map[string]string),
+		References:     make(map[string]string),
+		FileStatuses:   make(map[string]string),
+		Remotes:        []Remote{},
+		SharedRemotes:  []string{},
+		Initialized:    (repo != nil),
+	}
 
 	// 1. Get HEAD
 	populateHEAD(repo, state)
@@ -49,28 +69,25 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	if repo != nil {
 		// 2. Get Branches & Tags
 		if err := populateBranchesAndTags(repo, state); err != nil {
-			return nil, err
+			log.Printf("BuildGraphState warning: %v", err)
 		}
 
 		// 3. Walk Commits
-		populateCommits(repo, state, showAll)
+		populateCommits(repo, state, true) // ShowAll true by default for Remotes usually? Or mimic session?
+		// Let's assume for Shared Remote we want to show everything we have.
+		// Actually, populateCommits logic for ancestors might be better.
+		// But for "Server View", showing the reachable history from branches is correct.
 
-		// 4. Git Status
+		// 4. Git Status (Might be empty for bare repos, but harmless)
 		if err := populateGitStatus(repo, state); err != nil {
-			log.Printf("Git Status Error: %v", err)
+			// Bare repos often fail Worktree(), ignore
 		}
 
 		// 5. Remotes
 		populateRemotes(repo, state)
 	}
 
-	// 6. File System (Explorer)
-	populateFiles(session, state)
-
-	// 6. Projects
-	populateProjects(session, state)
-
-	return state, nil
+	return state
 }
 
 func populateHEAD(repo *gogit.Repository, state *GraphState) {
