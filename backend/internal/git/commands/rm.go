@@ -61,9 +61,7 @@ func (c *RmCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 		// Name in Repos map is usually the relative name from root (e.g. "json-server")
 		// targetPath might be "/json-server"
 		repoName := strings.TrimPrefix(targetPath, "/")
-		if _, ok := s.Repos[repoName]; ok {
-			delete(s.Repos, repoName)
-		}
+		delete(s.Repos, repoName)
 
 		// Remove from Filesystem
 		// standard Remove might not be recursive for billy?

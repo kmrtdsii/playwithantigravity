@@ -49,9 +49,7 @@ func (c *CdCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 
 	// Check if it's one of our known repos
 	displayPath := newPath
-	if strings.HasPrefix(newPath, "/") {
-		newPath = newPath[1:]
-	}
+	newPath = strings.TrimPrefix(newPath, "/")
 
 	fi, err := s.Filesystem.Stat(newPath)
 	if err != nil {

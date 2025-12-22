@@ -84,10 +84,13 @@ npm run test:e2e
 ```
 .
 ├── backend/            # Go backend service
-│   ├── pkg/
+│   ├── cmd/
+│   │   └── server/     # Entry point
+│   │       └── main.go
+│   ├── internal/
 │   │   ├── git/        # Core Git logic (commands, session, types)
 │   │   └── server/     # HTTP handlers and router
-│   └── main.go         # Entry point
+│   └── go.mod
 ├── frontend/           # React frontend
 │   ├── src/
 │   │   ├── components/ # UI Components (Terminal, GraphViz)

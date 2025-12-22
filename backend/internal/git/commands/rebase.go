@@ -142,6 +142,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 				Email: "user@example.com",
 				When:  time.Now(),
 			},
+			AllowEmptyCommits: true, // Replaying commits should allow empty ones if they existed
 		})
 		if err != nil {
 			return "", fmt.Errorf("failed to commit replayed change: %v", err)

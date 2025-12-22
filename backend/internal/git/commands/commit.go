@@ -31,6 +31,7 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	// Parse options
 	msg := "Default commit message"
 	amend := false
+	allowEmpty := false
 
 	// Naive arg parsing
 	for i := 1; i < len(args); i++ {
@@ -39,6 +40,8 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			i++
 		} else if args[i] == "--amend" {
 			amend = true
+		} else if args[i] == "--allow-empty" {
+			allowEmpty = true
 		}
 	}
 
@@ -77,6 +80,7 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 				Email: "user@example.com",
 				When:  time.Now(),
 			},
+			AllowEmptyCommits: true, // Amending should always be allowed even if no changes
 		})
 		if err != nil {
 			return "", err
@@ -93,6 +97,7 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			Email: "user@example.com",
 			When:  time.Now(),
 		},
+		AllowEmptyCommits: allowEmpty,
 	})
 	if err != nil {
 		return "", err

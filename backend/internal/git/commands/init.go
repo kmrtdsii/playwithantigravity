@@ -35,7 +35,8 @@ func (c *InitCommand) Execute(ctx context.Context, s *git.Session, args []string
 				return "", err
 			}
 		} else {
-			return "", fmt.Errorf("cannot initialize repository at workspace root")
+			// For simulation purposes, we allow initializing at the root if no path is given.
+			// cleanPath remains "" (root).
 		}
 	}
 

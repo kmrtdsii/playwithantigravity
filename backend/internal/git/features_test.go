@@ -17,10 +17,18 @@ func TestGitPhase2Features(t *testing.T) {
 	}
 
 	// Init
-	exec("init")
-	TouchFile(sessionID, "README.md")
-	exec("add", "README.md")
-	exec("commit", "-m", "Initial commit")
+	if _, err := exec("init"); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	if err := TouchFile(sessionID, "README.md"); err != nil {
+		t.Fatalf("touch failed: %v", err)
+	}
+	if _, err := exec("add", "README.md"); err != nil {
+		t.Fatalf("add failed: %v", err)
+	}
+	if _, err := exec("commit", "-m", "Initial commit"); err != nil {
+		t.Fatalf("commit failed: %v", err)
+	}
 
 	// 1. Test Log
 	t.Run("Log", func(t *testing.T) {
@@ -78,19 +86,33 @@ func TestGitPhase2Features(t *testing.T) {
 
 	// 3. Test Commit Amend
 	t.Run("Amend", func(t *testing.T) {
-		out1, _ := exec("log", "--oneline")
-		firstHash := strings.Fields(out1)[0]
+		out1, err := exec("log", "--oneline")
+		if err != nil {
+			t.Fatalf("log failed: %v", err)
+		}
+		fields := strings.Fields(out1)
+		if len(fields) == 0 {
+			t.Fatalf("log output empty: %s", out1)
+		}
+		firstHash := fields[0]
 
-		_, err := exec("commit", "--amend", "-m", "Amended message")
+		_, err = exec("commit", "--amend", "-m", "Amended message")
 		if err != nil {
 			t.Fatalf("amend failed: %v", err)
 		}
 
-		out2, _ := exec("log", "--oneline")
+		out2, err := exec("log", "--oneline")
+		if err != nil {
+			t.Fatalf("log failed after amend: %v", err)
+		}
 		if !strings.Contains(out2, "Amended message") {
 			t.Errorf("log missing amended message: %s", out2)
 		}
-		newHash := strings.Fields(out2)[0]
+		fields2 := strings.Fields(out2)
+		if len(fields2) == 0 {
+			t.Fatalf("log output empty after amend: %s", out2)
+		}
+		newHash := fields2[0]
 		if newHash == firstHash {
 			t.Errorf("hash should change after amend")
 		}
