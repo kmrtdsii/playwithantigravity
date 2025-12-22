@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -20,40 +21,71 @@ func (c *InitCommand) Execute(ctx context.Context, s *git.Session, args []string
 	s.Lock()
 	defer s.Unlock()
 
-	path := s.CurrentDir
-	cleanPath := path
-	if len(path) > 0 && path[0] == '/' {
-		cleanPath = path[1:]
+	var dir string
+	isBare := false
+
+	// Parse args
+	for i := 1; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--bare" {
+			isBare = true
+		} else if !strings.HasPrefix(arg, "-") {
+			dir = arg
+		}
 	}
 
-	if cleanPath == "" {
-		// Allow init with argument? git init myrepo
-		if len(args) > 1 {
-			newName := args[1]
-			cleanPath = newName
-			if err := s.Filesystem.MkdirAll(cleanPath, 0755); err != nil {
-				return "", err
-			}
+	// Resolve target path
+	targetPath := s.CurrentDir
+	if dir != "" {
+		// handle relative/absolute logic simplified
+		if strings.HasPrefix(dir, "/") {
+			targetPath = dir
 		} else {
-			// For simulation purposes, we allow initializing at the root if no path is given.
-			// cleanPath remains "" (root).
+			if s.CurrentDir == "/" || s.CurrentDir == "" {
+				targetPath = dir
+			} else {
+				targetPath = s.CurrentDir + "/" + dir
+			}
+		}
+	}
+
+	// Normalize (remove leading slash for map key if needed, or consistent usage)
+	// Our session keys usually don't have leading slash if relative to root of MemFS?
+	// s.CurrentDir normally has leading slash for display, but Filesystem root is "".
+	// Let's ensure proper pathing for chroot.
+	cleanPath := targetPath
+	if len(cleanPath) > 0 && cleanPath[0] == '/' {
+		cleanPath = cleanPath[1:]
+	}
+
+	if cleanPath != "" {
+		if err := s.Filesystem.MkdirAll(cleanPath, 0755); err != nil {
+			return "", err
 		}
 	}
 
 	// Check if registered
 	if _, ok := s.Repos[cleanPath]; ok {
-		return "Git repository already initialized", nil
+		return fmt.Sprintf("Git repository already initialized in %s", targetPath), nil
 	}
 
-	// Double check if existing repo logic in go-git needs chroot?
-	// We want to init IN that folder.
 	repoFS, err := s.Filesystem.Chroot(cleanPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to chroot: %w", err)
 	}
 
 	st := memory.NewStorage()
-	repo, err := gogit.Init(st, repoFS)
+	var repo *gogit.Repository
+	if isBare {
+		repo, err = gogit.Init(st, nil) // Bare repo has no worktree (filesystem)
+		// But wait, Init(st, nil) might not use `repoFS` for config?
+		// Actually, standard Init with nil filesystem implies bare?
+		// gogit.Init(st, nil) -> Bare
+		// gogit.Init(st, fs) -> Non-Bare
+	} else {
+		repo, err = gogit.Init(st, repoFS)
+	}
+
 	if err != nil {
 		return "", err
 	}
@@ -66,9 +98,14 @@ func (c *InitCommand) Execute(ctx context.Context, s *git.Session, args []string
 		return "", err
 	}
 
-	return fmt.Sprintf("Initialized empty Git repository in /%s", cleanPath), nil
+	typeStr := ""
+	if isBare {
+		typeStr = "bare "
+	}
+
+	return fmt.Sprintf("Initialized empty %sGit repository in /%s", typeStr, cleanPath), nil
 }
 
 func (c *InitCommand) Help() string {
-	return "usage: git init\n\nInitialize a new git repository."
+	return "usage: git init [--bare] [directory]"
 }
