@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path"
+	"strings"
 
 	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
 )
@@ -24,11 +26,23 @@ func (c *TouchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	s.Lock()
 	defer s.Unlock()
 
+	// Resolve path relative to CurrentDir
+	fullPath := filename
+	if !strings.HasPrefix(filename, "/") {
+		// s.CurrentDir usually starts with /
+		// path.Join handles clean paths
+		fullPath = path.Join(s.CurrentDir, filename)
+	}
+	// ensure no leading double slash if CurrentDir is /
+	if strings.HasPrefix(fullPath, "//") {
+		fullPath = fullPath[1:]
+	}
+
 	// Check if file exists
-	_, err := s.Filesystem.Stat(filename)
+	_, err := s.Filesystem.Stat(fullPath)
 	if err != nil {
 		// File likely doesn't exist, create it (empty)
-		f, err := s.Filesystem.Create(filename)
+		f, err := s.Filesystem.Create(fullPath)
 		if err != nil {
 			return "", err
 		}
@@ -37,7 +51,7 @@ func (c *TouchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	// File exists, append to it
-	f, err := s.Filesystem.OpenFile(filename, os.O_APPEND|os.O_RDWR, 0644)
+	f, err := s.Filesystem.OpenFile(fullPath, os.O_APPEND|os.O_RDWR, 0644)
 	if err != nil {
 		return "", err
 	}
