@@ -7,6 +7,7 @@ import GitGraphViz from '../visualization/GitGraphViz';
 import GitReferenceList from '../visualization/GitReferenceList';
 import FileExplorer from './FileExplorer';
 import ObjectInspector from './ObjectInspector';
+import ObjectGraph from '../ObjectGraph';
 
 export interface SelectedObject {
     type: 'commit' | 'file';
@@ -21,6 +22,7 @@ const AppLayout = () => {
     const { theme, toggleTheme } = useTheme();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
+    const [isInspectOpen, setIsInspectOpen] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
 
     // Resizable Pane State (Vertical - Side Panes)
@@ -272,9 +274,21 @@ const AppLayout = () => {
             >
                 <div className="pane-header">Object Inspector</div>
                 <div className="pane-content">
-                    <ObjectInspector selectedObject={selectedObject} />
+                    <ObjectInspector
+                        selectedObject={selectedObject}
+                        onInspect={() => setIsInspectOpen(true)}
+                    />
                 </div>
             </aside>
+
+            {/* X-Ray Modal */}
+            {isInspectOpen && selectedObject?.type === 'commit' && (
+                <ObjectGraph
+                    commitId={selectedObject.id}
+                    objects={state.objects || {}}
+                    onClose={() => setIsInspectOpen(false)}
+                />
+            )}
         </div>
     );
 };
