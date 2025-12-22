@@ -7,17 +7,40 @@ import { useGit } from '../../context/GitAPIContext';
 const GitTerminal = () => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
-    const { runCommand, state } = useGit();
+    const { runCommand, state, developers, activeDeveloper, switchDeveloper, addDeveloper } = useGit();
     const runCommandRef = useRef(runCommand);
     const lastOutputLen = useRef(0);
     const lastCommandCount = useRef(0);
     const stateRef = useRef(state);
+
+    // Store processed state to detect user switches
+    const lastActiveDeveloper = useRef(activeDeveloper);
 
     // Keep ref updated
     useEffect(() => {
         runCommandRef.current = runCommand;
         stateRef.current = state;
     }, [runCommand, state]);
+
+    // Handle User Switch: Clear terminal and reset trackers
+    useEffect(() => {
+        if (lastActiveDeveloper.current !== activeDeveloper) {
+            if (xtermRef.current) {
+                xtermRef.current.clear(); // Clear visual buffer
+                xtermRef.current.writeln(`\x1b[1;32mSwitched to user: ${activeDeveloper}\x1b[0m`);
+                xtermRef.current.write(getPrompt(state)); // Write initial prompt for this user state
+            }
+            lastOutputLen.current = 0; // Reset output tracker to replay history if any (or prevent duplicate)
+            // Actually, if we want to replay history, we should let the next effect handle it.
+            // But usually terminal buffer is internal. 
+            // Ideally we don't replay generic logs, only command inputs/outputs.
+            // Our 'state.output' contains command responses.
+            // If we reset lastOutputLen to 0, the next effect will assume everything is new?
+            // Yes, if state.output is [line1, line2], and last is 0, it reprints line1, line2.
+            // This is exactly what we want to restore history!
+            lastActiveDeveloper.current = activeDeveloper;
+        }
+    }, [activeDeveloper]);
 
     // Helper to generate Powerline-style prompt
     const getPrompt = (currentState: typeof state) => {
@@ -192,11 +215,67 @@ const GitTerminal = () => {
         };
     }, []); // Run once on mount
 
+    const handleAddTab = () => {
+        const name = prompt('Enter new developer name:', `Dev ${developers.length + 1}`);
+        if (name) addDeveloper(name);
+    };
+
     return (
-        <div
-            ref={terminalRef}
-            style={{ width: '100%', height: '100%', flex: 1, minHeight: 0 }}
-        />
+        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* TAB BAR */}
+            <div style={{
+                height: '32px',
+                background: 'var(--bg-secondary)',
+                display: 'flex',
+                alignItems: 'center',
+                paddingLeft: '8px',
+                gap: '2px',
+                borderBottom: '1px solid var(--border-subtle)'
+            }}>
+                {developers.map(dev => {
+                    const isActive = dev === activeDeveloper;
+                    return (
+                        <div
+                            key={dev}
+                            onClick={() => switchDeveloper(dev)}
+                            style={{
+                                padding: '0 12px',
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                fontSize: '12px',
+                                fontWeight: isActive ? 600 : 400,
+                                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                background: isActive ? 'var(--bg-primary)' : 'transparent',
+                                borderTop: isActive ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                                cursor: 'pointer',
+                                userSelect: 'none'
+                            }}
+                        >
+                            {dev}
+                        </div>
+                    );
+                })}
+                <div
+                    onClick={handleAddTab}
+                    style={{
+                        padding: '0 8px',
+                        cursor: 'pointer',
+                        color: 'var(--text-tertiary)',
+                        fontSize: '14px',
+                        display: 'flex', alignItems: 'center', height: '100%'
+                    }}
+                    title="Add new developer terminal"
+                >
+                    +
+                </div>
+            </div>
+
+            <div
+                ref={terminalRef}
+                style={{ width: '100%', flex: 1, minHeight: 0 }}
+            />
+        </div>
     );
 };
 

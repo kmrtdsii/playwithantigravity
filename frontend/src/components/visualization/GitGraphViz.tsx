@@ -50,6 +50,7 @@ const computeLayout = (
     branches: Record<string, string>,
     references: Record<string, string>,
     remoteBranches: Record<string, string>,
+    tags: Record<string, string>,
     HEAD: GitState['HEAD']
 ) => {
     const combinedCommits = [
@@ -221,13 +222,30 @@ const computeLayout = (
         });
     });
 
-    if (references) {
-        Object.entries(references).forEach(([name, commitId]) => {
+    if (tags) {
+        Object.entries(tags).forEach(([name, commitId]) => {
             if (!commitId) return;
             if (!badgesMap[commitId]) badgesMap[commitId] = [];
             badgesMap[commitId].push({
                 text: name,
                 type: 'tag',
+                isActive: false
+            });
+        });
+    }
+
+    if (references) {
+        Object.entries(references).forEach(([name, commitId]) => {
+            if (!commitId) return;
+            if (name === 'ORIG_HEAD') return; // Skip ORIG_HEAD usually
+            if (!badgesMap[commitId]) badgesMap[commitId] = [];
+
+            // Avoid duplicate if already added by tags
+            if (tags && tags[name]) return;
+
+            badgesMap[commitId].push({
+                text: name,
+                type: 'tag', // Treat other refs as tags/special refs
                 isActive: false
             });
         });
@@ -284,11 +302,11 @@ interface GitGraphVizProps {
 const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId, state: propState, title }) => {
     const { state: contextState } = useGit();
     const state = propState || contextState;
-    const { commits, potentialCommits, branches, references, remoteBranches, HEAD } = state;
+    const { commits, potentialCommits, branches, references, remoteBranches, tags, HEAD } = state;
 
     const { nodes, edges, height, badgesMap } = useMemo(() =>
-        computeLayout(commits, potentialCommits || [], branches, references || {}, remoteBranches || {}, HEAD),
-        [commits, potentialCommits, branches, references, remoteBranches, HEAD]
+        computeLayout(commits, potentialCommits || [], branches, references || {}, remoteBranches || {}, tags || {}, HEAD),
+        [commits, potentialCommits, branches, references, remoteBranches, tags, HEAD]
     );
 
     // Resolve HEAD commit ID for Halo
@@ -436,6 +454,8 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId, s
                                             }}
                                         >
                                             {/* Removed bullet: {badge.isActive && '● '} */}
+                                            {badge.type === 'tag' && <span style={{ marginRight: '3px', fontSize: '9px' }}></span>}
+                                            {badge.type === 'branch' && <span style={{ marginRight: '3px', fontSize: '9px' }}></span>}
                                             {badge.text}
                                         </span>
                                     ))}
