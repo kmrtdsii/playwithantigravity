@@ -35,6 +35,15 @@ const GitTerminal = () => {
             lastCommandCount.current = -1; // Reset command count to ensure (current > last) triggers prompt
 
             lastActiveDeveloper.current = activeDeveloper;
+
+            // Force a re-fit just in case the container size changed or flow reflowed
+            // setTimeout ensures the DOM update has settled if there were any layout changes
+            setTimeout(() => {
+                // accessing fitAddon from closure would be ideal, but we need to store it in a ref or just rely on ResizeObserver
+                // However, ResizeObserver might not trigger if size didn't fundamentally change but content did.
+                // Let's create a ref for fitAddon to call it here.
+                fitAddonRef.current?.fit();
+            }, 50);
         }
     }, [activeDeveloper]);
 
@@ -123,6 +132,8 @@ const GitTerminal = () => {
         }
     }, [state.output, state.commandCount, state.HEAD, state.currentPath, state.initialized, state._sessionId, sessionId]);
 
+    const fitAddonRef = useRef<FitAddon | null>(null);
+
     useEffect(() => {
         if (!terminalRef.current) return;
 
@@ -135,12 +146,17 @@ const GitTerminal = () => {
                 cursor: '#238636',
                 selectionBackground: 'rgba(35, 134, 54, 0.3)',
             },
-            fontFamily: '"MesloLGS NF", Menlo, Monaco, "Courier New", monospace',
-            fontSize: 14,
+            // "Cool" and modern font stack
+            fontFamily: '"JetBrains Mono", "Fira Code", "MesloLGS NF", Menlo, Monaco, "Courier New", monospace',
+            fontSize: 13, // Slightly smaller for professional look
+            lineHeight: 1.5, // Fixes the "jammed" look and improves readability
             convertEol: true,
+            // Add padding to the terminal content itself
+            allowProposedApi: true,
         });
 
         const fitAddon = new FitAddon();
+        fitAddonRef.current = fitAddon;
         term.loadAddon(fitAddon);
 
         term.open(terminalRef.current);
@@ -265,7 +281,7 @@ const GitTerminal = () => {
     }, [theme]);
 
     return (
-        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '12px 16px', boxSizing: 'border-box' }}>
             <div
                 ref={terminalRef}
                 style={{ width: '100%', flex: 1, minHeight: 0 }}
