@@ -43,6 +43,14 @@ func NewSessionManager() *SessionManager {
 	}
 }
 
+// GetSharedRemote safely retrieves a shared remote repository
+func (sm *SessionManager) GetSharedRemote(name string) (*git.Repository, bool) {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	repo, ok := sm.SharedRemotes[name]
+	return repo, ok
+}
+
 // GetSession retrieves a session by ID
 func (sm *SessionManager) GetSession(id string) (*Session, error) {
 	sm.mu.RLock()

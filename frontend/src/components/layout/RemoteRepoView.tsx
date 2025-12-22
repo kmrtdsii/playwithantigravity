@@ -70,39 +70,37 @@ const emptyStyle: React.CSSProperties = {
 
 const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStart }) => {
     // Removed unused 'addDeveloper'
-    const { state, pullRequests, mergePullRequest, refreshPullRequests, createPullRequest, ingestRemote, runCommand, refreshState } = useGit();
-    const { remoteBranches } = state;
+    const { state, serverState, fetchServerState, pullRequests, mergePullRequest, refreshPullRequests, createPullRequest, ingestRemote } = useGit();
 
-    const remoteState: GitState = useMemo(() => {
-        const transformedBranches: Record<string, string> = {};
-        const branches = state.remoteBranches || {};
-        Object.entries(branches).forEach(([name, hash]) => {
-            const parts = name.split('/');
-            const shortName = parts.length > 1 ? parts.slice(1).join('/') : name;
-            transformedBranches[shortName] = hash;
-        });
-
-        let remoteHead: GitState['HEAD'] = { type: 'none', ref: null };
-        const headCandidate = transformedBranches['main'] || transformedBranches['master'] || Object.keys(transformedBranches)[0];
-        if (headCandidate) {
-            remoteHead = {
-                type: 'branch',
-                ref: transformedBranches['main'] ? 'main' : (transformedBranches['master'] ? 'master' : Object.keys(transformedBranches)[0]),
-                id: transformedBranches[transformedBranches['main'] ? 'main' : (transformedBranches['master'] ? 'master' : Object.keys(transformedBranches)[0])]
+    // Use serverState for the remote graph
+    // If not set, fallback to empty or loading
+    const remoteGraphState: GitState = useMemo(() => {
+        if (!serverState) {
+            return {
+                commits: [],
+                branches: {},
+                tags: {},
+                references: {},
+                remotes: [],
+                remoteBranches: {},
+                HEAD: { type: 'none', ref: null },
+                staging: [],
+                modified: [],
+                untracked: [],
+                fileStatuses: {},
+                files: [],
+                potentialCommits: [],
+                sharedRemotes: [],
+                output: [],
+                commandCount: 0,
+                initialized: false
             };
         }
+        return serverState;
+    }, [serverState]);
 
-        return {
-            ...state,
-            commits: state.commits,
-            branches: transformedBranches,
-            HEAD: remoteHead,
-            staging: [],
-            modified: [],
-            untracked: [],
-            fileStatuses: {}
-        };
-    }, [state]);
+    const remoteBranches = remoteGraphState.remoteBranches || {};
+
 
     const [setupUrl, setSetupUrl] = React.useState('');
     const [isSettingUp, setIsSettingUp] = React.useState(false);
@@ -111,19 +109,12 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
     React.useEffect(() => {
         refreshPullRequests();
+        // If we have a URL already configured, fetch it?
+        // We need a stable way to know "Which remote are we looking at?"
+        // Ideally, we persist "activeRemoteName" in context or local storage.
+        // For now, if setupUrl is present, fetch it?
+        // Or just rely on user interaction.
     }, []);
-
-    // Reset setupSuccess logic (simplified)
-    React.useEffect(() => {
-        if (state.remotes && state.remotes.length > 0 && !isEditMode) {
-            // If we have stats, maybe sync setupUrl?
-            // Only if setupUrl is empty
-            if (!setupUrl && state.remotes[0]?.urls?.[0]) {
-                setSetupUrl(state.remotes[0].urls[0]);
-            }
-        }
-    }, [state.remotes, isEditMode]);
-
 
     const handleInitialSetup = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -132,25 +123,16 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
         try {
             // 1. Ingest into Backend (Simulated Remote Server)
+            // This creates the "Remote Repo" on the server side
             await ingestRemote('origin', setupUrl);
 
-            // 2. Local Session Setup (Decoupled from file working tree)
+            // 2. Fetch the state of this new Remote Repo to visualize it
+            await fetchServerState('origin'); // Assumes ingestRemote stores it as 'origin' or mapped by name
+            // Actually ingestRemote stores by name AND url.
 
-            // Check if we are in a repo at all. If not, init so we can add a remote.
-            if (!state.initialized) {
-                await runCommand('git init');
-            }
+            // 3. DO NOT Touch Local Session
+            // The user must manually run `git clone` in the terminal to hydrate the Center Pane.
 
-            // Configure Remote in Local Session
-            // Remove existing origin if present to allow "Update"
-            await runCommand('git remote remove origin');
-            await runCommand(`git remote add origin ${setupUrl}`);
-
-            // Fetch refs (essential for visualization)
-            // This does NOT touch the working directory files.
-            await runCommand('git fetch origin');
-
-            await refreshState();
             setIsEditMode(false);
         } catch (e) {
             console.error(e);
@@ -179,11 +161,11 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         }
     };
 
-    const remoteUrl = state.remotes?.[0]?.urls?.[0] || '';
+    const remoteUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || ''; // Prefer setupUrl or serverState
     const projectName = remoteUrl.split('/').pop()?.replace('.git', '') || 'Remote Repository';
     const displayTitle = remoteUrl ? projectName : 'NO REMOTE CONFIGURED';
 
-    const hasSharedRemotes = state.remotes && state.remotes.length > 0;
+    const hasSharedRemotes = !!serverState;
 
     return (
         <div style={containerStyle}>
@@ -300,9 +282,9 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
                 {/* Graph Area */}
                 <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#0d1117' }}>
-                    {hasSharedRemotes || (state.remotes?.length ?? 0) > 0 ? (
+                    {hasSharedRemotes || (serverState) ? (
                         <GitGraphViz
-                            state={remoteState}
+                            state={remoteGraphState}
                         // Remote graph selection logic if needed
                         />
                     ) : (
@@ -403,7 +385,7 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                                 }}>
                                     <span style={{ fontFamily: 'monospace' }}>{name}</span>
                                     <span style={{ color: 'var(--text-tertiary)', fontSize: '0.7rem', fontFamily: 'monospace' }}>
-                                        {hash.substring(0, 7)}
+                                        {(hash as string).substring(0, 7)}
                                     </span>
                                 </div>
                             ))
