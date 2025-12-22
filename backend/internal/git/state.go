@@ -29,6 +29,7 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 		FileStatuses: make(map[string]string),
 		CurrentPath:  session.CurrentDir,
 		Objects:      make(map[string]ObjectNode),
+		Remotes:      []Remote{},
 	}
 
 	repo := session.GetRepo()
@@ -49,9 +50,15 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 		if err := populateGitStatus(repo, state); err != nil {
 			log.Printf("Git Status Error: %v", err) // Non-fatal, just log
 		}
+		if err := populateGitStatus(repo, state); err != nil {
+			log.Printf("Git Status Error: %v", err) // Non-fatal, just log
+		}
+
+		// 5. Remotes
+		populateRemotes(repo, state)
 	}
 
-	// 5. File System (Explorer)
+	// 6. File System (Explorer)
 	populateFiles(session, state)
 
 	// 6. Projects
@@ -397,4 +404,18 @@ func getEntryTypeString(mode filemode.FileMode) string {
 		return "tree"
 	}
 	return "blob"
+}
+
+func populateRemotes(repo *gogit.Repository, state *GraphState) {
+	remotes, err := repo.Remotes()
+	if err != nil {
+		return
+	}
+	for _, r := range remotes {
+		cfg := r.Config()
+		state.Remotes = append(state.Remotes, Remote{
+			Name: cfg.Name,
+			URLs: cfg.URLs,
+		})
+	}
 }

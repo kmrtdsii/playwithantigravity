@@ -23,6 +23,11 @@ export interface ObjectNode {
     treeId?: string; // For Commit
 }
 
+export interface Remote {
+    name: string;
+    urls: string[];
+}
+
 export interface GitState {
     initialized: boolean;
     commits: Commit[];
@@ -38,6 +43,8 @@ export interface GitState {
     currentPath?: string;
     projects?: string[];
     objects?: Record<string, ObjectNode>; // id -> ObjectNode
+    remotes?: Remote[]; // Defined remotes
+
 
     output: string[];
     commandCount: number;

@@ -21,6 +21,12 @@ type GraphState struct {
 	CurrentPath  string                `json:"currentPath"`
 	Projects     []string              `json:"projects"`
 	Objects      map[string]ObjectNode `json:"objects"`
+	Remotes      []Remote              `json:"remotes"`
+}
+
+type Remote struct {
+	Name string   `json:"name"`
+	URLs []string `json:"urls"`
 }
 
 type Commit struct {
