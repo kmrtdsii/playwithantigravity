@@ -130,6 +130,19 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             // Increment command count to signal terminal
             setState(prev => ({ ...prev, commandCount: prev.commandCount + 1 }));
+
+            // AUTO-REFRESH SERVER STATE
+            // If we have a server state loaded, refresh it too, as push might have updated it.
+            // We blindly refresh 'origin' for now or whatever is active.
+            if (serverState && serverState.remotes.length === 0) {
+                // Wait, serverState.remotes was CLEARED by backend for visualization.
+                // We need to know which remote we are visualizing.
+                // For now, let's just refresh 'origin' if it exists.
+                await fetchServerState('origin');
+            } else if (serverState) {
+                await fetchServerState('origin'); // Default fallback
+            }
+
         } catch (e) {
             console.error(e);
             setState(prev => ({ ...prev, output: [...prev.output, "Network error"], commandCount: prev.commandCount + 1 }));
