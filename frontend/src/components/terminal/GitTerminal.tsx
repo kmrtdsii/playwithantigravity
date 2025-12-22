@@ -92,8 +92,15 @@ const GitTerminal = () => {
 
         // Write new output lines
         if (state.output.length > lastOutputLen.current) {
+            const isFullReplay = lastOutputLen.current === 0;
             const newLines = state.output.slice(lastOutputLen.current);
             newLines.forEach(line => {
+                // Skip command echo lines during incremental updates (already shown by xterm input)
+                // Only write them during full replay (after tab switch when lastOutputLen was reset)
+                if (!isFullReplay && line.startsWith('> ')) {
+                    return;
+                }
+
                 let formattedLine = line;
                 // Highlight simulation/dry-run
                 if (line.includes('[dry-run]') || line.includes('[simulation]')) {

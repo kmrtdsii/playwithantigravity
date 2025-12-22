@@ -138,6 +138,17 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
 
         console.log(`Executing command: ${cmd} (Session: ${sessionId})`);
+        // Store command echo BEFORE backend call (persists on tab switch)
+        const commandEcho = `> ${cmd}`;
+        setSessionOutputs(prev => {
+            const current = prev[sessionId] || [];
+            return { ...prev, [sessionId]: [...current, commandEcho] };
+        });
+        setState(prev => ({
+            ...prev,
+            output: [...prev.output, commandEcho]
+        }));
+
         try {
             const data = await gitService.executeCommand(sessionId, cmd);
             console.log("GitAPI: Command response:", data);
