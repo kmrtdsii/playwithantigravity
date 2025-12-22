@@ -181,9 +181,10 @@ func (s *Server) handleGetRemoteState(w http.ResponseWriter, r *http.Request) {
 	// Add logic to populate shared remotes
 	state.SharedRemotes = []string{name} // The requested one is definitely there.
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(state)
-}
+	// CLEANUP FOR VISUALIZATION:
+	// Only show local branches (simulated as server branches) and tags.
+	state.Remotes = []git.Remote{}                 // Clear remotes
+	state.RemoteBranches = make(map[string]string) // Clear remote tracking branches
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(state)
