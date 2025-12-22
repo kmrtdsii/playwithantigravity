@@ -226,7 +226,11 @@ const AppLayout = () => {
                         style={{ height: vizHeight, flex: 'none', minHeight: 0 }}
                         ref={vizRef}
                     >
-                        {state.HEAD && state.HEAD.type !== 'none' ? (
+                        {/* Condition 1: Anatomy View (Always Available) */}
+                        {viewMode === 'anatomy' ? (
+                            <ThreeStateView />
+                        ) : state.HEAD && state.HEAD.type !== 'none' ? (
+                            /* Condition 2: HEAD Exists - Show Graph or Reference List */
                             viewMode === 'graph' ? (
                                 <GitGraphViz
                                     onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
@@ -239,8 +243,6 @@ const AppLayout = () => {
                                     selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
                                 />
                             )
-                        ) : viewMode === 'anatomy' ? (
-                            <ThreeStateView />
                         ) : (
                             <div style={{
                                 height: '100%',
