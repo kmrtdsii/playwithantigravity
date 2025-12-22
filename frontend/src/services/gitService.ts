@@ -56,16 +56,6 @@ export const gitService = {
         return res.json();
     },
 
-    async forkSession(sourceId: string, targetId: string): Promise<InitResponse> {
-        const res = await fetch('/api/sandbox/fork', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ source_id: sourceId, target_id: targetId })
-        });
-        if (!res.ok) throw new Error('Failed to fork session');
-        return res.json();
-    },
-
     async fetchStrategies(): Promise<any[]> {
         const res = await fetch('/api/strategies');
         if (!res.ok) throw new Error('Failed to fetch strategies');

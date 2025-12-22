@@ -9,11 +9,6 @@ interface GitContextType {
     toggleShowAllCommits: () => void;
     stageFile: (file: string) => Promise<void>;
     unstageFile: (file: string) => Promise<void>;
-    isSandbox: boolean;
-    isForking: boolean;
-    enterSandbox: () => Promise<void>;
-    exitSandbox: () => Promise<void>;
-    resetSandbox: () => Promise<void>;
     strategies: any[];
     developers: string[];
     activeDeveloper: string;
@@ -53,9 +48,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     const [sessionId, setSessionId] = useState<string>('');
-    const [realSessionId, setRealSessionId] = useState<string>('');
-    const [isSandbox, setIsSandbox] = useState<boolean>(false);
-    const [isForking, setIsForking] = useState<boolean>(false);
     const [showAllCommits, setShowAllCommits] = useState<boolean>(false);
     const [strategies, setStrategies] = useState<any[]>([]);
 
@@ -73,7 +65,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 console.log("GitAPI: Session init response:", data);
                 if (data.sessionId) {
                     setSessionId(data.sessionId);
-                    setRealSessionId(data.sessionId); // Store original
                     await fetchState(data.sessionId);
                 }
 
@@ -87,69 +78,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
         init();
     }, []);
-
-    const enterSandbox = async () => {
-        if (isSandbox || isForking) return;
-
-        setIsForking(true);
-        try {
-            const sandboxId = `sandbox-${Date.now()}`;
-            console.log(`Creating sandbox: ${sandboxId} from ${realSessionId}`);
-
-            await gitService.forkSession(realSessionId, sandboxId);
-            setSessionId(sandboxId);
-            setIsSandbox(true);
-
-            setState(prev => ({
-                ...prev,
-                output: [...prev.output, "--- SANDBOX MODE ENABLED (Experimental changes only) ---"]
-            }));
-            await fetchState(sandboxId);
-        } catch (e) {
-            console.error("Failed to enter sandbox", e);
-            setState(prev => ({ ...prev, output: [...prev.output, "Failed to enter Sandbox mode"] }));
-        } finally {
-            setIsForking(false);
-        }
-    };
-
-    const resetSandbox = async () => {
-        if (!isSandbox || isForking) return;
-
-        setIsForking(true);
-        try {
-            const sandboxId = `sandbox-${Date.now()}`;
-            console.log(`Resetting sandbox: ${sandboxId} from ${realSessionId}`);
-
-            await gitService.forkSession(realSessionId, sandboxId);
-            setSessionId(sandboxId);
-
-            setState(prev => ({
-                ...prev,
-                output: [...prev.output, "--- SANDBOX RESET (State refreshed from main session) ---"]
-            }));
-            await fetchState(sandboxId);
-        } catch (e) {
-            console.error("Failed to reset sandbox", e);
-            setState(prev => ({ ...prev, output: [...prev.output, "Failed to reset Sandbox"] }));
-        } finally {
-            setIsForking(false);
-        }
-    };
-
-    const exitSandbox = async () => {
-        if (!isSandbox) return;
-
-        // Discard sandbox session (just switch back)
-        console.log("Exiting sandbox, returning to:", realSessionId);
-        setSessionId(realSessionId);
-        setIsSandbox(false);
-        setState(prev => ({
-            ...prev,
-            output: [...prev.output, "--- SANDBOX MODE DISABLED (Changes discarded) ---"]
-        }));
-        await fetchState(realSessionId);
-    };
 
     const fetchState = async (sid: string) => {
         try {
@@ -214,7 +142,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (!activeDeveloper) {
                 setActiveDeveloper(name);
                 setSessionId(data.sessionId);
-                setRealSessionId(data.sessionId);
                 await fetchState(data.sessionId);
             }
         } catch (e) {
@@ -227,8 +154,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (sid) {
             setActiveDeveloper(name);
             setSessionId(sid);
-            setRealSessionId(sid);
-            setIsSandbox(false); // Reset sandbox when switching?
             await fetchState(sid);
         }
     };
@@ -284,11 +209,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             toggleShowAllCommits,
             stageFile,
             unstageFile,
-            isSandbox,
-            isForking,
-            enterSandbox,
-            exitSandbox,
-            resetSandbox,
             strategies,
             developers,
             activeDeveloper,

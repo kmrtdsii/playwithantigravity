@@ -19,8 +19,7 @@ type ViewMode = 'graph' | 'branches' | 'tags' | 'strategies';
 
 const AppLayout = () => {
     const {
-        state, showAllCommits, toggleShowAllCommits, isSandbox, isForking,
-        enterSandbox, exitSandbox, resetSandbox,
+        state, showAllCommits, toggleShowAllCommits,
         developers, activeDeveloper, switchDeveloper
     } = useGit();
 
@@ -226,31 +225,10 @@ const AppLayout = () => {
                             Show All
                         </label>
 
-                        {/* Sandbox */}
-                        <button
-                            onClick={isSandbox ? exitSandbox : enterSandbox}
-                            disabled={isForking}
-                            className={`sandbox-toggle ${isSandbox ? 'active' : ''}`}
-                            style={{
-                                background: isSandbox ? '#f59f00' : 'transparent',
-                                color: isSandbox ? 'white' : 'var(--text-secondary)',
-                                border: isSandbox ? '1px solid #f59f00' : '1px solid var(--border-subtle)',
-                                borderRadius: '4px',
-                                padding: '3px 8px',
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                textTransform: 'uppercase'
-                            }}
-                        >
-                            {isForking ? '⏳...' : (isSandbox ? 'EXIT SANDBOX' : 'SANDBOX MODE')}
-                        </button>
+                        {/* Sandbox - REMOVED */}
 
 
-                        {/* Terminal Label (Moved from removed header) */}
+                        {/* Terminal Label */}
                         <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.1em', paddingLeft: '12px', borderLeft: '1px solid var(--border-subtle)' }}>TERMINAL</span>
                     </div>
                 </div>
@@ -262,27 +240,7 @@ const AppLayout = () => {
                     <main
                         style={{ width: `${centerPaneWidth}%`, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative' }}
                     >
-                        {/* Sandbox Banner (If Active) */}
-                        {isSandbox && (
-                            <div style={{
-                                background: '#f59f00',
-                                color: 'white',
-                                padding: '2px 12px',
-                                fontSize: '10px',
-                                fontWeight: 700,
-                                textAlign: 'center',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '8px',
-                                borderBottom: '1px solid rgba(0,0,0,0.1)'
-                            }}>
-                                <span>🏝️ SANDBOX ACTIVE</span>
-                                <button onClick={resetSandbox} disabled={isForking} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '1px 6px', borderRadius: '4px', fontSize: '9px', cursor: 'pointer' }}>
-                                    {isForking ? '...' : 'RESET'}
-                                </button>
-                            </div>
-                        )}
+                        {/* Sandbox Banner - REMOVED */}
 
                         {/* Content Split: Graph (Top) / Explore (Bottom) */}
                         <div className="center-content" ref={centerContentRef} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
