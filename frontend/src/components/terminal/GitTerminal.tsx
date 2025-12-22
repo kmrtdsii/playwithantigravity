@@ -27,7 +27,7 @@ const GitTerminal = () => {
         if (lastActiveDeveloper.current !== activeDeveloper) {
             if (xtermRef.current) {
                 xtermRef.current.clear(); // Clear visual buffer
-                xtermRef.current.writeln(`\x1b[1;32mSwitched to user: ${activeDeveloper}\x1b[0m`);
+                xtermRef.current.writeln(`\x1b[1;32mUser: ${activeDeveloper}\x1b[0m`);
             }
             lastOutputLen.current = 0; // Reset output to trigger replay
             lastCommandCount.current = -1; // Reset command count to ensure (current > last) triggers prompt

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
-	_ "github.com/kmrtdsii/playwithantigravity/backend/internal/git/commands"
+	"github.com/kurobon/gitgym/backend/internal/git"
+	_ "github.com/kurobon/gitgym/backend/internal/git/commands"
 )
 
 var testSessionManager *git.SessionManager

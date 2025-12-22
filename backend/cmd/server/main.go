@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
-	_ "github.com/kmrtdsii/playwithantigravity/backend/internal/git/commands" // Register commands
-	"github.com/kmrtdsii/playwithantigravity/backend/internal/server"
+	"github.com/kurobon/gitgym/backend/internal/git"
+	_ "github.com/kurobon/gitgym/backend/internal/git/commands" // Register commands
+	"github.com/kurobon/gitgym/backend/internal/server"
 )
 
 func main() {

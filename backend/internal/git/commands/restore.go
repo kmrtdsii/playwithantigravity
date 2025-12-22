@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing/format/index"
-	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
+	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
 func init() {

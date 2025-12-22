@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
+	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
 type Server struct {

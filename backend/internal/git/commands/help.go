@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
+	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
 func init() {

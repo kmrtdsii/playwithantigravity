@@ -1,4 +1,4 @@
-module github.com/kmrtdsii/playwithantigravity/backend
+module github.com/kurobon/gitgym/backend
 
 go 1.25.4
 

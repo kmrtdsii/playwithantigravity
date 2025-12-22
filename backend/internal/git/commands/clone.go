@@ -11,7 +11,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
+	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
 func init() {
