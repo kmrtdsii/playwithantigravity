@@ -55,8 +55,7 @@ body.light-mode {
   --accent-primary: #1f883d;
   --accent-hover: #1a7f37;
 
-  --terminal-bg: #0d1117;
-  /* Keep terminal dark-ish or adapt if requested, usually dark is better for dev tools */
+  --terminal-bg: #ffffff;
   --bg-toolbar: #ffffff;
   --bg-button-inactive: rgba(0, 0, 0, 0.05);
 }

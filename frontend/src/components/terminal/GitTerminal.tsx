@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
 import { useGit } from '../../context/GitAPIContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const GitTerminal = () => {
     const terminalRef = useRef<HTMLDivElement>(null);
@@ -12,6 +13,7 @@ const GitTerminal = () => {
     const lastOutputLen = useRef(0);
     const lastCommandCount = useRef(0);
     const stateRef = useRef(state);
+    const { theme } = useTheme();
 
     // Store processed state to detect user switches
     const lastActiveDeveloper = useRef(activeDeveloper);
@@ -144,6 +146,16 @@ const GitTerminal = () => {
         term.open(terminalRef.current);
         fitAddon.fit();
 
+        // Initial Theme
+        if (theme === 'light') {
+            term.options.theme = {
+                background: '#ffffff',
+                foreground: '#24292f',
+                cursor: '#1f883d',
+                selectionBackground: 'rgba(31, 136, 61, 0.3)',
+            };
+        }
+
         term.writeln('\x1b[1;32mGitGym Terminal\x1b[0m v1.0.0');
         term.writeln('Type "git clone <url>" to start.');
 
@@ -231,6 +243,26 @@ const GitTerminal = () => {
             term.dispose();
         };
     }, []);
+
+    // Theme Effect
+    useEffect(() => {
+        if (!xtermRef.current) return;
+        if (theme === 'light') {
+            xtermRef.current.options.theme = {
+                background: '#ffffff',
+                foreground: '#24292f',
+                cursor: '#1f883d',
+                selectionBackground: 'rgba(31, 136, 61, 0.3)',
+            };
+        } else {
+            xtermRef.current.options.theme = {
+                background: '#0d1117',
+                foreground: '#c9d1d9',
+                cursor: '#238636',
+                selectionBackground: 'rgba(35, 134, 54, 0.3)',
+            };
+        }
+    }, [theme]);
 
     return (
         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>

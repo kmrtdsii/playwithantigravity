@@ -110,7 +110,7 @@ const AppLayout = () => {
     const modes: ViewMode[] = ['graph', 'branches', 'tags', 'strategies'];
 
     return (
-        <div className="layout-container" ref={containerRef} style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', background: '#0d1117' }}>
+        <div className="layout-container" ref={containerRef} style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', background: 'var(--bg-primary)' }}>
 
             {/* --- COLUMN 1: REMOTE SERVER --- */}
             <aside

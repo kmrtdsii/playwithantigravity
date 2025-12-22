@@ -168,7 +168,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
                                             onClick={() => handleProjectClick(project)}
                                             style={{
                                                 padding: '4px 12px',
-                                                background: isActive ? 'rgba(255,255,255,0.05)' : 'transparent',
+                                                background: isActive ? 'var(--bg-button-inactive)' : 'transparent',
                                                 fontWeight: isActive ? 600 : 400
                                             }}
                                         >
@@ -193,7 +193,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
 
             <style>{`
                 .explorer-row { display: flex; alignItems: center; padding-top: 5px; padding-bottom: 5px; cursor: pointer; border-radius: 4px; }
-                .explorer-row:hover { background-color: rgba(255, 255, 255, 0.05); }
+                .explorer-row:hover { background-color: var(--bg-button-inactive); }
                 .icon { margin-right: 6px; opacity: 0.9; }
                 .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
                 .status-badge { font-size: 10px; opacity: 0.7; margin-right: 8px; font-family: monospace; }
