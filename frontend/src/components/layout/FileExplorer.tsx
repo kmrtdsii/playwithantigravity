@@ -16,10 +16,9 @@ interface FileNode {
 
 const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
     const { state, runCommand } = useGit();
-    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['STAGED']));
+    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
     // Active Project Detection
-    // currentPath is from backend, e.g. "my-project" or "/my-project"
     const currentPathClean = state.currentPath ? state.currentPath.replace(/^\//, '') : '';
     const isRoot = !currentPathClean;
     const activeProject = isRoot ? null : currentPathClean.split('/')[0];
@@ -36,7 +35,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
     }, [state.fileStatuses, state.HEAD]);
 
     // Build Entry Tree from flat file list (Working Tree)
-    // Only used when inside a project
+    // For this split view, the LEFT side is the general file explorer (which implicitly shows unstaged changes via status colors).
     const fileTree = useMemo(() => {
         if (isRoot) return []; // Don't show files at root, relying on projects list
 
@@ -85,28 +84,23 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
 
     const handleProjectClick = (projectName: string) => {
         if (activeProject === projectName) {
-            // If already active, maybe go to root?
             runCommand(`cd /`);
         } else {
-            // Switch project
             runCommand(`cd /${projectName}`);
         }
     };
 
     const handleDirClick = (node: FileNode, e: React.MouseEvent) => {
         e.stopPropagation();
-        // Inside a project, normal toggle
         toggleFolder(node.path, e);
     };
 
     const handleDeleteProject = (projectName: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm(`Are you sure you want to delete project '${projectName}'? This cannot be undone.`)) {
-            // Need to change directory if we are inside the deleted project
             if (activeProject === projectName) {
                 runCommand('cd /');
             }
-            // Execute Delete
             runCommand(`rm -rf ${projectName}`);
         }
     };
@@ -160,87 +154,63 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
     const projects = state.projects || [];
 
     return (
-        <div className="file-explorer" style={{ color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'system-ui, sans-serif', userSelect: 'none' }}>
-            {/* STAGED CHANGES SECTION */}
-            {stagedFiles.length > 0 && (
-                <>
-                    <div className="section-header"
-                        style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 'bold', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
-                        onClick={(e) => toggleFolder('STAGED', e)}
-                    >
-                        <span style={{ transform: expandedFolders.has('STAGED') ? 'rotate(90deg)' : 'none', marginRight: '4px', display: 'inline-block', transition: 'transform 0.1s' }}>▶</span>
-                        STAGED CHANGES
-                        <span style={{ marginLeft: 'auto', fontWeight: 'normal', opacity: 0.7 }}>{stagedFiles.length}</span>
-                    </div>
-                    {expandedFolders.has('STAGED') && (
-                        <div className="tree-content" style={{ marginBottom: '8px' }}>
-                            {stagedFiles.map((file) => (
-                                <div key={file.path} className="explorer-row" onClick={() => onSelect({ type: 'file', id: file.path })} style={{ paddingLeft: '12px' }}>
-                                    <span className="icon">📄</span>
-                                    <span className="name" style={{ color: '#27c93f' }}>{file.path}</span>
-                                    <span className="status-badge">{file.status}</span>
-                                </div>
-                            ))}
+        <div className="file-explorer" style={{ color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'system-ui, sans-serif', userSelect: 'none', display: 'flex', width: '100%', height: '100%' }}>
+
+            {/* LEFT PANE: CHANGES & EXPLORER */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-subtle)' }}>
+                <div className="section-header" style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 'bold', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    {isRoot ? 'WORKSPACES' : 'FILES / CHANGES'}
+                </div>
+
+                <div className="tree-content" style={{ flex: 1, overflowY: 'auto' }}>
+                    {projects.length === 0 && isRoot ? (
+                        <div style={{ padding: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                            No projects found. Clone a repo!
+                        </div>
+                    ) : (
+                        <div>
+                            {/* If Root: Show Projects */}
+                            {isRoot && projects.map(project => {
+                                const isActive = project === activeProject;
+                                return (
+                                    <div key={project} className="explorer-row" onClick={() => handleProjectClick(project)} style={{ padding: '4px 12px' }}>
+                                        <span className="icon">📦</span>
+                                        <span className="name" style={{ fontWeight: isActive ? 'bold' : 'normal' }}>{project}</span>
+                                        <span className="delete-btn" onClick={(e) => handleDeleteProject(project, e)} style={{ marginLeft: 'auto', cursor: 'pointer' }}>🗑️</span>
+                                    </div>
+                                );
+                            })}
+
+                            {/* If In Project: Show File Tree */}
+                            {!isRoot && (
+                                renderTree(fileTree)
+                            )}
                         </div>
                     )}
-                </>
-            )}
-
-            {/* WORKSPACES HEAD */}
-            <div className="section-header" style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 'bold', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center' }}>
-                WORKSPACES
+                </div>
             </div>
 
-            <div className="tree-content">
-                {projects.length === 0 ? (
-                    <div style={{ padding: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-                        No projects found. Clone a repo!
-                    </div>
-                ) : (
-                    projects.map(project => {
-                        const isActive = project === activeProject;
-                        // For UX, treat active project as having an expanded tree.
-                        return (
-                            <div key={project}>
-                                <div
-                                    className="explorer-row"
-                                    onClick={() => handleProjectClick(project)}
-                                    style={{ paddingLeft: '12px', backgroundColor: isActive ? 'rgba(255,255,255,0.08)' : undefined }}
-                                >
-                                    <span style={{
-                                        marginRight: '6px',
-                                        opacity: 0.8,
-                                        display: 'inline-block',
-                                        width: '16px',
-                                        textAlign: 'center',
-                                        transform: isActive ? 'rotate(90deg)' : 'none',
-                                        transition: 'transform 0.2s'
-                                    }}>▶</span>
-                                    <span className="icon">📦</span>
-                                    <span className="name" style={{ fontWeight: isActive ? 'bold' : 'normal' }}>{project}</span>
-
-                                    <span
-                                        className="delete-btn"
-                                        title="Delete Project"
-                                        onClick={(e) => handleDeleteProject(project, e)}
-                                        style={{ marginLeft: '8px', marginRight: '8px', opacity: 0.9, cursor: 'pointer', fontSize: '12px' }}
-                                    >
-                                        🗑️
-                                    </span>
-                                </div>
-                                {isActive && (
-                                    <div style={{ borderLeft: '1px solid rgba(255,255,255,0.1)', marginLeft: '19px' }}>
-                                        {fileTree.length === 0 ? (
-                                            <div style={{ padding: '4px 0 4px 12px', opacity: 0.5, fontStyle: 'italic' }}>Empty (or loading...)</div>
-                                        ) : (
-                                            renderTree(fileTree)
-                                        )}
-                                    </div>
-                                )}
+            {/* RIGHT PANE: STAGED */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.02)' }}>
+                <div className="section-header" style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 'bold', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>STAGED CHANGES</span>
+                    <span style={{ fontWeight: 'normal', opacity: 0.7 }}>{stagedFiles.length}</span>
+                </div>
+                <div className="tree-content" style={{ flex: 1, overflowY: 'auto' }}>
+                    {stagedFiles.length === 0 ? (
+                        <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: '12px' }}>
+                            No staged changes.
+                        </div>
+                    ) : (
+                        stagedFiles.map((file) => (
+                            <div key={file.path} className="explorer-row" onClick={() => onSelect({ type: 'file', id: file.path })} style={{ padding: '4px 12px' }}>
+                                <span className="icon">📄</span>
+                                <span className="name" style={{ color: '#27c93f' }}>{file.path}</span>
+                                <span className="status-badge" style={{ marginLeft: 'auto' }}>{file.status}</span>
                             </div>
-                        );
-                    })
-                )}
+                        ))
+                    )}
+                </div>
             </div>
 
             <style>{`

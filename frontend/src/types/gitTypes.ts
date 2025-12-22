@@ -30,6 +30,7 @@ export interface GitState {
     currentPath?: string;
     projects?: string[];
     remotes?: Remote[]; // Defined remotes
+    sharedRemotes?: string[];
 
 
     output: string[];
@@ -42,4 +43,17 @@ export interface BranchingStrategy {
     description: string;
     mainBranch: string;
     flowSteps: string[];
+}
+
+export type PullRequestStatus = 'OPEN' | 'MERGED' | 'CLOSED';
+
+export interface PullRequest {
+    id: number;
+    title: string;
+    description: string;
+    sourceBranch: string;
+    targetBranch: string;
+    status: PullRequestStatus;
+    creator: string;
+    createdAt: string;
 }

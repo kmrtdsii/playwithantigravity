@@ -23,6 +23,7 @@ type GraphState struct {
 	CurrentPath      string            `json:"currentPath"`
 	Projects         []string          `json:"projects"`
 	Remotes          []Remote          `json:"remotes"`
+	SharedRemotes    []string          `json:"sharedRemotes"`
 }
 
 type Remote struct {

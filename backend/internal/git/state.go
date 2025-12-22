@@ -30,7 +30,15 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 		FileStatuses:     make(map[string]string),
 		CurrentPath:      session.CurrentDir,
 		Remotes:          []Remote{},
+		SharedRemotes:    []string{},
 	}
+
+	sm.mu.Lock()
+	for name := range sm.SharedRemotes {
+		state.SharedRemotes = append(state.SharedRemotes, name)
+	}
+	sm.mu.Unlock()
+	sort.Strings(state.SharedRemotes)
 
 	repo := session.GetRepo()
 

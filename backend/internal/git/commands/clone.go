@@ -9,6 +9,7 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/storage"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
 )
@@ -46,21 +47,42 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		return "", fmt.Errorf("repository '%s' already exists", repoName)
 	}
 
-	// 1. Create Simulated Remote (Bare Repository)
-	remotePath := fmt.Sprintf("remotes/%s.git", repoName)
-	if err := s.Filesystem.MkdirAll("remotes", 0755); err != nil {
-		return "", fmt.Errorf("failed to create remotes directory: %w", err)
+	// 1. Resolve Remote Repository (Shared vs Session-local)
+	var remoteRepo *gogit.Repository
+	var remoteSt storage.Storer
+	var remotePath string
+
+	if s.Manager != nil {
+		// Check SharedRemotes (e.g., "origin", or the full URL)
+		if r, ok := s.Manager.SharedRemotes[url]; ok {
+			remoteRepo = r
+			remoteSt = r.Storer
+			remotePath = url
+		} else if r, ok := s.Manager.SharedRemotes[repoName]; ok {
+			remoteRepo = r
+			remoteSt = r.Storer
+			remotePath = repoName
+		}
 	}
 
-	remoteSt := memory.NewStorage()
-	remoteRepo, err := gogit.Clone(remoteSt, nil, &gogit.CloneOptions{
-		URL:      url,
-		Progress: os.Stdout,
-	})
-	if err != nil {
-		return "", fmt.Errorf("failed to create simulated remote: %w", err)
+	if remoteRepo == nil {
+		// Fallback: Create Simulated Remote (Legacy behavior)
+		remotePath = fmt.Sprintf("remotes/%s.git", repoName)
+		if err := s.Filesystem.MkdirAll("remotes", 0755); err != nil {
+			return "", fmt.Errorf("failed to create remotes directory: %w", err)
+		}
+
+		remoteSt = memory.NewStorage()
+		var err error
+		remoteRepo, err = gogit.Clone(remoteSt, nil, &gogit.CloneOptions{
+			URL:      url,
+			Progress: os.Stdout,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to create simulated remote: %w", err)
+		}
+		s.Repos[remotePath] = remoteRepo
 	}
-	s.Repos[remotePath] = remoteRepo
 
 	// 2. Create Local Working Copy
 	if err := s.Filesystem.MkdirAll(repoName, 0755); err != nil {
@@ -103,7 +125,7 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	s.Repos[repoName] = localRepo
 
-	return fmt.Sprintf("Cloned into '%s'... (Simulated remote created at /%s)", repoName, remotePath), nil
+	return fmt.Sprintf("Cloned into '%s'... (Using shared remote %s)", repoName, remotePath), nil
 }
 
 func (c *CloneCommand) Help() string {

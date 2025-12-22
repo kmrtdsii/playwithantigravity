@@ -22,19 +22,24 @@ type Session struct {
 	CreatedAt        time.Time
 	Reflog           []ReflogEntry
 	PotentialCommits []Commit
+	Manager          *SessionManager // Reference to manager for shared state
 	mu               sync.RWMutex
 }
 
 // SessionManager handles concurrent access to sessions
 type SessionManager struct {
-	sessions map[string]*Session
-	mu       sync.RWMutex
+	sessions      map[string]*Session
+	SharedRemotes map[string]*git.Repository // Share repositories across all sessions
+	PullRequests  []*PullRequest
+	mu            sync.RWMutex
 }
 
 // NewSessionManager creates a new session manager
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		sessions: make(map[string]*Session),
+		sessions:      make(map[string]*Session),
+		SharedRemotes: make(map[string]*git.Repository),
+		PullRequests:  []*PullRequest{},
 	}
 }
 
@@ -66,6 +71,7 @@ func (sm *SessionManager) CreateSession(id string) (*Session, error) {
 		CurrentDir: "/",
 		CreatedAt:  time.Now(),
 		Reflog:     []ReflogEntry{},
+		Manager:    sm,
 	}
 	sm.sessions[id] = session
 	return session, nil
@@ -86,6 +92,7 @@ func (sm *SessionManager) ForkSession(srcID, dstID string) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
+	dstSession.Manager = sm
 
 	// Lock source for reading
 	srcSession.mu.RLock()
@@ -348,4 +355,103 @@ func (s *Session) RemoveAll(path string) error {
 	}
 
 	return s.Filesystem.Remove(path)
+}
+
+// IngestRemote transforms a target URL into a shared remote template
+func (sm *SessionManager) IngestRemote(name string, url string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	// In a real app, this would git clone.
+	// For simulation, we create a bare repo.
+	st := memory.NewStorage()
+	repo, err := git.Init(st, nil) // Bare
+	if err != nil {
+		return err
+	}
+
+	sm.SharedRemotes[name] = repo
+	return nil
+}
+
+// CreatePullRequest adds a new PR to the shared state
+func (sm *SessionManager) CreatePullRequest(title, desc, source, target, creator string) (*PullRequest, error) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	pr := &PullRequest{
+		ID:           len(sm.PullRequests) + 1,
+		Title:        title,
+		Description:  desc,
+		SourceBranch: source,
+		TargetBranch: target,
+		Status:       PROpen,
+		Creator:      creator,
+		CreatedAt:    time.Now(),
+	}
+	sm.PullRequests = append(sm.PullRequests, pr)
+	return pr, nil
+}
+
+// GetPullRequests returns all PRs
+func (sm *SessionManager) GetPullRequests() []*PullRequest {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.PullRequests
+}
+
+// MergePullRequest simulates merging a PR in the shared remote
+func (sm *SessionManager) MergePullRequest(id int, remoteName string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	var targetPR *PullRequest
+	for _, pr := range sm.PullRequests {
+		if pr.ID == id {
+			targetPR = pr
+			break
+		}
+	}
+
+	if targetPR == nil {
+		return fmt.Errorf("PR #%d not found", id)
+	}
+
+	if targetPR.Status != PROpen {
+		return fmt.Errorf("PR #%d is already %s", id, targetPR.Status)
+	}
+
+	repo, ok := sm.SharedRemotes[remoteName]
+	if !ok {
+		return fmt.Errorf("remote %s not found", remoteName)
+	}
+
+	// Simulation: Simply move the target branch to the source branch's hash
+	srcRef, err := repo.Reference(plumbing.NewBranchReferenceName(targetPR.SourceBranch), true)
+	if err != nil {
+		return fmt.Errorf("source branch %s not found in remote", targetPR.SourceBranch)
+	}
+
+	targetRefName := plumbing.NewBranchReferenceName(targetPR.TargetBranch)
+	newRef := plumbing.NewHashReference(targetRefName, srcRef.Hash())
+
+	if err := repo.Storer.SetReference(newRef); err != nil {
+		return err
+	}
+
+	targetPR.Status = PRMerged
+	return nil
+}
+
+// RemoveRemote removes a shared remote repository from the session manager
+func (sm *SessionManager) RemoveRemote(name string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if _, ok := sm.SharedRemotes[name]; !ok {
+		return fmt.Errorf("remote %s not found", name)
+	}
+
+	delete(sm.SharedRemotes, name)
+	return nil
 }

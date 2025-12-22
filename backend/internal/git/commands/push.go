@@ -66,9 +66,18 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	// Resolve local simulated remote path
 	lookupKey := strings.TrimPrefix(url, "/")
 
-	targetRepo, ok := s.Repos[lookupKey]
+	var targetRepo *gogit.Repository
+	var ok bool
+
+	// Check Session-local Repos
+	targetRepo, ok = s.Repos[lookupKey]
+	if !ok && s.Manager != nil {
+		// Check Shared Remotes
+		targetRepo, ok = s.Manager.SharedRemotes[lookupKey]
+	}
+
 	if !ok {
-		return "", fmt.Errorf("remote repository '%s' not found in simulation session (only local simulation supported)", url)
+		return "", fmt.Errorf("remote repository '%s' not found (only local simulation supported)", url)
 	}
 
 	// Determined Branch to Push

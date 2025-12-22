@@ -134,6 +134,21 @@
     background-color: var(--accent-primary);
 }
 
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.spinner {
+    display: inline-block;
+}
+
+
 /* Vertical Resizer Handle */
 .resizer-vertical {
     width: 4px;

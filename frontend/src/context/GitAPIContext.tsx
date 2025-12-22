@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { GitState } from '../types/gitTypes';
+import type { GitState, PullRequest } from '../types/gitTypes';
 import { gitService } from '../services/gitService';
 
 interface GitContextType {
@@ -15,6 +15,16 @@ interface GitContextType {
     exitSandbox: () => Promise<void>;
     resetSandbox: () => Promise<void>;
     strategies: any[];
+    developers: string[];
+    activeDeveloper: string;
+    switchDeveloper: (name: string) => Promise<void>;
+    addDeveloper: (name: string) => Promise<void>;
+    pullRequests: PullRequest[];
+    refreshPullRequests: () => Promise<void>;
+    ingestRemote: (name: string, url: string) => Promise<void>;
+    createPullRequest: (title: string, desc: string, source: string, target: string) => Promise<void>;
+    mergePullRequest: (id: number) => Promise<void>;
+    resetRemote: (name?: string) => Promise<void>;
 }
 
 const GitContext = createContext<GitContextType | undefined>(undefined);
@@ -36,6 +46,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fileStatuses: {},
         files: [],
         potentialCommits: [],
+        sharedRemotes: [],
         output: [],
         commandCount: 0
     });
@@ -46,6 +57,11 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [isForking, setIsForking] = useState<boolean>(false);
     const [showAllCommits, setShowAllCommits] = useState<boolean>(false);
     const [strategies, setStrategies] = useState<any[]>([]);
+
+    const [developers, setDevelopers] = useState<string[]>([]);
+    const [developerSessions, setDeveloperSessions] = useState<Record<string, string>>({});
+    const [activeDeveloper, setActiveDeveloper] = useState<string>('');
+    const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
 
     // Init session on mount
     useEffect(() => {
@@ -189,6 +205,77 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         await runCommand(`restore --staged ${file}`);
     };
 
+    const addDeveloper = async (name: string) => {
+        try {
+            const data = await gitService.initSession();
+            // In a real multi-user app, we'd name the session more uniquely
+            // For now, we use the ID from server or decorate it
+            // Actually server init session returns a fixed ID currently, 
+            // we should ideally pass preferred ID or get a unique one.
+            // Let's just use the returned one and assume we create new ones.
+            // Update: Current backend handleInitSession returns "user-session-1" (fixed).
+            // I should probably update backend to be more unique.
+
+            setDevelopers(prev => [...prev, name]);
+            setDeveloperSessions(prev => ({ ...prev, [name]: data.sessionId }));
+            if (!activeDeveloper) {
+                setActiveDeveloper(name);
+                setSessionId(data.sessionId);
+                setRealSessionId(data.sessionId);
+                await fetchState(data.sessionId);
+            }
+        } catch (e) {
+            console.error("Failed to add developer", e);
+        }
+    };
+
+    const switchDeveloper = async (name: string) => {
+        const sid = developerSessions[name];
+        if (sid) {
+            setActiveDeveloper(name);
+            setSessionId(sid);
+            setRealSessionId(sid);
+            setIsSandbox(false); // Reset sandbox when switching?
+            await fetchState(sid);
+        }
+    };
+
+    const refreshPullRequests = async () => {
+        try {
+            const prs = await gitService.fetchPullRequests();
+            setPullRequests(prs);
+        } catch (e) {
+            console.error("Failed to fetch PRs", e);
+        }
+    };
+
+    const ingestRemote = async (name: string, url: string) => {
+        await gitService.ingestRemote(name, url);
+        await fetchState(sessionId);
+    };
+
+    const createPullRequest = async (title: string, desc: string, source: string, target: string) => {
+        await gitService.createPullRequest({
+            title,
+            description: desc,
+            sourceBranch: source,
+            targetBranch: target,
+            creator: activeDeveloper
+        });
+        await refreshPullRequests();
+    };
+
+    const mergePullRequest = async (id: number) => {
+        await gitService.mergePullRequest(id);
+        await refreshPullRequests();
+        await fetchState(sessionId); // Refresh graph as remote might have changed
+    };
+
+    const resetRemote = async (name: string = 'origin') => {
+        await gitService.resetRemote(name);
+        await fetchState(sessionId); // Refresh state after reset
+    };
+
     // Re-fetch when toggle changes
     useEffect(() => {
         if (sessionId) {
@@ -209,7 +296,17 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             enterSandbox,
             exitSandbox,
             resetSandbox,
-            strategies
+            strategies,
+            developers,
+            activeDeveloper,
+            switchDeveloper,
+            addDeveloper,
+            pullRequests,
+            refreshPullRequests,
+            ingestRemote,
+            createPullRequest,
+            mergePullRequest,
+            resetRemote
         }}>
             {children}
         </GitContext.Provider>

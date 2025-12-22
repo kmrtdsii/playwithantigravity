@@ -62,7 +62,16 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	// Look up simulated remote
 	lookupKey := strings.TrimPrefix(url, "/")
 
-	srcRepo, ok := s.Repos[lookupKey]
+	var srcRepo *gogit.Repository
+	var ok bool
+
+	// Check Session-local
+	srcRepo, ok = s.Repos[lookupKey]
+	if !ok && s.Manager != nil {
+		// Check Shared
+		srcRepo, ok = s.Manager.SharedRemotes[lookupKey]
+	}
+
 	if !ok {
 		return "", fmt.Errorf("remote repository '%s' not found (simulated path or URL required)", url)
 	}

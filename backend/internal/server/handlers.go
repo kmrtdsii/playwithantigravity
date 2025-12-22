@@ -2,8 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
 )
@@ -29,6 +31,11 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("/api/state", s.handleGetGraphState)
 	s.Mux.HandleFunc("/api/sandbox/fork", s.handleForkSession)
 	s.Mux.HandleFunc("/api/strategies", s.handleGetStrategies)
+	s.Mux.HandleFunc("/api/remote/ingest", s.handleIngestRemote)
+	s.Mux.HandleFunc("/api/remote/pull-requests", s.handleGetPullRequests)
+	s.Mux.HandleFunc("/api/remote/pull-requests/create", s.handleCreatePullRequest)
+	s.Mux.HandleFunc("/api/remote/pull-requests/merge", s.handleMergePullRequest)
+	s.Mux.HandleFunc("/api/remote/reset", s.handleResetRemote)
 }
 
 func (s *Server) handleGetStrategies(w http.ResponseWriter, r *http.Request) {
@@ -90,8 +97,8 @@ func (s *Server) handleInitSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	// Generate simple ID
-	sessionID := "user-session-1" // Fixed for now
+	// Generate complex ID
+	sessionID := fmt.Sprintf("session-%d", time.Now().UnixNano())
 
 	if _, err := s.SessionManager.CreateSession(sessionID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -180,4 +187,97 @@ func (s *Server) handleGetGraphState(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(state)
+}
+func (s *Server) handleIngestRemote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.SessionManager.IngestRemote(req.Name, req.URL); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleGetPullRequests(w http.ResponseWriter, r *http.Request) {
+	prs := s.SessionManager.GetPullRequests()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(prs)
+}
+
+func (s *Server) handleCreatePullRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Title        string `json:"title"`
+		Description  string `json:"description"`
+		SourceBranch string `json:"sourceBranch"`
+		TargetBranch string `json:"targetBranch"`
+		Creator      string `json:"creator"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	pr, err := s.SessionManager.CreatePullRequest(req.Title, req.Description, req.SourceBranch, req.TargetBranch, req.Creator)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(pr)
+}
+
+func (s *Server) handleMergePullRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID         int    `json:"id"`
+		RemoteName string `json:"remoteName"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.SessionManager.MergePullRequest(req.ID, req.RemoteName); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleResetRemote(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Name == "" {
+		req.Name = "origin" // Default remote name
+	}
+	if err := s.SessionManager.RemoveRemote(req.Name); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
