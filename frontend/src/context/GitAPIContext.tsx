@@ -5,6 +5,7 @@ import { filterReachableCommits } from '../utils/graphUtils';
 
 interface GitContextType {
     state: GitState;
+    sessionId: string;
     runCommand: (cmd: string) => Promise<void>;
     showAllCommits: boolean;
     toggleShowAllCommits: () => void;
@@ -111,7 +112,8 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     ...newState,
                     commits: finalCommits,
                     output: storedOutput,
-                    commandCount: storedCount
+                    commandCount: storedCount,
+                    _sessionId: sid // Inject session ID for validation
                 };
             });
         } catch (e) {
@@ -280,6 +282,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return (
         <GitContext.Provider value={{
             state,
+            sessionId, // Expose current session ID
             runCommand,
             showAllCommits,
             toggleShowAllCommits,
