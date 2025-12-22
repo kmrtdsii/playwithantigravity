@@ -28,16 +28,13 @@ const GitTerminal = () => {
             if (xtermRef.current) {
                 xtermRef.current.clear(); // Clear visual buffer
                 xtermRef.current.writeln(`\x1b[1;32mSwitched to user: ${activeDeveloper}\x1b[0m`);
-                xtermRef.current.write(getPrompt(state)); // Write initial prompt for this user state
+                // Do NOT write prompt here immediately if we are going to replay history.
+                // The history output effect will run next. 
+                // We need to ensure it triggers the prompt printing at the END of history.
             }
-            lastOutputLen.current = 0; // Reset output tracker to replay history if any (or prevent duplicate)
-            // Actually, if we want to replay history, we should let the next effect handle it.
-            // But usually terminal buffer is internal. 
-            // Ideally we don't replay generic logs, only command inputs/outputs.
-            // Our 'state.output' contains command responses.
-            // If we reset lastOutputLen to 0, the next effect will assume everything is new?
-            // Yes, if state.output is [line1, line2], and last is 0, it reprints line1, line2.
-            // This is exactly what we want to restore history!
+            lastOutputLen.current = 0; // Reset output to trigger replay
+            lastCommandCount.current = -1; // Reset command count to ensure (current > last) triggers prompt
+
             lastActiveDeveloper.current = activeDeveloper;
         }
     }, [activeDeveloper]);
