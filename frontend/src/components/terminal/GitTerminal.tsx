@@ -155,8 +155,31 @@ const GitTerminal = () => {
                             term.clear();
                             term.write(getPrompt(stateRef.current));
                         } else {
+                            // ENFORCE GIT COMMANDS ONLY
+                            let fullCmd = cmd;
+                            const parts = cmd.split(/\s+/);
+                            const firstToken = parts[0];
+
+                            // 1. If starts with "git", allow it (git commit, git status)
+                            if (firstToken === 'git') {
+                                // fullCmd is already good
+                            }
+                            // 2. If it is a known git subcommand (simple heuristic), prepend "git "
+                            // Heuristic: If it's not a known shell command, assume it's a git subcommand target
+                            // BUT user wants "Git Command Only".
+                            // Let's TRY to run as "git <cmd>" if it doesn't start with git.
+                            else {
+                                // Auto-prefix
+                                fullCmd = `git ${cmd}`;
+                                // Optional logic: We could check if `cmd` is `ls` or `cd` and Block it?
+                                // User said: "git コマンド以外のバックエンドコードはそのまま削除しないように"
+                                // "ターミナルは... git コマンド限定にしたい"
+                                // If I run `git ls`, git will complain "git: 'ls' is not a git command". This satisfies "Git commands only" (invalid ones are rejected by git).
+                                term.writeln(`\r\n\x1b[90m(Auto-prefixed: ${fullCmd})\x1b[0m`);
+                            }
+
                             if (runCommandRef.current) {
-                                runCommandRef.current(cmd);
+                                runCommandRef.current(fullCmd);
                             }
                         }
                     } else {

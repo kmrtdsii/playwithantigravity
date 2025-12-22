@@ -100,17 +100,42 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Since this function is async, by the time it returns, sessionId state might match sid.
 
             setState(prev => {
-                // If the fetched state is for the CURRENT session, update the main state
-                // If we are pre-fetching for another user, we might not want to touch global 'state' yet?
-                // But typically fetchState is called for active user.
-
-                // We always use the 'sid' output store.
                 const storedOutput = sessionOutputs[sid] || [];
                 const storedCount = sessionCmdCounts[sid] || 0;
+
+                // Client-side filtering for safely:
+                // If showAllCommits is FALSE, we double-check and filter out unreachable commits
+                // (In case backend sends everything)
+                let finalCommits = newState.commits;
+                if (!showAllCommits && newState.commits.length > 0) {
+                    const reachable = new Set<string>();
+                    const queue: string[] = [];
+
+                    // 1. Seeds: HEAD, Branches, Tags
+                    if (newState.HEAD && newState.HEAD.id) queue.push(newState.HEAD.id);
+                    if (newState.branches) Object.values(newState.branches).forEach((h: any) => queue.push(h));
+                    if (newState.tags) Object.values(newState.tags).forEach((h: any) => queue.push(h));
+
+                    // 2. BFS/DFS Traverse
+                    while (queue.length > 0) {
+                        const currentId = queue.shift()!;
+                        if (reachable.has(currentId)) continue;
+                        reachable.add(currentId);
+
+                        const commit = newState.commits.find((c: any) => c.id === currentId);
+                        if (commit) {
+                            if (commit.parentId && !reachable.has(commit.parentId)) queue.push(commit.parentId);
+                            if (commit.secondParentId && !reachable.has(commit.secondParentId)) queue.push(commit.secondParentId);
+                        }
+                    }
+
+                    finalCommits = newState.commits.filter((c: any) => reachable.has(c.id));
+                }
 
                 return {
                     ...prev,
                     ...newState,
+                    commits: finalCommits,
                     output: storedOutput,
                     commandCount: storedCount
                 };

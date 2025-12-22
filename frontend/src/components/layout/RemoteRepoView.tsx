@@ -197,7 +197,7 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                     flexDirection: 'column',
                     gap: '4px',
                     flexShrink: 0,
-                    minHeight: '48px', // Prevent jump
+                    minHeight: '72px', // MATCH CENTRE HEADER (32px Tabs + 40px Controls)
                     justifyContent: 'center'
                 }}>
                     {isEditMode ? (

@@ -137,47 +137,33 @@ const AppLayout = () => {
                 {/* ROW 1: User Tabs (Alice / Bob) */}
                 <div style={{
                     height: '32px',
-                    background: 'var(--bg-secondary)',
+                    background: 'var(--bg-secondary)', // Outer background
                     display: 'flex',
-                    alignItems: 'center',
-                    borderBottom: '1px solid var(--border-subtle)'
+                    alignItems: 'flex-end', // Align tabs to bottom
+                    borderBottom: 'none' // No border, as active tab will merge with next row
                 }}>
-                    {developers.map(dev => {
-                        const isActive = dev === activeDeveloper;
-                        return (
-                            <button
-                                key={dev}
-                                onClick={() => switchDeveloper(dev)}
-                                style={{
-                                    height: '100%',
-                                    padding: '0 16px',
-                                    background: isActive ? '#1e1e1e' : 'transparent', // Tab active color
-                                    color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                                    border: 'none',
-                                    borderTop: isActive ? '2px solid var(--accent-primary)' : '2px solid transparent', // Top accent
-                                    borderRight: '1px solid var(--border-subtle)',
-                                    fontSize: '12px',
-                                    fontWeight: isActive ? 600 : 400,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px'
-                                }}
-                            >
-                                <span>{dev}</span>
-                            </button>
-                        );
-                    })}
-                    {/* Add User Button */}
-                    <button
-                        style={{
-                            height: '100%', padding: '0 12px', background: 'transparent', border: 'none',
-                            color: 'var(--text-tertiary)', cursor: 'pointer', fontSize: '14px'
-                        }}
-                        onClick={() => { const name = prompt('Name?'); if (name) addDeveloper(name); }}
-                    >
-                        +
-                    </button>
+                    <div className="tab-container" style={{ display: 'flex', height: '100%', alignItems: 'flex-end' }}>
+                        {developers.map(dev => {
+                            const isActive = dev === activeDeveloper;
+                            return (
+                                <button
+                                    key={dev}
+                                    onClick={() => switchDeveloper(dev)}
+                                    className={`user-tab ${isActive ? 'active' : ''}`}
+                                >
+                                    <span>{dev}</span>
+                                </button>
+                            );
+                        })}
+                        {/* Add User Button */}
+                        <button
+                            className="tab-add-btn"
+                            title="Add Developer"
+                            onClick={() => { const name = prompt('Name?'); if (name) addDeveloper(name); }}
+                        >
+                            +
+                        </button>
+                    </div>
                 </div>
 
                 {/* ROW 2: View Toggles (Graph, Branches...) & Global Controls */}
