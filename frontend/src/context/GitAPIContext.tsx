@@ -60,25 +60,17 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [activeDeveloper, setActiveDeveloper] = useState<string>('');
     const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
 
-    // Init session on mount
+    // Init session on mount - Create Alice and Bob
     useEffect(() => {
         const init = async () => {
-            try {
-                // Init Session
-                const data = await gitService.initSession();
-                console.log("GitAPI: Session init response:", data);
-                if (data.sessionId) {
-                    setSessionId(data.sessionId);
-                    await fetchState(data.sessionId);
-                }
+            // Only init if not already done
+            if (developers.length > 0) return;
 
-                // Load Strategies
-                const stratData = await gitService.fetchStrategies();
-                setStrategies(stratData);
-            } catch (e) {
-                console.error("Failed to init session or load strategies", e);
-                setState(prev => ({ ...prev, output: [...prev.output, "Error connecting to server"] }));
-            }
+            // 1. Create Alice
+            await addDeveloper('Alice');
+
+            // 2. Create Bob
+            await addDeveloper('Bob');
         };
         init();
     }, []);
