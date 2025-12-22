@@ -106,6 +106,18 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     const [isSettingUp, setIsSettingUp] = React.useState(false);
     // Removed setupLog/setupSuccess as they were unused in the new minimalist UI.
     const [isEditMode, setIsEditMode] = React.useState(false);
+    const [isCopied, setIsCopied] = React.useState(false);
+
+    const handleCopyUrl = async () => {
+        if (!remoteUrl) return;
+        try {
+            await navigator.clipboard.writeText(remoteUrl);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    };
 
     React.useEffect(() => {
         refreshPullRequests();
@@ -275,8 +287,31 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                                         </span>
                                     )}
                                 </div>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {remoteUrl || 'Connect a GitHub repository to visualize remote history.'}
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {remoteUrl || 'Connect a GitHub repository to visualize remote history.'}
+                                    </span>
+                                    {remoteUrl && (
+                                        <button
+                                            onClick={handleCopyUrl}
+                                            title={isCopied ? 'Copied!' : 'Copy URL to clipboard'}
+                                            style={{
+                                                background: 'transparent',
+                                                border: '1px solid var(--border-subtle)',
+                                                borderRadius: '4px',
+                                                padding: '2px 4px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                color: isCopied ? 'var(--accent-primary)' : 'var(--text-secondary)',
+                                                fontSize: '10px',
+                                                flexShrink: 0
+                                            }}
+                                        >
+                                            {isCopied ? '✓' : '📋'}
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
