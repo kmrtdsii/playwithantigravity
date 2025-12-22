@@ -8,6 +8,7 @@ import GitReferenceList from '../visualization/GitReferenceList';
 import FileExplorer from './FileExplorer';
 import ObjectInspector from './ObjectInspector';
 import ObjectGraph from '../ObjectGraph';
+import ThreeStateView from '../visualization/anatomy/ThreeStateView';
 
 export interface SelectedObject {
     type: 'commit' | 'file';
@@ -15,7 +16,7 @@ export interface SelectedObject {
     data?: any;
 }
 
-type ViewMode = 'graph' | 'branches' | 'tags';
+type ViewMode = 'graph' | 'branches' | 'tags' | 'anatomy';
 
 const AppLayout = () => {
     const { state, showAllCommits, toggleShowAllCommits } = useGit();
@@ -154,7 +155,7 @@ const AppLayout = () => {
                 <div className="pane-header" style={{ justifyContent: 'space-between' }}>
                     {/* View Switcher */}
                     <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '6px', padding: '2px' }}>
-                        {(['graph', 'branches', 'tags'] as ViewMode[]).map((mode) => (
+                        {(['graph', 'branches', 'tags', 'anatomy'] as ViewMode[]).map((mode) => (
                             <button
                                 key={mode}
                                 onClick={() => setViewMode(mode)}
@@ -170,7 +171,7 @@ const AppLayout = () => {
                                     fontWeight: 500
                                 }}
                             >
-                                {mode}
+                                {mode === 'anatomy' ? 'Index Anatomy' : mode}
                             </button>
                         ))}
                     </div>
@@ -238,6 +239,8 @@ const AppLayout = () => {
                                     selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
                                 />
                             )
+                        ) : viewMode === 'anatomy' ? (
+                            <ThreeStateView />
                         ) : (
                             <div style={{
                                 height: '100%',

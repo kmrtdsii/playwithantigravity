@@ -7,6 +7,8 @@ interface GitContextType {
     runCommand: (cmd: string) => Promise<void>;
     showAllCommits: boolean;
     toggleShowAllCommits: () => void;
+    stageFile: (file: string) => Promise<void>;
+    unstageFile: (file: string) => Promise<void>;
 }
 
 const GitContext = createContext<GitContextType | undefined>(undefined);
@@ -97,6 +99,14 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setShowAllCommits(prev => !prev);
     };
 
+    const stageFile = async (file: string) => {
+        await runCommand(`add ${file}`);
+    };
+
+    const unstageFile = async (file: string) => {
+        await runCommand(`restore --staged ${file}`);
+    };
+
     // Re-fetch when toggle changes
     useEffect(() => {
         if (sessionId) {
@@ -105,7 +115,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [showAllCommits]);
 
     return (
-        <GitContext.Provider value={{ state, runCommand, showAllCommits, toggleShowAllCommits }}>
+        <GitContext.Provider value={{ state, runCommand, showAllCommits, toggleShowAllCommits, stageFile, unstageFile }}>
             {children}
         </GitContext.Provider>
     );
