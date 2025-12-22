@@ -23,17 +23,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
     const isRoot = !currentPathClean;
     const activeProject = isRoot ? null : currentPathClean.split('/')[0];
 
-    // Compute Staged Files
-    const stagedFiles = useMemo(() => {
-        if (!state.HEAD || state.HEAD.type === 'none') return [];
-        return Object.entries(state.fileStatuses || {})
-            .filter(([, status]) => {
-                const x = status[0];
-                return x !== ' ' && x !== '?';
-            })
-            .map(([path, status]) => ({ path, status }));
-    }, [state.fileStatuses, state.HEAD]);
-
     // Build Entry Tree from flat file list (Working Tree)
     // For this split view, the LEFT side is the general file explorer (which implicitly shows unstaged changes via status colors).
     const fileTree = useMemo(() => {
