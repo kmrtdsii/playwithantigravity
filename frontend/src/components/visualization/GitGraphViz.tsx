@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit, GitState } from '../../types/gitTypes';
 
@@ -304,6 +304,9 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId, s
     const state = propState || contextState;
     const { commits, potentialCommits, branches, references, remoteBranches, tags, HEAD } = state;
 
+    // Hover state for row highlighting
+    const [hoveredId, setHoveredId] = useState<string | null>(null);
+
     const { nodes, edges, height, badgesMap } = useMemo(() =>
         computeLayout(commits, potentialCommits || [], branches, references || {}, remoteBranches || {}, tags || {}, HEAD),
         [commits, potentialCommits, branches, references, remoteBranches, tags, HEAD]
@@ -404,15 +407,18 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId, s
                     })}
                 </svg>
 
-                {/* Render Text Content (Clickable Rows) */}
+                {/* Render Text Content (Hoverable Rows) */}
                 {nodes.map(node => {
                     const textX = 140; // Fixed gutter for rails
                     const hasBadges = badgesMap[node.id] && badgesMap[node.id].length > 0;
+                    const isHovered = node.id === hoveredId;
                     const isSelected = node.id === selectedCommitId;
 
                     return (
                         <div
                             key={node.id}
+                            onMouseEnter={() => setHoveredId(node.id)}
+                            onMouseLeave={() => setHoveredId(null)}
                             onClick={() => onSelect && onSelect(node)}
                             style={{
                                 position: 'absolute',
@@ -431,8 +437,8 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId, s
                                 userSelect: 'none',
                                 // @ts-ignore
                                 opacity: node.opacity,
-                                backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent', // Row Highlight
-                                borderLeft: isSelected ? '4px solid var(--accent-primary)' : '4px solid transparent', // Accent bar
+                                backgroundColor: isHovered || isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                                borderLeft: isHovered || isSelected ? '4px solid var(--accent-primary)' : '4px solid transparent',
                             }}
                             className="commit-row"
                         >
