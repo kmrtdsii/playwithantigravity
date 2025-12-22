@@ -57,6 +57,13 @@ const AppLayout = () => {
         };
     }, [state]);
 
+    const localState: GitState = useMemo(() => {
+        return {
+            ...state,
+            remoteBranches: {} // Hide remote-tracking branches in local view
+        };
+    }, [state]);
+
     // Resizable Pane State (Vertical - Side Panes)
     const [leftPaneWidth, setLeftPaneWidth] = useState(250);
     const [rightPaneWidth, setRightPaneWidth] = useState(250);
@@ -342,6 +349,7 @@ const AppLayout = () => {
                                     <div style={{ flex: 1, minWidth: 0, background: 'var(--bg-primary)' }}>
                                         <GitGraphViz
                                             title="LOCAL REPOSITORY"
+                                            state={localState}
                                             onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
                                             selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
                                         />
