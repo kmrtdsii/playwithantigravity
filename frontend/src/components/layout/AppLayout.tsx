@@ -8,7 +8,6 @@ import GitReferenceList from '../visualization/GitReferenceList';
 import FileExplorer from './FileExplorer';
 import ObjectInspector from './ObjectInspector';
 import ObjectGraph from '../ObjectGraph';
-import ThreeStateView from '../visualization/anatomy/ThreeStateView';
 
 export interface SelectedObject {
     type: 'commit' | 'file';
@@ -16,7 +15,7 @@ export interface SelectedObject {
     data?: any;
 }
 
-type ViewMode = 'graph' | 'branches' | 'tags' | 'anatomy';
+type ViewMode = 'graph' | 'branches' | 'tags';
 
 const AppLayout = () => {
     const { state, showAllCommits, toggleShowAllCommits } = useGit();
@@ -155,23 +154,22 @@ const AppLayout = () => {
                 <div className="pane-header" style={{ justifyContent: 'space-between' }}>
                     {/* View Switcher */}
                     <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '6px', padding: '2px' }}>
-                        {(['graph', 'branches', 'tags', 'anatomy'] as ViewMode[]).map((mode) => (
+                        {(['graph', 'branches', 'tags'] as ViewMode[]).map((mode) => (
                             <button
                                 key={mode}
                                 onClick={() => setViewMode(mode)}
                                 style={{
                                     background: viewMode === mode ? 'var(--accent-primary)' : 'transparent',
-                                    color: viewMode === mode ? '#fff' : 'var(--text-secondary)',
+                                    color: viewMode === mode ? 'white' : 'var(--text-secondary)',
                                     border: 'none',
                                     borderRadius: '4px',
-                                    padding: '2px 10px',
-                                    fontSize: '0.75rem',
+                                    padding: '4px 12px',
+                                    fontSize: '12px',
                                     cursor: 'pointer',
-                                    textTransform: 'capitalize',
                                     fontWeight: 500
                                 }}
                             >
-                                {mode === 'anatomy' ? 'Index Anatomy' : mode}
+                                {mode}
                             </button>
                         ))}
                     </div>
@@ -226,11 +224,7 @@ const AppLayout = () => {
                         style={{ height: vizHeight, flex: 'none', minHeight: 0 }}
                         ref={vizRef}
                     >
-                        {/* Condition 1: Anatomy View (Always Available) */}
-                        {viewMode === 'anatomy' ? (
-                            <ThreeStateView />
-                        ) : state.HEAD && state.HEAD.type !== 'none' ? (
-                            /* Condition 2: HEAD Exists - Show Graph or Reference List */
+                        {state.HEAD && state.HEAD.type !== 'none' ? (
                             viewMode === 'graph' ? (
                                 <GitGraphViz
                                     onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
