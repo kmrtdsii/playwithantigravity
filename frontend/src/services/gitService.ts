@@ -28,6 +28,8 @@ export const gitService = {
             branches: data.branches || {},
             tags: data.tags || {},
             references: data.references || {},
+            remotes: data.remotes || [],
+            remoteBranches: data.remoteBranches || {},
             HEAD: data.HEAD || { type: 'none' },
             files: data.files || [],
             staging: data.staging || [],
@@ -49,6 +51,22 @@ export const gitService = {
             body: JSON.stringify({ sessionId, command: cmd })
         });
         if (!res.ok) throw new Error('Failed to execute command');
+        return res.json();
+    },
+
+    async forkSession(sourceId: string, targetId: string): Promise<InitResponse> {
+        const res = await fetch('/api/sandbox/fork', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_id: sourceId, target_id: targetId })
+        });
+        if (!res.ok) throw new Error('Failed to fork session');
+        return res.json();
+    },
+
+    async fetchStrategies(): Promise<any[]> {
+        const res = await fetch('/api/strategies');
+        if (!res.ok) throw new Error('Failed to fetch strategies');
         return res.json();
     }
 };

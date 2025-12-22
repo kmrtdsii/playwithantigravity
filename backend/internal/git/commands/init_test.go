@@ -2,6 +2,7 @@ package commands
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
@@ -30,6 +31,9 @@ func TestInitCommand_Execute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Execute with arg failed: %v", err)
 	}
+	if res == "" {
+		t.Error("Expected non-empty response for init with arg")
+	}
 	if _, ok := s2.Repos["myrepo"]; !ok {
 		t.Error("Repo 'myrepo' not found in session")
 	}
@@ -39,7 +43,7 @@ func TestInitCommand_Execute(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Double init failed: %v", err)
 	}
-	if res != "Git repository already initialized" {
+	if !strings.Contains(res, "Git repository already initialized") {
 		t.Errorf("Expected already initialized message, got: %s", res)
 	}
 }

@@ -60,14 +60,14 @@ func TestGitCloneAndPushRestriction(t *testing.T) {
 		}
 	})
 
-	// 2. Test Push Restriction
-	t.Run("PushRestriction", func(t *testing.T) {
+	// 2. Test Push Simulation Error (it exists now, but should fail for real URLs)
+	t.Run("PushSimulationCheck", func(t *testing.T) {
 		_, err := exec("push", "origin", "main")
 		if err == nil {
-			t.Error("push command succeeded unexpectedly")
+			t.Error("push command succeeded unexpectedly for external URL")
 		}
 
-		expectedError := "'push' is not a git command"
+		expectedError := "only local simulation supported"
 		if !strings.Contains(err.Error(), expectedError) {
 			t.Errorf("unexpected error message: %v (expected to contain %q)", err, expectedError)
 		}

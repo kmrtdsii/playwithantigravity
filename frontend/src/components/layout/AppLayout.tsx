@@ -5,6 +5,7 @@ import { useTheme } from '../../context/ThemeContext';
 import GitTerminal from '../terminal/GitTerminal';
 import GitGraphViz from '../visualization/GitGraphViz';
 import GitReferenceList from '../visualization/GitReferenceList';
+import BranchingStrategies from '../visualization/BranchingStrategies';
 import FileExplorer from './FileExplorer';
 import ObjectInspector from './ObjectInspector';
 import ObjectGraph from '../ObjectGraph';
@@ -15,10 +16,10 @@ export interface SelectedObject {
     data?: any;
 }
 
-type ViewMode = 'graph' | 'branches' | 'tags';
+type ViewMode = 'graph' | 'branches' | 'tags' | 'strategies';
 
 const AppLayout = () => {
-    const { state, showAllCommits, toggleShowAllCommits } = useGit();
+    const { state, showAllCommits, toggleShowAllCommits, isSandbox, enterSandbox, exitSandbox } = useGit();
     const { theme, toggleTheme } = useTheme();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
@@ -154,7 +155,7 @@ const AppLayout = () => {
                 <div className="pane-header" style={{ justifyContent: 'space-between' }}>
                     {/* View Switcher */}
                     <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '6px', padding: '2px' }}>
-                        {(['graph', 'branches', 'tags'] as ViewMode[]).map((mode) => (
+                        {(['graph', 'branches', 'tags', 'strategies'] as ViewMode[]).map((mode) => (
                             <button
                                 key={mode}
                                 onClick={() => setViewMode(mode)}
@@ -166,7 +167,8 @@ const AppLayout = () => {
                                     padding: '4px 12px',
                                     fontSize: '12px',
                                     cursor: 'pointer',
-                                    fontWeight: 500
+                                    fontWeight: 500,
+                                    textTransform: 'capitalize'
                                 }}
                             >
                                 {mode}
@@ -196,6 +198,31 @@ const AppLayout = () => {
                             <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#27c93f' }} />
                         </div>
 
+                        {/* Sandbox Toggle */}
+                        <div style={{ marginRight: '8px' }}>
+                            <button
+                                onClick={isSandbox ? exitSandbox : enterSandbox}
+                                className={`sandbox-toggle ${isSandbox ? 'active' : ''}`}
+                                style={{
+                                    background: isSandbox ? '#f59f00' : 'transparent',
+                                    color: isSandbox ? 'white' : 'var(--text-secondary)',
+                                    border: isSandbox ? '1px solid #f59f00' : '1px solid var(--border-subtle)',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px',
+                                    fontSize: '12px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                                title={isSandbox ? 'Exit Sandbox Mode (Discard Changes)' : 'Enter Sandbox Mode (Safe Simulation)'}
+                            >
+                                {isSandbox ? '🏝️ EXIT SANDBOX' : '⛱️ SANDBOX'}
+                            </button>
+                        </div>
+
                         {/* Theme Toggle */}
                         <button
                             onClick={toggleTheme}
@@ -218,18 +245,53 @@ const AppLayout = () => {
                 </div>
 
                 <div className="center-content" ref={centerContentRef}>
+                    {isSandbox && (
+                        <div style={{
+                            background: '#f59f00',
+                            color: 'white',
+                            padding: '4px 12px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            textAlign: 'center',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            borderBottom: '1px solid rgba(0,0,0,0.1)'
+                        }}>
+                            <span>🏝️ SANDBOX MODE ON</span>
+                            <span style={{ fontWeight: 400, opacity: 0.9 }}>Experiment freely. Changes will not affect your main session.</span>
+                            <button
+                                onClick={exitSandbox}
+                                style={{
+                                    background: 'rgba(255,255,255,0.2)',
+                                    border: 'none',
+                                    color: 'white',
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    cursor: 'pointer',
+                                    marginLeft: 'auto'
+                                }}
+                            >
+                                DISCARD & EXIT
+                            </button>
+                        </div>
+                    )}
                     {/* Upper: Visualization */}
                     <div
                         className="viz-pane"
                         style={{ height: vizHeight, flex: 'none', minHeight: 0 }}
                         ref={vizRef}
                     >
-                        {state.HEAD && state.HEAD.type !== 'none' ? (
+                        {state.HEAD && state.HEAD.type !== 'none' || viewMode === 'strategies' ? (
                             viewMode === 'graph' ? (
                                 <GitGraphViz
                                     onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
                                     selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
                                 />
+                            ) : viewMode === 'strategies' ? (
+                                <BranchingStrategies />
                             ) : (
                                 <GitReferenceList
                                     type={viewMode === 'branches' ? 'branches' : 'tags'}

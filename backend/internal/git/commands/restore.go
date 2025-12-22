@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/format/index"
 	"github.com/kmrtdsii/playwithantigravity/backend/internal/git"
 )
@@ -132,21 +131,12 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 	} else {
 		// restore (worktree): Discard changes in worktree (restore from Index)
 		// Use w.Checkout to restore files from Index if possible, else manual
-		w, err := repo.Worktree()
-		if err != nil {
-			return "", err
-		}
 
 		// Try standard Checkout first if supported (it writes to worktree from index)
 		// Usually checkout with options.Files works for restoring from index.
 		// If Hash is empty, it uses Index.
-		err = w.Checkout(&gogit.CheckoutOptions{
-			Force: true,
-			// Files: files, // Not supported in some versions? Lint complained.
-			// If Files is not supported in CheckoutOptions structure directly (it might be), we fallback to manual.
-			// But wait, checking documentation is hard.
-			// Let's assume Files is NOT supported based on lint error "unknown field Files".
-		})
+		// We must do it manually for specific files because w.Checkout(Force:true)
+		// without a 'Files' filter would overwrite the entire worktree.
 
 		// If we can't use Checkout with Files, we must do it manually for specific files.
 		// w.Checkout without Files checks out everything! That is bad if we only want one file.
