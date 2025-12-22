@@ -61,3 +61,11 @@ type TreeEntry struct {
 	Hash string `json:"hash"`
 	Type string `json:"type"` // "tree" or "blob"
 }
+
+type BranchingStrategy struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	MainBranch  string   `json:"mainBranch"`
+	FlowSteps   []string `json:"flowSteps"`
+}

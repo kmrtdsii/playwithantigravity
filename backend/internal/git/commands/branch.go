@@ -49,7 +49,7 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		refName := plumbing.ReferenceName("refs/heads/" + branchName)
 		_, err := repo.Reference(refName, true)
 		if err != nil {
-			return "", fmt.Errorf("branch '%s' not found.", branchName)
+			return "", fmt.Errorf("branch '%s' not found", branchName)
 		}
 
 		// Prevent deleting current branch

@@ -27,6 +27,50 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("/api/session/init", s.handleInitSession)
 	s.Mux.HandleFunc("/api/command", s.handleExecCommand)
 	s.Mux.HandleFunc("/api/state", s.handleGetGraphState)
+	s.Mux.HandleFunc("/api/sandbox/fork", s.handleForkSession)
+	s.Mux.HandleFunc("/api/strategies", s.handleGetStrategies)
+}
+
+func (s *Server) handleGetStrategies(w http.ResponseWriter, r *http.Request) {
+	strategies := git.GetBranchingStrategies()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(strategies)
+}
+
+func (s *Server) handleForkSession(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Request Body: { "source_id": "...", "target_id": "..." }
+	type ForkRequest struct {
+		SourceID string `json:"source_id"`
+		TargetID string `json:"target_id"`
+	}
+
+	var req ForkRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if req.SourceID == "" || req.TargetID == "" {
+		http.Error(w, "source_id and target_id required", http.StatusBadRequest)
+		return
+	}
+
+	newSession, err := s.SessionManager.ForkSession(req.SourceID, req.TargetID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":    "forked",
+		"sessionId": newSession.ID,
+	})
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

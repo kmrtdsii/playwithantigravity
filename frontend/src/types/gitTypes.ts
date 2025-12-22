@@ -50,3 +50,11 @@ export interface GitState {
     output: string[];
     commandCount: number;
 }
+
+export interface BranchingStrategy {
+    id: string;
+    name: string;
+    description: string;
+    mainBranch: string;
+    flowSteps: string[];
+}
