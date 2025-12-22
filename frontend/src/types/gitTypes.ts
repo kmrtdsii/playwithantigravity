@@ -35,6 +35,7 @@ export interface GitState {
 
     output: string[];
     commandCount: number;
+    _sessionId?: string;
 }
 
 export interface BranchingStrategy {

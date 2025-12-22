@@ -7,7 +7,7 @@ import { useGit } from '../../context/GitAPIContext';
 const GitTerminal = () => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
-    const { runCommand, state, activeDeveloper } = useGit();
+    const { runCommand, state, activeDeveloper, sessionId } = useGit();
     const runCommandRef = useRef(runCommand);
     const lastOutputLen = useRef(0);
     const lastCommandCount = useRef(0);
@@ -85,6 +85,11 @@ const GitTerminal = () => {
     useEffect(() => {
         if (!xtermRef.current) return;
 
+        // Safety Check: Ensure the state we are seeing belongs to the active session
+        // This prevents displaying "stale" state from the previous user during async transition.
+        const { _sessionId } = state;
+        if (!_sessionId || _sessionId !== sessionId) return;
+
         // Write new output lines
         if (state.output.length > lastOutputLen.current) {
             const newLines = state.output.slice(lastOutputLen.current);
@@ -107,8 +112,7 @@ const GitTerminal = () => {
             xtermRef.current.write(`\r\n${prompt}`);
             lastCommandCount.current = state.commandCount;
         }
-
-    }, [state.output, state.commandCount, state.HEAD, state.currentPath, state.initialized]);
+    }, [state.output, state.commandCount, state.HEAD, state.currentPath, state.initialized, state._sessionId, sessionId]);
 
     useEffect(() => {
         if (!terminalRef.current) return;
