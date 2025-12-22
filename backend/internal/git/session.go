@@ -2,7 +2,6 @@ package git
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"sync"
 	"time"
@@ -80,59 +79,6 @@ func (sm *SessionManager) CreateSession(id string) (*Session, error) {
 
 // ForkSession is REMOVED
 // (Cleaned up as per user request to abolish Sandbox Mode)
-
-// copyFilesystem recursively copies files from src to dst.
-func copyFilesystem(src, dst billy.Filesystem, path string) error {
-	// Read Dir
-	fileInfos, err := src.ReadDir(path)
-	if err != nil {
-		return err
-	}
-
-	for _, fi := range fileInfos {
-		fullPath := path + "/" + fi.Name()
-		if path == "/" {
-			fullPath = fi.Name()
-		}
-
-		if fi.IsDir() {
-			if err := dst.MkdirAll(fullPath, fi.Mode()); err != nil {
-				return err
-			}
-			if err := copyFilesystem(src, dst, fullPath); err != nil {
-				return err
-			}
-		} else {
-			// Copy File
-			srcFile, err := src.Open(fullPath)
-			if err != nil {
-				return err
-			}
-
-			dstFile, err := dst.OpenFile(fullPath, 0644|1|2, fi.Mode()) // Create, WRONLY, TRUNC?
-			// Billy flags are standard os flags usually?
-			// os.O_RDWR | os.O_CREATE | os.O_TRUNC = 2 | 64 | 512 = 578?
-			// No, clean usage: Create file
-			if err != nil {
-				srcFile.Close()
-				// Try Create
-				dstFile, err = dst.Create(fullPath)
-				if err != nil {
-					srcFile.Close()
-					return err
-				}
-			}
-
-			_, err = io.Copy(dstFile, srcFile)
-			srcFile.Close()
-			dstFile.Close()
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 
 // GetRepo returns the repository associated with the current directory
 // Returns nil if no repository is active in the current directory

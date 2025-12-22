@@ -17,22 +17,6 @@ const containerStyle: React.CSSProperties = {
     overflow: 'hidden'
 };
 
-const sectionLabelStyle: React.CSSProperties = {
-    fontSize: '0.7rem',
-    fontWeight: 800,
-    color: 'var(--text-tertiary)',
-    textTransform: 'uppercase',
-    letterSpacing: '0.1em'
-};
-
-const cardStyle: React.CSSProperties = {
-    background: 'var(--bg-secondary)',
-    borderRadius: '12px',
-    padding: '12px 16px',
-    border: '1px solid var(--border-subtle)',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-};
-
 const actionButtonStyle: React.CSSProperties = {
     background: 'var(--accent-primary)',
     color: 'white',
@@ -42,6 +26,13 @@ const actionButtonStyle: React.CSSProperties = {
     fontSize: '10px',
     fontWeight: 700,
     cursor: 'pointer'
+};
+
+const sectionLabelStyle: React.CSSProperties = {
+    fontSize: '0.75rem',
+    fontWeight: 800,
+    color: 'var(--text-secondary)',
+    letterSpacing: '0.05em'
 };
 
 const prCardStyle: React.CSSProperties = {
@@ -78,12 +69,14 @@ const emptyStyle: React.CSSProperties = {
 };
 
 const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStart }) => {
-    const { state, pullRequests, mergePullRequest, refreshPullRequests, createPullRequest, ingestRemote, addDeveloper, runCommand, refreshState } = useGit();
+    // Removed unused 'addDeveloper'
+    const { state, pullRequests, mergePullRequest, refreshPullRequests, createPullRequest, ingestRemote, runCommand, refreshState } = useGit();
     const { remoteBranches } = state;
 
     const remoteState: GitState = useMemo(() => {
         const transformedBranches: Record<string, string> = {};
-        Object.entries(state.remoteBranches).forEach(([name, hash]) => {
+        const branches = state.remoteBranches || {};
+        Object.entries(branches).forEach(([name, hash]) => {
             const parts = name.split('/');
             const shortName = parts.length > 1 ? parts.slice(1).join('/') : name;
             transformedBranches[shortName] = hash;
@@ -101,10 +94,9 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
         return {
             ...state,
+            commits: state.commits,
             branches: transformedBranches,
             HEAD: remoteHead,
-            potentialCommits: [],
-            remoteBranches: {},
             staging: [],
             modified: [],
             untracked: [],
@@ -114,55 +106,55 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
     const [setupUrl, setSetupUrl] = React.useState('');
     const [isSettingUp, setIsSettingUp] = React.useState(false);
-    const [setupLog, setSetupLog] = React.useState<string[]>([]);
-    const [setupSuccess, setSetupSuccess] = React.useState(false);
+    // Removed setupLog/setupSuccess as they were unused in the new minimalist UI.
     const [isEditMode, setIsEditMode] = React.useState(false);
 
     React.useEffect(() => {
         refreshPullRequests();
     }, []);
 
-    // Reset setupSuccess when sharedRemotes is populated
+    // Reset setupSuccess logic (simplified)
     React.useEffect(() => {
-        if (state.sharedRemotes && state.sharedRemotes.length > 0 && setupSuccess) {
-            setSetupSuccess(false);
+        if (state.remotes && state.remotes.length > 0 && !isEditMode) {
+            // If we have stats, maybe sync setupUrl?
+            // Only if setupUrl is empty
+            if (!setupUrl && state.remotes[0]?.urls?.[0]) {
+                setSetupUrl(state.remotes[0].urls[0]);
+            }
         }
-    }, [state.sharedRemotes, setupSuccess]);
+    }, [state.remotes, isEditMode]);
+
 
     const handleInitialSetup = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!setupUrl) return;
         setIsSettingUp(true);
-        setSetupLog(['Connecting to server...']);
 
         try {
-            await new Promise(resolve => setTimeout(resolve, 800));
-            setSetupLog(prev => [...prev, 'Ingesting remote repository from GitHub...']);
+            // 1. Ingest into Backend (Simulated Remote Server)
             await ingestRemote('origin', setupUrl);
 
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            setSetupLog(prev => [...prev, 'Cloning to local environment...']);
+            // 2. Local Session Setup (Decoupled from file working tree)
 
-            // Auto-clone the project
-            // Extract project name from URL to use as folder name
-            const projectName = setupUrl.split('/').pop()?.replace('.git', '') || 'my-project';
-            await runCommand(`git clone ${setupUrl} ${projectName}`); // Clone into a folder
-            await runCommand(`cd ${projectName}`); // Switch to it (simulated in frontend context contextually via active path usually, but here just CLI)
+            // Check if we are in a repo at all. If not, init so we can add a remote.
+            if (!state.initialized) {
+                await runCommand('git init');
+            }
 
-            await addDeveloper('Alice');
-            await addDeveloper('Bob');
+            // Configure Remote in Local Session
+            // Remove existing origin if present to allow "Update"
+            await runCommand('git remote remove origin');
+            await runCommand(`git remote add origin ${setupUrl}`);
 
-            await refreshState(); // Ensure UI updates with new files/graph
+            // Fetch refs (essential for visualization)
+            // This does NOT touch the working directory files.
+            await runCommand('git fetch origin');
 
-            await new Promise(resolve => setTimeout(resolve, 800));
-            setSetupLog(prev => [...prev, 'Setup complete!']);
-            setSetupSuccess(true);
-
-            await new Promise(resolve => setTimeout(resolve, 1200));
-            setIsEditMode(false); // EXIT Edit Mode explicitly
+            await refreshState();
+            setIsEditMode(false);
         } catch (e) {
             console.error(e);
-            setSetupLog(prev => [...prev, 'Error: Failed to initialize remote.']);
+            alert('Failed to update remote.');
         } finally {
             setIsSettingUp(false);
         }
@@ -175,7 +167,7 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
     const handleCancelEdit = () => {
         setIsEditMode(false);
-        setSetupUrl('');
+        setSetupUrl(state.remotes?.[0]?.urls?.[0] || '');
     };
 
     const handleCreatePR = () => {
@@ -187,283 +179,236 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         }
     };
 
-    const hasSharedRemotes = state.sharedRemotes && state.sharedRemotes.length > 0;
-
-    // Show setup form
-    if (!hasSharedRemotes || isEditMode) {
-        return (
-            <div style={{ padding: '16px', height: '100%', overflowY: 'auto' }}>
-                <div style={{ ...cardStyle, background: 'linear-gradient(to bottom, var(--bg-secondary), var(--bg-primary))', textAlign: 'center', padding: '24px 16px' }}>
-                    {setupSuccess ? (
-                        <div style={{ padding: '20px' }}>
-                            <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎉</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--accent-primary)', marginBottom: '8px' }}>INITIALIZED!</div>
-                            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                Remote repository is ready. Alice and Bob are online.
-                            </p>
-                        </div>
-                    ) : isSettingUp ? (
-                        <div style={{ padding: '10px 0' }}>
-                            <div className="spinner" style={{
-                                width: '30px',
-                                height: '30px',
-                                border: '3px solid var(--border-subtle)',
-                                borderTop: '3px solid var(--accent-primary)',
-                                borderRadius: '50%',
-                                margin: '0 auto 20px',
-                                animation: 'spin 1s linear infinite'
-                            }} />
-                            <div style={{ textAlign: 'left', background: 'rgba(0,0,0,0.2)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                                {setupLog.map((log, i) => (
-                                    <div key={i} style={{
-                                        fontSize: '11px',
-                                        fontFamily: 'monospace',
-                                        color: i === setupLog.length - 1 ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                                        marginBottom: '4px',
-                                        display: 'flex',
-                                        gap: '8px'
-                                    }}>
-                                        <span style={{ color: 'var(--accent-primary)' }}>{i === setupLog.length - 1 ? '➜' : '✓'}</span>
-                                        {log}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    ) : (
-                        <>
-                            <div style={{ fontSize: '24px', marginBottom: '12px' }}>{isEditMode ? '⚙️' : '🤝'}</div>
-                            <div style={{ fontSize: '0.9rem', fontWeight: 800, marginBottom: '8px' }}>
-                                {isEditMode ? 'CHANGE REMOTE' : 'TEAM MODE SETUP'}
-                            </div>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.4' }}>
-                                {isEditMode
-                                    ? 'Update the remote repository URL.'
-                                    : 'Initialize a shared remote to start collaborative simulation.'}
-                            </p>
-                            <form onSubmit={handleInitialSetup}>
-                                <input
-                                    type="text"
-                                    placeholder="GitHub Repository URL"
-                                    value={setupUrl}
-                                    onChange={(e) => setSetupUrl(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '8px 12px',
-                                        background: 'var(--bg-primary)',
-                                        border: '1px solid var(--border-subtle)',
-                                        borderRadius: '6px',
-                                        color: 'var(--text-primary)',
-                                        fontSize: '12px',
-                                        marginBottom: '10px',
-                                        outline: 'none'
-                                    }}
-                                />
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    {isEditMode && (
-                                        <button
-                                            type="button"
-                                            onClick={handleCancelEdit}
-                                            style={{
-                                                flex: 1,
-                                                padding: '8px',
-                                                background: 'var(--bg-tertiary)',
-                                                color: 'var(--text-secondary)',
-                                                border: '1px solid var(--border-subtle)',
-                                                borderRadius: '6px',
-                                                fontSize: '12px',
-                                                fontWeight: 700,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Cancel
-                                        </button>
-                                    )}
-                                    <button
-                                        type="submit"
-                                        disabled={isSettingUp || !setupUrl}
-                                        style={{
-                                            flex: 1,
-                                            padding: '8px',
-                                            background: 'var(--accent-primary)',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '6px',
-                                            fontSize: '12px',
-                                            fontWeight: 700,
-                                            cursor: 'pointer',
-                                            opacity: (isSettingUp || !setupUrl) ? 0.5 : 1
-                                        }}
-                                    >
-                                        {isEditMode ? 'UPDATE REMOTE' : 'INITIALIZE REMOTE'}
-                                    </button>
-                                </div>
-                            </form>
-                        </>
-                    )}
-                </div>
-            </div>
-        );
-    }
-
     const remoteUrl = state.remotes?.[0]?.urls?.[0] || '';
-    // Simply extract last part of path as project name
     const projectName = remoteUrl.split('/').pop()?.replace('.git', '') || 'Remote Repository';
-    const remoteName = state.remotes?.[0]?.name || 'origin';
+    const displayTitle = remoteUrl ? projectName : 'NO REMOTE CONFIGURED';
+
+    const hasSharedRemotes = state.remotes && state.remotes.length > 0;
 
     return (
         <div style={containerStyle}>
-            {/* TOP SPLIT: Info & Graph (Height synced via props) */}
+            {/* TOP SPLIT: Info & Graph */}
             <div style={{ height: topHeight, display: 'flex', flexDirection: 'column', flexShrink: 0, minHeight: 0 }}>
-                {/* Repo Info Header - ENHANCED */}
+                {/* Repo Info Header - REFACTORED */}
                 <div style={{
-                    padding: '12px',
+                    padding: '8px 12px',
                     background: 'var(--bg-secondary)',
                     borderBottom: '1px solid var(--border-subtle)',
                     display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    flexShrink: 0
+                    flexDirection: 'column',
+                    gap: '4px',
+                    flexShrink: 0,
+                    minHeight: '48px', // Prevent jump
+                    justifyContent: 'center'
                 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '1.0rem', fontWeight: 800, color: 'var(--text-primary)' }}>{projectName}</span>
-                            <span style={{
-                                fontSize: '0.65rem',
-                                padding: '1px 6px',
-                                borderRadius: '10px',
-                                background: 'var(--bg-tertiary)',
-                                color: 'var(--text-tertiary)',
-                                border: '1px solid var(--border-subtle)'
-                            }}>
-                                {remoteName}
-                            </span>
+                    {isEditMode ? (
+                        /* INLINE EDIT FORM */
+                        <form onSubmit={handleInitialSetup} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
+                            <input
+                                type="text"
+                                placeholder="https://github.com/..."
+                                value={setupUrl}
+                                onChange={(e) => setSetupUrl(e.target.value)}
+                                style={{
+                                    flex: 1,
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    border: '1px solid var(--accent-primary)',
+                                    background: 'var(--bg-primary)',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '11px',
+                                    outline: 'none'
+                                }}
+                                autoFocus
+                            />
+                            <button
+                                type="button"
+                                onClick={handleCancelEdit}
+                                style={{
+                                    padding: '4px 8px',
+                                    fontSize: '10px',
+                                    background: 'transparent',
+                                    color: 'var(--text-secondary)',
+                                    border: '1px solid var(--border-subtle)',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSettingUp || !setupUrl}
+                                style={{
+                                    padding: '4px 12px',
+                                    fontSize: '10px',
+                                    fontWeight: 700,
+                                    background: 'var(--accent-primary)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    opacity: isSettingUp ? 0.7 : 1
+                                }}
+                            >
+                                {isSettingUp ? 'UPDATING...' : 'UPDATE'}
+                            </button>
+                        </form>
+                    ) : (
+                        /* VIEW MODE */
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+                                <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>{displayTitle}</span>
+                                    {remoteUrl && (
+                                        <span style={{
+                                            fontSize: '0.65rem',
+                                            background: '#238636',
+                                            color: 'white',
+                                            padding: '1px 6px',
+                                            borderRadius: '10px',
+                                            fontWeight: 600
+                                        }}>
+                                            origin
+                                        </span>
+                                    )}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {remoteUrl || 'Connect a GitHub repository to visualize remote history.'}
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleEditRemote}
+                                style={{
+                                    padding: '2px 8px',
+                                    fontSize: '10px',
+                                    background: 'transparent',
+                                    border: '1px solid var(--border-subtle)',
+                                    borderRadius: '4px',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer',
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap'
+                                }}
+                            >
+                                {remoteUrl ? 'Configure' : 'Setup Remote'}
+                            </button>
                         </div>
-                        <div style={{
-                            fontSize: '0.7rem',
-                            color: 'var(--text-tertiary)',
-                            fontFamily: 'monospace',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            maxWidth: '100%'
-                        }} title={remoteUrl}>
-                            {remoteUrl || 'No URL configured'}
-                        </div>
-                    </div>
-                    <button
-                        onClick={handleEditRemote}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            color: 'var(--text-tertiary)',
-                            cursor: 'pointer',
-                            fontSize: '14px',
-                            padding: '0 0 0 8px'
-                        }}
-                        title="Configure Remote"
-                    >
-                        ⚙️
-                    </button>
+                    )}
                 </div>
 
-                {/* Compact Remote Graph */}
-                <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative' }}>
-                    <GitGraphViz
-                        state={remoteState}
-                        title=""
-                    />
+                {/* Graph Area */}
+                <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#0d1117' }}>
+                    {hasSharedRemotes || (state.remotes?.length ?? 0) > 0 ? (
+                        <GitGraphViz
+                            state={remoteState}
+                        // Remote graph selection logic if needed
+                        />
+                    ) : (
+                        <div style={{
+                            height: '100%',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--text-tertiary)',
+                            gap: '12px',
+                            padding: '20px',
+                            textAlign: 'center'
+                        }}>
+                            {!isEditMode && (
+                                <>
+                                    <div style={{ fontSize: '24px', opacity: 0.3 }}>🌐</div>
+                                    <div style={{ fontSize: '0.85rem' }}>No Remote Configured</div>
+                                    <button
+                                        onClick={handleEditRemote}
+                                        style={{ ...actionButtonStyle, background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}
+                                    >
+                                        Connect Repository
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* RESIZER HANDLE */}
+            {/* Content Resizer */}
             <div
                 className="resizer"
                 onMouseDown={onResizeStart}
-                style={{
-                    height: '4px',
-                    background: 'var(--border-subtle)',
-                    cursor: 'row-resize',
-                    zIndex: 10,
-                    flexShrink: 0
-                }}
+                style={{ height: '4px', cursor: 'row-resize', background: 'var(--border-subtle)', width: '100%', zIndex: 10 }}
             />
 
-            {/* BOTTOM SPLIT: PRs & Branches - Takes Remaining Space */}
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', padding: '12px' }}>
-
-                {/* Pull Requests Dashboard */}
-                <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            {/* BOTTOM SPLIT: Remote Operations */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--bg-primary)' }}>
+                {/* Pull Requests Section */}
+                <div style={{ padding: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                         <div style={sectionLabelStyle}>PULL REQUESTS</div>
-                        <button
-                            onClick={handleCreatePR}
-                            style={{ ...actionButtonStyle, fontSize: '9px', padding: '3px 8px' }}
-                        >
+                        <button onClick={handleCreatePR} style={{ ...actionButtonStyle, background: '#238636' }}>
                             + NEW
                         </button>
                     </div>
-                    {pullRequests.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            {pullRequests.map(pr => (
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {pullRequests.length === 0 ? (
+                            <div style={emptyStyle}>No active PRs</div>
+                        ) : (
+                            pullRequests.map(pr => (
                                 <div key={pr.id} style={prCardStyle}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2px' }}>
-                                        <span style={{ fontWeight: 700, fontSize: '0.75rem', flex: 1, marginRight: '8px' }}>#{pr.id} {pr.title}</span>
-                                        <span style={{
-                                            fontSize: '8px',
-                                            padding: '1px 5px',
-                                            borderRadius: '8px',
-                                            background: pr.status === 'OPEN' ? '#238636' : pr.status === 'MERGED' ? '#8957e5' : '#7d8590',
-                                            color: 'white',
-                                            fontWeight: 600,
-                                            flexShrink: 0
-                                        }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>#{pr.id} {pr.title}</div>
+                                        <span style={{ fontSize: '0.7rem', padding: '2px 6px', background: pr.status === 'OPEN' ? '#238636' : '#8957e5', color: 'white', borderRadius: '10px' }}>
                                             {pr.status}
                                         </span>
                                     </div>
-                                    <div style={{ fontSize: '9px', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
-                                        <code style={{ fontSize: '9px' }}>{pr.sourceBranch}</code> → <code style={{ fontSize: '9px' }}>{pr.targetBranch}</code>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                        {pr.sourceBranch} ➜ {pr.targetBranch}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
+                                        opened by {pr.creator}
                                     </div>
                                     {pr.status === 'OPEN' && (
                                         <button
                                             onClick={() => mergePullRequest(pr.id)}
                                             style={mergeButtonStyle}
                                         >
-                                            Merge
+                                            Merge Pull Request
                                         </button>
                                     )}
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div style={emptyStyle}>No active PRs</div>
-                    )}
+                            ))
+                        )}
+                    </div>
                 </div>
 
-                {/* Remote Branches List */}
-                <div>
-                    <div style={{ ...sectionLabelStyle, marginBottom: '8px' }}>REMOTE BRANCHES</div>
-                    {Object.keys(remoteBranches).length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {Object.entries(remoteBranches).map(([name, hash]) => (
+                {/* Remote Branches Section */}
+                <div style={{ padding: '0 16px 16px 16px' }}>
+                    <div style={{ ...sectionLabelStyle, marginBottom: '12px' }}>REMOTE BRANCHES</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        {Object.keys(remoteBranches).length === 0 ? (
+                            <div style={emptyStyle}>No branches found</div>
+                        ) : (
+                            Object.entries(remoteBranches).map(([name, hash]) => (
                                 <div key={name} style={{
                                     display: 'flex',
-                                    alignItems: 'center',
                                     justifyContent: 'space-between',
-                                    padding: '6px 8px',
+                                    padding: '6px 10px',
                                     background: 'var(--bg-secondary)',
                                     borderRadius: '6px',
-                                    fontSize: '0.8rem'
+                                    fontSize: '0.8rem',
+                                    border: '1px solid var(--border-subtle)'
                                 }}>
-                                    <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{name}</span>
-                                    <span style={{ fontFamily: 'monospace', fontSize: '0.7rem', color: 'var(--text-tertiary)', background: 'rgba(255,255,255,0.05)', padding: '1px 4px', borderRadius: '3px' }}>
-                                        {hash.substring(0, 6)}
+                                    <span style={{ fontFamily: 'monospace' }}>{name}</span>
+                                    <span style={{ color: 'var(--text-tertiary)', fontSize: '0.7rem', fontFamily: 'monospace' }}>
+                                        {hash.substring(0, 7)}
                                     </span>
                                 </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div style={emptyStyle}>No branches found</div>
-                    )}
+                            ))
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
