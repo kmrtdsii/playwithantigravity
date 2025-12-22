@@ -136,6 +136,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const addDeveloper = async (name: string) => {
         try {
+            if (developers.includes(name)) return; // Prevent duplicates
             const data = await gitService.initSession();
             setDevelopers(prev => [...prev, name]);
             setDeveloperSessions(prev => ({ ...prev, [name]: data.sessionId }));
