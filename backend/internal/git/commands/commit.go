@@ -100,6 +100,10 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		AllowEmptyCommits: allowEmpty,
 	})
 	if err != nil {
+		// Add helpful hint for empty commit error
+		if strings.Contains(err.Error(), "clean") || strings.Contains(err.Error(), "nothing to commit") {
+			return "", fmt.Errorf("%v\nhint: Use 'git commit --allow-empty -m <message>' to create an empty commit", err)
+		}
 		return "", err
 	}
 	s.RecordReflog(fmt.Sprintf("commit: %s", strings.Split(msg, "\n")[0]))
