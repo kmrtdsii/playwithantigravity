@@ -9,6 +9,7 @@ import FileExplorer from './FileExplorer';
 import RemoteRepoView from './RemoteRepoView';
 import DeveloperTabs from './DeveloperTabs';
 import type { GitState } from '../../types/gitTypes';
+import { useTheme } from '../../context/ThemeContext';
 
 export interface SelectedObject {
     type: 'commit' | 'file';
@@ -24,7 +25,7 @@ const AppLayout = () => {
         developers, activeDeveloper, switchDeveloper, addDeveloper
     } = useGit();
 
-    // Theme removed from UI
+    const { theme, toggleTheme } = useTheme();
 
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
@@ -190,6 +191,25 @@ const AppLayout = () => {
                             />
                             SHOW ALL
                         </label>
+                        {/* Theme Toggle */}
+                        <button
+                            onClick={toggleTheme}
+                            style={{
+                                background: 'transparent',
+                                border: '1px solid var(--border-subtle)',
+                                borderRadius: '4px',
+                                padding: '4px 8px',
+                                fontSize: '10px',
+                                cursor: 'pointer',
+                                color: 'var(--text-secondary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}
+                            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                        >
+                            {theme === 'dark' ? '☀️' : '🌙'}
+                        </button>
                     </div>
                 </div>
 
