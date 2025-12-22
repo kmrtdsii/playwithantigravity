@@ -227,7 +227,7 @@ const AppLayout = () => {
                     </div>
                 </div>
 
-                {/* ROW 3: Stacked Content (Graph Top, Terminal Bottom) */}
+                {/* ROW 3: Stacked Content */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
                     {/* Top: Graph / Visualization */}
@@ -254,16 +254,25 @@ const AppLayout = () => {
                         )}
                     </div>
 
-                    {/* Resizer Local Vert */}
+                    {/* Resizer Vert (Graph vs Bottom) */}
                     <div
                         className="resizer"
                         onMouseDown={startResizeCenterVert}
                         style={{ height: '4px', cursor: 'row-resize', background: 'var(--border-subtle)', width: '100%', zIndex: 10, flexShrink: 0 }}
                     />
 
-                    {/* Bottom: Terminal */}
-                    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                        <GitTerminal />
+                    {/* Bottom Area: Explorer | Terminal */}
+                    <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+
+                        {/* File Explorer (Left side of Bottom) */}
+                        <div style={{ width: '40%', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-subtle)' }}>
+                            <FileExplorer onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
+                        </div>
+
+                        {/* Terminal (Right side of Bottom) */}
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                            <GitTerminal />
+                        </div>
                     </div>
                 </div>
 
