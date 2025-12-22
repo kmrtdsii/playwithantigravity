@@ -33,6 +33,7 @@ func (s *Server) routes() {
 	// s.Mux.HandleFunc("/api/sandbox/fork", s.handleForkSession) // REMOVED
 	s.Mux.HandleFunc("/api/strategies", s.handleGetStrategies)
 	s.Mux.HandleFunc("/api/remote/ingest", s.handleIngestRemote)
+	s.Mux.HandleFunc("/api/remote/simulate-commit", s.handleSimulateRemoteCommit)
 	s.Mux.HandleFunc("/api/remote/pull-requests", s.handleGetPullRequests)
 	s.Mux.HandleFunc("/api/remote/pull-requests/create", s.handleCreatePullRequest)
 	s.Mux.HandleFunc("/api/remote/pull-requests/merge", s.handleMergePullRequest)
@@ -182,6 +183,43 @@ func (s *Server) handleGetRemoteState(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(state)
+}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
+}
+
+func (s *Server) handleSimulateRemoteCommit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Name    string `json:"name"`
+		Message string `json:"message"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Name == "" {
+		http.Error(w, "name required", http.StatusBadRequest)
+		return
+	}
+	if req.Message == "" {
+		req.Message = "Simulated commit from team member"
+	}
+
+	if err := s.SessionManager.SimulateCommit(req.Name, req.Message); err != nil {
+		http.Error(w, fmt.Sprintf("failed to simulate commit: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func (s *Server) handleIngestRemote(w http.ResponseWriter, r *http.Request) {

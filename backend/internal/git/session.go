@@ -10,6 +10,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
@@ -211,6 +212,68 @@ func (sm *SessionManager) IngestRemote(name string, url string) error {
 	sm.SharedRemotes[name] = repo
 	sm.SharedRemotes[url] = repo
 	return nil
+}
+
+// SimulateCommit creates a dummy commit on the specified remote's HEAD
+func (sm *SessionManager) SimulateCommit(remoteName string, msg string) error {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	repo, ok := sm.SharedRemotes[remoteName]
+	if !ok {
+		return fmt.Errorf("remote %s not found", remoteName)
+	}
+
+	// 1. Get HEAD
+	headRef, err := repo.Head()
+	if err != nil {
+		return fmt.Errorf("failed to get HEAD: %w", err)
+	}
+
+	// 2. Create Commit Object manually (bypass Worktree to allow bare/bare-ish repos)
+	// We'll just use the current TreeHash so no files change, but history moves forward.
+	// Or we could try to add a dummy file?
+	// For "Visualizing Tree", just moving the graph is enough.
+	// Let's create an empty commit (allow-empty logic equivalent)
+
+	// Get Parent Commit to retrieve TreeHash
+	parentCommit, err := repo.CommitObject(headRef.Hash())
+	if err != nil {
+		return fmt.Errorf("failed to get parent commit: %w", err)
+	}
+
+	commit := &object.Commit{
+		Author: object.Signature{
+			Name:  "Another Developer",
+			Email: "dev@example.com",
+			When:  time.Now(),
+		},
+		Committer: object.Signature{
+			Name:  "Another Developer",
+			Email: "dev@example.com",
+			When:  time.Now(),
+		},
+		Message:      msg,
+		TreeHash:     parentCommit.TreeHash, // Reuse tree = empty commit
+		ParentHashes: []plumbing.Hash{headRef.Hash()},
+	}
+
+	// We need to encode the commit into the repo's storage
+
+	objEncoded := repo.Storer.NewEncodedObject()
+	if err := commit.Encode(objEncoded); err != nil {
+		return err
+	}
+
+	newHash, err := repo.Storer.SetEncodedObject(objEncoded)
+	if err != nil {
+		return err
+	}
+
+	// 3. Update HEAD reference
+	name := headRef.Name() // e.g. refs/heads/main
+	newRef := plumbing.NewHashReference(name, newHash)
+	return repo.Storer.SetReference(newRef)
 }
 
 // CreatePullRequest adds a new PR to the shared state
