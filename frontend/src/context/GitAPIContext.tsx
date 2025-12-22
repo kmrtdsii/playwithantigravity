@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { GitState, PullRequest } from '../types/gitTypes';
+import type { GitState, PullRequest, BranchingStrategy } from '../types/gitTypes';
 import { gitService } from '../services/gitService';
+import { filterReachableCommits } from '../utils/graphUtils';
 
 interface GitContextType {
     state: GitState;
@@ -9,7 +10,7 @@ interface GitContextType {
     toggleShowAllCommits: () => void;
     stageFile: (file: string) => Promise<void>;
     unstageFile: (file: string) => Promise<void>;
-    strategies: any[];
+    strategies: BranchingStrategy[];
     developers: string[];
     activeDeveloper: string;
     switchDeveloper: (name: string) => Promise<void>;
@@ -53,11 +54,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const [sessionId, setSessionId] = useState<string>('');
     const [showAllCommits, setShowAllCommits] = useState<boolean>(false);
-    const [strategies, setStrategies] = useState<any[]>([]); // Preserving as it might be used later or remove if strictly unused.
-    // Actually, it IS used in the commented out init block I removed?
-    // Wait, I removed the fetchStrategies call in my previous edit!
-    // I need to RESTORE the strategy fetching or remove the state.
-    // Let's restore it in the new Alice/Bob init block.
+    const [strategies, setStrategies] = useState<BranchingStrategy[]>([]); // Typing fixed
 
     const [developers, setDevelopers] = useState<string[]>([]);
     const [developerSessions, setDeveloperSessions] = useState<Record<string, string>>({});
@@ -103,34 +100,11 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 const storedOutput = sessionOutputs[sid] || [];
                 const storedCount = sessionCmdCounts[sid] || 0;
 
-                // Client-side filtering for safely:
-                // If showAllCommits is FALSE, we double-check and filter out unreachable commits
-                // (In case backend sends everything)
-                let finalCommits = newState.commits;
-                if (!showAllCommits && newState.commits.length > 0) {
-                    const reachable = new Set<string>();
-                    const queue: string[] = [];
-
-                    // 1. Seeds: HEAD, Branches, Tags
-                    if (newState.HEAD && newState.HEAD.id) queue.push(newState.HEAD.id);
-                    if (newState.branches) Object.values(newState.branches).forEach((h: any) => queue.push(h));
-                    if (newState.tags) Object.values(newState.tags).forEach((h: any) => queue.push(h));
-
-                    // 2. BFS/DFS Traverse
-                    while (queue.length > 0) {
-                        const currentId = queue.shift()!;
-                        if (reachable.has(currentId)) continue;
-                        reachable.add(currentId);
-
-                        const commit = newState.commits.find((c: any) => c.id === currentId);
-                        if (commit) {
-                            if (commit.parentId && !reachable.has(commit.parentId)) queue.push(commit.parentId);
-                            if (commit.secondParentId && !reachable.has(commit.secondParentId)) queue.push(commit.secondParentId);
-                        }
-                    }
-
-                    finalCommits = newState.commits.filter((c: any) => reachable.has(c.id));
-                }
+                // Client-side filtering:
+                // If showAllCommits is FALSE, filter out unreachable commits
+                const finalCommits = showAllCommits
+                    ? newState.commits
+                    : filterReachableCommits(newState.commits, newState);
 
                 return {
                     ...prev,

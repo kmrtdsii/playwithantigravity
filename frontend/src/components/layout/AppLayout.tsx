@@ -7,6 +7,7 @@ import GitReferenceList from '../visualization/GitReferenceList';
 import BranchingStrategies from '../visualization/BranchingStrategies';
 import FileExplorer from './FileExplorer';
 import RemoteRepoView from './RemoteRepoView';
+import DeveloperTabs from './DeveloperTabs';
 import type { GitState } from '../../types/gitTypes';
 
 export interface SelectedObject {
@@ -135,36 +136,15 @@ const AppLayout = () => {
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 
                 {/* ROW 1: User Tabs (Alice / Bob) */}
-                <div style={{
-                    height: '32px',
-                    background: 'var(--bg-secondary)', // Outer background
-                    display: 'flex',
-                    alignItems: 'flex-end', // Align tabs to bottom
-                    borderBottom: 'none' // No border, as active tab will merge with next row
-                }}>
-                    <div className="tab-container" style={{ display: 'flex', height: '100%', alignItems: 'flex-end' }}>
-                        {developers.map(dev => {
-                            const isActive = dev === activeDeveloper;
-                            return (
-                                <button
-                                    key={dev}
-                                    onClick={() => switchDeveloper(dev)}
-                                    className={`user-tab ${isActive ? 'active' : ''}`}
-                                >
-                                    <span>{dev}</span>
-                                </button>
-                            );
-                        })}
-                        {/* Add User Button */}
-                        <button
-                            className="tab-add-btn"
-                            title="Add Developer"
-                            onClick={() => { const name = prompt('Name?'); if (name) addDeveloper(name); }}
-                        >
-                            +
-                        </button>
-                    </div>
-                </div>
+                <DeveloperTabs
+                    developers={developers}
+                    activeDeveloper={activeDeveloper}
+                    onSwitchDeveloper={switchDeveloper}
+                    onAddDeveloper={() => {
+                        const name = prompt('Name?');
+                        if (name) addDeveloper(name);
+                    }}
+                />
 
                 {/* ROW 2: View Toggles (Graph, Branches...) & Global Controls */}
                 <div style={{
