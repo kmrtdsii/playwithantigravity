@@ -7,7 +7,6 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -29,7 +28,6 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 		References:     make(map[string]string),
 		FileStatuses:   make(map[string]string),
 		CurrentPath:    session.CurrentDir,
-		Objects:        make(map[string]ObjectNode),
 		Remotes:        []Remote{},
 	}
 
@@ -49,10 +47,7 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 
 		// 4. Git Status
 		if err := populateGitStatus(repo, state); err != nil {
-			log.Printf("Git Status Error: %v", err) // Non-fatal, just log
-		}
-		if err := populateGitStatus(repo, state); err != nil {
-			log.Printf("Git Status Error: %v", err) // Non-fatal, just log
+			log.Printf("Git Status Error: %v", err)
 		}
 
 		// 5. Remotes
@@ -64,12 +59,6 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 
 	// 6. Projects
 	populateProjects(session, state)
-
-	// 7. Objects (X-Ray)
-	// For performance, we might want to toggle this. But for "GitGym", small repos are expected.
-	if err := populateObjects(repo, state); err != nil {
-		log.Printf("PopulateObjects Error: %v", err)
-	}
 
 	return state, nil
 }
@@ -350,72 +339,6 @@ func statusCodeToChar(c gogit.StatusCode) rune {
 	default:
 		return '-'
 	}
-}
-
-func populateObjects(repo *gogit.Repository, state *GraphState) error {
-	if repo == nil {
-		return nil
-	}
-	objs, err := repo.Objects()
-	if err != nil {
-		return err
-	}
-	return objs.ForEach(func(obj object.Object) error {
-		id := obj.ID().String()
-		node := ObjectNode{ID: id}
-
-		switch obj.Type() {
-		case plumbing.CommitObject:
-			node.Type = "commit"
-			// Commits are fully handled in populateCommits, but we add a node for consistency if needed.
-			// Or just simple metadata.
-			c, ok := obj.(*object.Commit)
-			if ok {
-				node.Message = c.Message
-				node.TreeID = c.TreeHash.String()
-			}
-
-		case plumbing.TreeObject:
-			node.Type = "tree"
-			tree, ok := obj.(*object.Tree)
-			if ok {
-				for _, entry := range tree.Entries {
-					node.Entries = append(node.Entries, TreeEntry{
-						Name: entry.Name,
-						Hash: entry.Hash.String(),
-						Type: getEntryTypeString(entry.Mode),
-					})
-				}
-			}
-
-		case plumbing.BlobObject:
-			node.Type = "blob"
-			blob, ok := obj.(*object.Blob)
-			if ok {
-				node.Size = blob.Size
-				// Preview first 50 chars
-				reader, err := blob.Reader()
-				if err == nil {
-					buf := make([]byte, 50)
-					n, _ := reader.Read(buf)
-					node.Content = string(buf[:n])
-					reader.Close()
-				}
-			}
-		default:
-			return nil
-		}
-
-		state.Objects[id] = node
-		return nil
-	})
-}
-
-func getEntryTypeString(mode filemode.FileMode) string {
-	if mode == filemode.Dir {
-		return "tree"
-	}
-	return "blob"
 }
 
 func populateRemotes(repo *gogit.Repository, state *GraphState) {

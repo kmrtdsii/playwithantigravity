@@ -7,10 +7,9 @@ interface ObjectInspectorProps {
         id: string; // Commit Hash or File Path
         data?: any; // Additional data (message, author, content preview, status, view, etc.)
     } | null;
-    onInspect?: () => void;
 }
 
-const ObjectInspector: React.FC<ObjectInspectorProps> = ({ selectedObject, onInspect }) => {
+const ObjectInspector: React.FC<ObjectInspectorProps> = ({ selectedObject }) => {
     const { state } = useGit();
 
     const HeadInspector = () => (
@@ -57,27 +56,6 @@ const ObjectInspector: React.FC<ObjectInspectorProps> = ({ selectedObject, onIns
                         <span style={valueStyle}>{new Date(commit.data.timestamp).toLocaleString()}</span>
                     </div>
                 )}
-                <div style={{ marginTop: '16px' }}>
-                    <button
-                        onClick={onInspect}
-                        style={{
-                            width: '100%',
-                            padding: '8px',
-                            background: 'var(--accent-primary)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '8px'
-                        }}
-                    >
-                        <span>🔍</span> X-Ray Mode
-                    </button>
-                </div>
             </div>
         </div>
     );

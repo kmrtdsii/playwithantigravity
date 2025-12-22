@@ -7,21 +7,6 @@ export interface Commit {
     timestamp: string;
 }
 
-export interface TreeEntry {
-    name: string;
-    hash: string;
-    type: 'tree' | 'blob';
-}
-
-export interface ObjectNode {
-    id: string;
-    type: 'tree' | 'blob' | 'commit';
-    entries?: TreeEntry[]; // For Tree
-    size?: number; // For Blob
-    content?: string; // For Blob (preview)
-    message?: string; // For Commit
-    treeId?: string; // For Commit
-}
 
 export interface Remote {
     name: string;
@@ -43,7 +28,6 @@ export interface GitState {
     files: string[];
     currentPath?: string;
     projects?: string[];
-    objects?: Record<string, ObjectNode>; // id -> ObjectNode
     remotes?: Remote[]; // Defined remotes
 
 

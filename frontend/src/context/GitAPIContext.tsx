@@ -10,8 +10,10 @@ interface GitContextType {
     stageFile: (file: string) => Promise<void>;
     unstageFile: (file: string) => Promise<void>;
     isSandbox: boolean;
+    isForking: boolean;
     enterSandbox: () => Promise<void>;
     exitSandbox: () => Promise<void>;
+    resetSandbox: () => Promise<void>;
     strategies: any[];
 }
 
@@ -40,6 +42,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [sessionId, setSessionId] = useState<string>('');
     const [realSessionId, setRealSessionId] = useState<string>('');
     const [isSandbox, setIsSandbox] = useState<boolean>(false);
+    const [isForking, setIsForking] = useState<boolean>(false);
     const [showAllCommits, setShowAllCommits] = useState<boolean>(false);
     const [strategies, setStrategies] = useState<any[]>([]);
 
@@ -68,8 +71,9 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     const enterSandbox = async () => {
-        if (isSandbox) return;
+        if (isSandbox || isForking) return;
 
+        setIsForking(true);
         try {
             const sandboxId = `sandbox-${Date.now()}`;
             console.log(`Creating sandbox: ${sandboxId} from ${realSessionId}`);
@@ -78,7 +82,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setSessionId(sandboxId);
             setIsSandbox(true);
 
-            // Clear output for fresh feel or keep? Maybe output message.
             setState(prev => ({
                 ...prev,
                 output: [...prev.output, "--- SANDBOX MODE ENABLED (Experimental changes only) ---"]
@@ -87,6 +90,32 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (e) {
             console.error("Failed to enter sandbox", e);
             setState(prev => ({ ...prev, output: [...prev.output, "Failed to enter Sandbox mode"] }));
+        } finally {
+            setIsForking(false);
+        }
+    };
+
+    const resetSandbox = async () => {
+        if (!isSandbox || isForking) return;
+
+        setIsForking(true);
+        try {
+            const sandboxId = `sandbox-${Date.now()}`;
+            console.log(`Resetting sandbox: ${sandboxId} from ${realSessionId}`);
+
+            await gitService.forkSession(realSessionId, sandboxId);
+            setSessionId(sandboxId);
+
+            setState(prev => ({
+                ...prev,
+                output: [...prev.output, "--- SANDBOX RESET (State refreshed from main session) ---"]
+            }));
+            await fetchState(sandboxId);
+        } catch (e) {
+            console.error("Failed to reset sandbox", e);
+            setState(prev => ({ ...prev, output: [...prev.output, "Failed to reset Sandbox"] }));
+        } finally {
+            setIsForking(false);
         }
     };
 
@@ -175,8 +204,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             stageFile,
             unstageFile,
             isSandbox,
+            isForking,
             enterSandbox,
             exitSandbox,
+            resetSandbox,
             strategies
         }}>
             {children}

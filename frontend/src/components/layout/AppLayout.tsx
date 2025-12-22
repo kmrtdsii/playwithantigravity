@@ -8,7 +8,6 @@ import GitReferenceList from '../visualization/GitReferenceList';
 import BranchingStrategies from '../visualization/BranchingStrategies';
 import FileExplorer from './FileExplorer';
 import ObjectInspector from './ObjectInspector';
-import ObjectGraph from '../ObjectGraph';
 
 export interface SelectedObject {
     type: 'commit' | 'file';
@@ -19,11 +18,10 @@ export interface SelectedObject {
 type ViewMode = 'graph' | 'branches' | 'tags' | 'strategies';
 
 const AppLayout = () => {
-    const { state, showAllCommits, toggleShowAllCommits, isSandbox, enterSandbox, exitSandbox } = useGit();
+    const { state, showAllCommits, toggleShowAllCommits, isSandbox, isForking, enterSandbox, exitSandbox, resetSandbox } = useGit();
     const { theme, toggleTheme } = useTheme();
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [isLeftPaneOpen, setIsLeftPaneOpen] = useState(true);
-    const [isInspectOpen, setIsInspectOpen] = useState(false);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
 
     // Resizable Pane State (Vertical - Side Panes)
@@ -202,6 +200,7 @@ const AppLayout = () => {
                         <div style={{ marginRight: '8px' }}>
                             <button
                                 onClick={isSandbox ? exitSandbox : enterSandbox}
+                                disabled={isForking}
                                 className={`sandbox-toggle ${isSandbox ? 'active' : ''}`}
                                 style={{
                                     background: isSandbox ? '#f59f00' : 'transparent',
@@ -219,7 +218,7 @@ const AppLayout = () => {
                                 }}
                                 title={isSandbox ? 'Exit Sandbox Mode (Discard Changes)' : 'Enter Sandbox Mode (Safe Simulation)'}
                             >
-                                {isSandbox ? '🏝️ EXIT SANDBOX' : '⛱️ SANDBOX'}
+                                {isForking ? '⏳ FORKING...' : (isSandbox ? '🏝️ EXIT SANDBOX' : '⛱️ SANDBOX')}
                             </button>
                         </div>
 
@@ -262,16 +261,36 @@ const AppLayout = () => {
                             <span>🏝️ SANDBOX MODE ON</span>
                             <span style={{ fontWeight: 400, opacity: 0.9 }}>Experiment freely. Changes will not affect your main session.</span>
                             <button
-                                onClick={exitSandbox}
+                                onClick={resetSandbox}
+                                disabled={isForking}
                                 style={{
                                     background: 'rgba(255,255,255,0.2)',
                                     border: 'none',
                                     color: 'white',
-                                    padding: '2px 8px',
+                                    padding: '2px 10px',
                                     borderRadius: '4px',
                                     fontSize: '10px',
+                                    fontWeight: 600,
                                     cursor: 'pointer',
-                                    marginLeft: 'auto'
+                                    marginLeft: '12px'
+                                }}
+                                title="Reset sandbox state to match the main session"
+                            >
+                                {isForking ? 'RESETTING...' : 'RESET STATE'}
+                            </button>
+                            <button
+                                onClick={exitSandbox}
+                                disabled={isForking}
+                                style={{
+                                    background: 'rgba(255,255,255,0.2)',
+                                    border: 'none',
+                                    color: 'white',
+                                    padding: '2px 10px',
+                                    borderRadius: '4px',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    marginLeft: '6px'
                                 }}
                             >
                                 DISCARD & EXIT
@@ -337,19 +356,9 @@ const AppLayout = () => {
                 <div className="pane-content">
                     <ObjectInspector
                         selectedObject={selectedObject}
-                        onInspect={() => setIsInspectOpen(true)}
                     />
                 </div>
             </aside>
-
-            {/* X-Ray Modal */}
-            {isInspectOpen && selectedObject?.type === 'commit' && (
-                <ObjectGraph
-                    commitId={selectedObject.id}
-                    objects={state.objects || {}}
-                    onClose={() => setIsInspectOpen(false)}
-                />
-            )}
         </div>
     );
 };

@@ -3,7 +3,7 @@ import { useGit } from '../../context/GitAPIContext';
 import './BranchingStrategies.css';
 
 const BranchingStrategies = () => {
-    const { strategies, isSandbox, enterSandbox } = useGit();
+    const { strategies, isSandbox, isForking, enterSandbox } = useGit();
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
     const selectedStrategy = strategies.find(s => s.id === selectedId);
@@ -43,8 +43,12 @@ const BranchingStrategies = () => {
                         {!isSandbox && (
                             <div className="suggested-action">
                                 <p>Want to try this strategy without affecting your work?</p>
-                                <button onClick={enterSandbox} className="sandbox-btn">
-                                    TRY IN SANDBOX MODE
+                                <button
+                                    onClick={enterSandbox}
+                                    className="sandbox-btn"
+                                    disabled={isForking}
+                                >
+                                    {isForking ? 'PREPARING SANDBOX...' : 'TRY IN SANDBOX MODE'}
                                 </button>
                             </div>
                         )}
