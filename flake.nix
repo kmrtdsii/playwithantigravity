@@ -38,10 +38,10 @@
             echo "Go: $(go version)"
             echo "Node: $(node -v)"
 
-            # postCreateCommand の再現
-            echo "Installing dependencies..."
-            (cd backend && go mod download)
-            (cd frontend && npm install)
+            # postCreateCommand の再現 (direnv の高速化のため自動実行を抑制)
+            echo "To install/update dependencies, run: (cd backend && go mod download) && (cd frontend && npm install)"
+            # (cd backend && go mod download)
+            # (cd frontend && npm install)
             
             # Git 設定のチェック
             if [ -f "scripts/check-git-config.sh" ]; then

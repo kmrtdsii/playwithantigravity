@@ -63,6 +63,15 @@ We recommend using **VS Code Dev Containers** for the best experience.
 2. Click "Reopen in Container" when prompted.
 3. The environment comes pre-configured with Go, Node.js, and all extensions.
 
+#### Environment Automation (Optional but Recommended)
+If you prefer developing outside of a Dev Container, we use `nix` and `direnv` to automate the development environment.
+1.  **Install Nix & direnv**: Ensure both are installed on your system.
+2.  **Hook direnv to your shell**:
+    - For `bash`, add `eval "$(direnv hook bash)"` to your `~/.bashrc`.
+    - For `zsh`, add `eval "$(direnv hook zsh)"` to your `~/.zshrc`.
+3.  **Allow the environment**: Run `direnv allow` in the project root.
+4.  **VS Code Integration**: Install the `mkhl.direnv` extension to make the environment available to the IDE and Antigravity.
+
 ## 🧪 Testing
 
 ### Backend Tests
