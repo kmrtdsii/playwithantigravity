@@ -457,17 +457,17 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({ onSelect, selectedCommitId, s
                                             {badge.type === 'tag' && (
                                                 <svg
                                                     viewBox="0 0 24 24"
-                                                    width="10"
-                                                    height="10"
+                                                    width="11"
+                                                    height="11"
                                                     stroke="currentColor"
-                                                    strokeWidth="2"
+                                                    strokeWidth="2.5"
                                                     fill="none"
                                                     strokeLinecap="round"
                                                     strokeLinejoin="round"
-                                                    style={{ marginRight: '4px', verticalAlign: 'middle', display: 'inline-block' }}
+                                                    style={{ marginRight: '4px', verticalAlign: 'middle', display: 'inline-block', flexShrink: 0, opacity: 0.8 }}
                                                 >
-                                                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                                                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                                                    <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l7.29-7.29c.94-.94.94-2.48 0-3.42L12 2z"></path>
+                                                    <path d="M7 7h.01"></path>
                                                 </svg>
                                             )}
                                             {/* Branch icon removed requested by user */}

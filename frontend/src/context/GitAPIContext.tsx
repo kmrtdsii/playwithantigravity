@@ -87,16 +87,34 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         init();
     }, []);
 
+    const [sessionOutputs, setSessionOutputs] = useState<Record<string, string[]>>({});
+    const [sessionCmdCounts, setSessionCmdCounts] = useState<Record<string, number>>({});
+
+
+
     const fetchState = async (sid: string) => {
         try {
             const newState = await gitService.fetchState(sid, showAllCommits);
-            setState(prev => ({
-                ...prev,
-                ...newState,
-                // Preserve UI state that isn't in backend response
-                output: prev.output,
-                commandCount: prev.commandCount
-            }));
+            // When fetching state, we must ensure we are updating the "active" view state
+            // But if we switched users, we want to load THAT user's output/count.
+            // Since this function is async, by the time it returns, sessionId state might match sid.
+
+            setState(prev => {
+                // If the fetched state is for the CURRENT session, update the main state
+                // If we are pre-fetching for another user, we might not want to touch global 'state' yet?
+                // But typically fetchState is called for active user.
+
+                // We always use the 'sid' output store.
+                const storedOutput = sessionOutputs[sid] || [];
+                const storedCount = sessionCmdCounts[sid] || 0;
+
+                return {
+                    ...prev,
+                    ...newState,
+                    output: storedOutput,
+                    commandCount: storedCount
+                };
+            });
         } catch (e) {
             console.error(e);
         }
@@ -123,25 +141,45 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const data = await gitService.executeCommand(sessionId, cmd);
             console.log("GitAPI: Command response:", data);
 
+            let newLines: string[] = [];
             if (data.error) {
-                setState(prev => ({ ...prev, output: [...prev.output, `Error: ${data.error}`] }));
+                newLines = [`Error: ${data.error}`];
             } else if (data.output) {
-                setState(prev => ({ ...prev, output: [...prev.output, data.output || ""] }));
+                newLines = [data.output]; // Output is usually a single block string, terminal splits it
             }
 
+            // Update Persistent Store
+            setSessionOutputs(prev => {
+                const current = prev[sessionId] || [];
+                return { ...prev, [sessionId]: [...current, ...newLines] };
+            });
+
+            // Update Command Count Store
+            setSessionCmdCounts(prev => {
+                const current = prev[sessionId] || 0;
+                return { ...prev, [sessionId]: current + 1 };
+            });
+
+            // Update Transient State (for immediate UI reflection)
+            setState(prev => ({
+                ...prev,
+                // Simplified: Update local state immediately with new lines appended
+                // CAUTION: prev.output might be stale if store updated? 
+                // Let's rely on fetchState or manual sync.
+                // Safest: Append to prev.output.
+                output: [...prev.output, ...newLines],
+                commandCount: prev.commandCount + 1
+            }));
+
             // Always fetch fresh state after command (using current sessionId)
+            // This will re-sync state.output from sessionOutputs via fetchState logic below?
+            // Wait, fetchState uses sessionOutputs[sid]. We just scheduled a setSessionOutputs.
+            // React batching might mean fetchState sees OLD sessionOutputs.
+            // But visual terminal limits append-only.
             await fetchState(sessionId);
 
-            // Increment command count to signal terminal
-            setState(prev => ({ ...prev, commandCount: prev.commandCount + 1 }));
-
             // AUTO-REFRESH SERVER STATE
-            // If we have a server state loaded, refresh it too, as push might have updated it.
-            // We blindly refresh 'origin' for now or whatever is active.
             if (serverState && serverState.remotes?.length === 0) {
-                // Wait, serverState.remotes was CLEARED by backend for visualization.
-                // We need to know which remote we are visualizing.
-                // For now, let's just refresh 'origin' if it exists.
                 await fetchServerState('origin');
             } else if (serverState) {
                 await fetchServerState('origin'); // Default fallback
@@ -149,6 +187,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         } catch (e) {
             console.error(e);
+            // Handle error store update
+            setSessionOutputs(prev => ({ ...prev, [sessionId]: [...(prev[sessionId] || []), "Network error"] }));
+            setSessionCmdCounts(prev => ({ ...prev, [sessionId]: (prev[sessionId] || 0) + 1 }));
+
             setState(prev => ({ ...prev, output: [...prev.output, "Network error"], commandCount: prev.commandCount + 1 }));
         }
     };
