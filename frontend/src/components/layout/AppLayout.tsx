@@ -1,22 +1,17 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import './AppLayout.css';
 import { useGit } from '../../context/GitAPIContext';
-import GitTerminal from '../terminal/GitTerminal';
+
 import GitGraphViz from '../visualization/GitGraphViz';
 import GitReferenceList from '../visualization/GitReferenceList';
 import BranchingStrategies from '../visualization/BranchingStrategies';
-import FileExplorer from './FileExplorer';
 import RemoteRepoView from './RemoteRepoView';
 import DeveloperTabs from './DeveloperTabs';
+import BottomPanel from './BottomPanel';
 import { Modal, Resizer } from '../common';
-import type { GitState, Commit } from '../../types/gitTypes';
+import type { GitState } from '../../types/gitTypes';
+import type { SelectedObject } from '../../types/layoutTypes';
 import { useTheme } from '../../context/ThemeContext';
-
-export interface SelectedObject {
-    type: 'commit' | 'file';
-    id: string; // Hash or Path
-    data?: Commit | { view?: string; message?: string };
-}
 
 type ViewMode = 'graph' | 'branches' | 'tags' | 'strategies';
 
@@ -43,7 +38,6 @@ const AppLayout = () => {
     const [leftPaneWidth, setLeftPaneWidth] = useState(33); // Percentage
     const [vizHeight, setVizHeight] = useState(500); // Height of Top Graph in Center
     const [remoteGraphHeight, setRemoteGraphHeight] = useState(500); // Height of Top Graph in Left
-    const [explorerWidth, setExplorerWidth] = useState(40); // Percentage width of File Explorer
 
     // Modal State
     const [isAddDevModalOpen, setIsAddDevModalOpen] = useState(false);
@@ -53,26 +47,22 @@ const AppLayout = () => {
     const centerContentRef = useRef<HTMLDivElement>(null);
     const stackContainerRef = useRef<HTMLDivElement>(null); // Parent of graph + bottom
     const leftContentRef = useRef<HTMLDivElement>(null);
-    const bottomContainerRef = useRef<HTMLDivElement>(null); // Bottom area (Explorer + Terminal)
 
     // Resize Refs
     const isResizingLeft = useRef(false); // Between Left & Main
     const isResizingCenterVertical = useRef(false); // Center Pane Split
     const isResizingLeftVertical = useRef(false); // Left Pane Split
-    const isResizingBottomHorizontal = useRef(false); // Explorer vs Terminal
 
     // --- Resize Handlers ---
 
     const startResizeLeft = useCallback(() => { isResizingLeft.current = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }, []);
     const startResizeCenterVert = useCallback(() => { isResizingCenterVertical.current = true; document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; }, []);
     const startResizeLeftVert = useCallback(() => { isResizingLeftVertical.current = true; document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none'; }, []);
-    const startResizeBottomHoriz = useCallback(() => { isResizingBottomHorizontal.current = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; }, []);
 
     const stopResizing = useCallback(() => {
         isResizingLeft.current = false;
         isResizingCenterVertical.current = false;
         isResizingLeftVertical.current = false;
-        isResizingBottomHorizontal.current = false;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
     }, []);
@@ -103,13 +93,6 @@ const AppLayout = () => {
             const rect = leftContentRef.current.getBoundingClientRect();
             const newH = e.clientY - rect.top;
             if (newH > 100 && newH < rect.height - 100) setRemoteGraphHeight(newH);
-        }
-
-        // 4. Horizontal Resize (Bottom: Explorer vs Terminal)
-        if (isResizingBottomHorizontal.current && bottomContainerRef.current) {
-            const rect = bottomContainerRef.current.getBoundingClientRect();
-            const newWidthPct = ((e.clientX - rect.left) / rect.width) * 100;
-            if (newWidthPct > 15 && newWidthPct < 85) setExplorerWidth(newWidthPct);
         }
 
     }, []);
@@ -256,20 +239,8 @@ const AppLayout = () => {
                     <Resizer orientation="horizontal" onMouseDown={startResizeCenterVert} />
 
                     {/* Bottom Area: Explorer | Terminal (Custom Resizable) */}
-                    <div ref={bottomContainerRef} style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-                        {/* File Explorer Panel */}
-                        <div style={{ width: `${explorerWidth}%`, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-subtle)', minWidth: 0 }}>
-                            <FileExplorer onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
-                        </div>
+                    <BottomPanel onSelect={(fileObj: SelectedObject) => handleObjectSelect(fileObj)} />
 
-                        {/* Resize Handle */}
-                        <Resizer orientation="vertical" onMouseDown={startResizeBottomHoriz} />
-
-                        {/* Terminal Panel */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                            <GitTerminal />
-                        </div>
-                    </div>
                 </div>
 
             </div>

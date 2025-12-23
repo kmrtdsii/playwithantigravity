@@ -75,7 +75,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
         <div style={headerStyle}>
             {/* Title row with Configure button */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
+                <div style={{ fontWeight: 700, fontSize: 'var(--text-md)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--text-primary)' }}>
                     {remoteUrl ? (
                         <div style={{ position: 'relative', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Cloud size={20} strokeWidth={2} style={{ position: 'absolute', top: 0, left: 0, color: 'var(--text-primary)' }} />
@@ -85,8 +85,8 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                     <span>{displayTitle}</span>
                     {remoteUrl && (
                         <span style={{
-                            fontSize: '0.65rem',
-                            background: '#238636',
+                            fontSize: 'var(--text-xs)',
+                            background: 'var(--accent-primary)',
                             color: 'white',
                             padding: '1px 6px',
                             borderRadius: '10px',
@@ -103,10 +103,10 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         onClick={onEditRemote}
                         style={{
                             padding: '3px 10px',
-                            fontSize: '12px',
+                            fontSize: 'var(--text-sm)',
                             background: 'transparent',
                             border: '1px solid var(--border-subtle)',
-                            borderRadius: '4px',
+                            borderRadius: 'var(--radius-sm)',
                             color: 'var(--text-secondary)',
                             cursor: 'pointer',
                             fontWeight: 600,
@@ -120,9 +120,9 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
 
             {/* Full-width URL row */}
             {remoteUrl ? (
-                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
                     <span style={{
-                        fontSize: '11px',
+                        fontSize: 'var(--text-xs)',
                         color: 'var(--text-tertiary)',
                         whiteSpace: 'nowrap'
                     }}>
@@ -135,12 +135,12 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         style={{
                             flex: 1,
                             minWidth: 0,
-                            padding: '8px 12px',
-                            fontSize: '12px',
+                            padding: 'var(--space-2) var(--space-3)',
+                            fontSize: 'var(--text-sm)',
                             fontFamily: 'monospace',
                             background: 'var(--bg-tertiary)',
                             border: '1px solid var(--border-subtle)',
-                            borderRadius: '6px',
+                            borderRadius: 'var(--radius-md)',
                             color: 'var(--text-primary)',
                             outline: 'none',
                             cursor: 'text'
@@ -151,7 +151,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         onClick={handleCopyUrl}
                         title={isCopied ? 'Copied!' : 'Copy URL to clipboard'}
                         style={{
-                            padding: '4px',
+                            padding: 'var(--space-1)',
                             background: 'transparent',
                             border: 'none',
                             cursor: 'pointer',
@@ -167,9 +167,9 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                 </div>
             ) : (
                 <div style={{
-                    fontSize: '12px',
+                    fontSize: 'var(--text-sm)',
                     color: 'var(--text-tertiary)',
-                    marginTop: '4px'
+                    marginTop: 'var(--space-1)'
                 }}>
                     Connect a GitHub repository to visualize remote history.
                 </div>
