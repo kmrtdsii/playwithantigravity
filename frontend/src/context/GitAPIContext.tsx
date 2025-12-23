@@ -3,11 +3,22 @@ import type { GitState, PullRequest, BranchingStrategy } from '../types/gitTypes
 import { gitService } from '../services/gitService';
 import { filterReachableCommits } from '../utils/graphUtils';
 
+// [Architectural Decision] Terminal Recording System
+// To ensure exact reproduction of the terminal state (including prompts, colors, empty lines),
+// we treat the terminal output as a "Transcript" that matches exactly what xterm.js displayed.
+export interface TranscriptLine {
+    text: string;
+    hasNewline: boolean;
+}
+
 interface GitContextType {
     state: GitState;
     sessionId: string;
-    runCommand: (cmd: string) => Promise<void>;
-    appendTerminalOutput: (lines: string[]) => void;
+    runCommand: (cmd: string) => Promise<string[]>; // Return output for terminal to display
+    // Terminal Recording API
+    appendToTranscript: (text: string, hasNewline?: boolean) => void;
+    getTranscript: () => TranscriptLine[];
+    clearTranscript: () => void;
     showAllCommits: boolean;
     toggleShowAllCommits: () => void;
     stageFile: (file: string) => Promise<void>;
@@ -89,6 +100,11 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [sessionOutputs, setSessionOutputs] = useState<Record<string, string[]>>({});
     const [sessionCmdCounts, setSessionCmdCounts] = useState<Record<string, number>>({});
 
+    // Terminal Transcript Store
+    const [terminalTranscripts, setTerminalTranscripts] = useState<Record<string, TranscriptLine[]>>({});
+    // Ref to access latest transcripts in callbacks without stale closures
+    const terminalTranscriptsRef = useRef<Record<string, TranscriptLine[]>>({});
+
     // FIX: Use refs to avoid stale closure issues in async callbacks
     // These refs always hold the latest value
     const sessionOutputsRef = useRef<Record<string, string[]>>({});
@@ -98,6 +114,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         sessionOutputsRef.current = sessionOutputs;
     }, [sessionOutputs]);
+
+    useEffect(() => {
+        terminalTranscriptsRef.current = terminalTranscripts;
+    }, [terminalTranscripts]);
 
     useEffect(() => {
         sessionCmdCountsRef.current = sessionCmdCounts;
@@ -147,10 +167,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
-    const runCommand = async (cmd: string) => {
+    const runCommand = async (cmd: string): Promise<string[]> => {
         if (!sessionId) {
             console.error("No session ID");
-            return;
+            return [];
         }
 
         console.log(`Executing command: ${cmd} (Session: ${sessionId})`);
@@ -182,13 +202,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return { ...prev, [sessionId]: [...current, ...newLines] };
             });
 
-            // Update Transient State (for immediate UI reflection)
-            // DO NOT increment commandCount here - wait until fetchState completes
-            // so that the prompt is rendered with the updated currentPath/HEAD
+            // Update Transient State
             setState(prev => ({
                 ...prev,
                 output: [...prev.output, ...newLines]
-                // commandCount NOT incremented here - will be done after fetchState
             }));
 
             // Always fetch fresh state after command (using current sessionId)
@@ -212,30 +229,51 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 await fetchServerState('origin'); // Default fallback
             }
 
+            return newLines;
+
         } catch (e) {
             console.error(e);
+
+            const errorLine = "Network error";
             // Handle error store update
-            setSessionOutputs(prev => ({ ...prev, [sessionId]: [...(prev[sessionId] || []), "Network error"] }));
+            setSessionOutputs(prev => ({ ...prev, [sessionId]: [...(prev[sessionId] || []), errorLine] }));
             setSessionCmdCounts(prev => ({ ...prev, [sessionId]: (prev[sessionId] || 0) + 1 }));
 
-            setState(prev => ({ ...prev, output: [...prev.output, "Network error"], commandCount: prev.commandCount + 1 }));
+            setState(prev => ({ ...prev, output: [...prev.output, errorLine], commandCount: prev.commandCount + 1 }));
+            return [errorLine];
         }
     };
 
-    // Append lines to terminal output (for prompts, welcome messages, etc.)
-    const appendTerminalOutput = (lines: string[]) => {
+    // --- Terminal Recording Implementation ---
+
+    const appendToTranscript = (text: string, hasNewline: boolean = true) => {
         if (!sessionId) return;
 
-        setSessionOutputs(prev => {
-            const current = prev[sessionId] || [];
-            return { ...prev, [sessionId]: [...current, ...lines] };
-        });
+        const line: TranscriptLine = { text, hasNewline };
 
-        setState(prev => ({
+        setTerminalTranscripts(prev => {
+            const current = prev[sessionId] || [];
+            return {
+                ...prev,
+                [sessionId]: [...current, line]
+            };
+        });
+    };
+
+    const getTranscript = (): TranscriptLine[] => {
+        // Use ref to access latest state immediately
+        return terminalTranscriptsRef.current[sessionId] || [];
+    };
+
+    const clearTranscript = () => {
+        if (!sessionId) return;
+        setTerminalTranscripts(prev => ({
             ...prev,
-            output: [...prev.output, ...lines]
+            [sessionId]: []
         }));
     };
+
+    // -----------------------------------------
 
     const toggleShowAllCommits = () => {
         setShowAllCommits(prev => !prev);
@@ -325,7 +363,9 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             state,
             sessionId, // Expose current session ID
             runCommand,
-            appendTerminalOutput,
+            appendToTranscript,
+            getTranscript,
+            clearTranscript,
             showAllCommits,
             toggleShowAllCommits,
             stageFile,
