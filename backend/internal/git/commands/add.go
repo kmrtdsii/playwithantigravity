@@ -22,10 +22,32 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 	s.Lock()
 	defer s.Unlock()
 
+	// Flags
+	var (
+		all bool
+	)
+	var pathspecs []string
+
 	// Parse flags
-	for _, arg := range args[1:] {
-		if arg == "-h" || arg == "--help" {
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
+		case "-h", "--help":
 			return c.Help(), nil
+		case "-A", "--all":
+			all = true
+		case "--":
+			// Remainder are pathspecs
+			if i+1 < len(cmdArgs) {
+				pathspecs = append(pathspecs, cmdArgs[i+1:]...)
+			}
+			i = len(cmdArgs) // Break loop
+		default:
+			if arg == "." {
+				all = true // git add . is effectively all in current dir
+			}
+			pathspecs = append(pathspecs, arg)
 		}
 	}
 
@@ -35,22 +57,35 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 	}
 
 	w, _ := repo.Worktree()
-	if len(args) < 2 {
+
+	if len(pathspecs) == 0 && !all {
 		return "", fmt.Errorf("Nothing specified, nothing added.\nMaybe you wanted to say 'git add .'?")
 	}
 
-	// args[0] is "add"
-	file := args[1]
+	// Logic
 	var err error
-	if file == "." {
+	if all {
+		// "git add ." or "git add -A"
+		// go-git w.Add(".") adds all changes in worktree
 		_, err = w.Add(".")
 	} else {
-		_, err = w.Add(file)
+		for _, file := range pathspecs {
+			_, e := w.Add(file)
+			if e != nil {
+				return "", e // Error out on first fail? Standard git warns but continues?
+				// go-git Add returns err.
+			}
+		}
 	}
+
 	if err != nil {
 		return "", err
 	}
-	return "Added " + file, nil
+
+	if all {
+		return "Added changes", nil
+	}
+	return "Added " + fmt.Sprintf("%v", pathspecs), nil
 }
 
 func (c *AddCommand) Help() string {

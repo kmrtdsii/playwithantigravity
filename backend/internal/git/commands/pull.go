@@ -24,25 +24,22 @@ type PullCommand struct{}
 func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	// git pull = git fetch + git merge
 
+	// git pull = git fetch + git merge
+
 	isDryRun := false
-	isHelp := false
 	var cleanArgs []string
-	for i, arg := range args {
-		if i == 0 {
-			continue
-		}
+
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
 		switch arg {
 		case "-n", "--dry-run":
 			isDryRun = true
 		case "-h", "--help":
-			isHelp = true
+			return c.Help(), nil
 		default:
 			cleanArgs = append(cleanArgs, arg)
 		}
-	}
-
-	if isHelp {
-		return c.Help(), nil
 	}
 
 	// 1. Fetch

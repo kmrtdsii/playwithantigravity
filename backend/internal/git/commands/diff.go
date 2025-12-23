@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/kurobon/gitgym/backend/internal/git"
@@ -23,11 +24,27 @@ func (c *DiffCommand) Execute(ctx context.Context, s *git.Session, args []string
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	if len(args) < 3 {
+	// Parse flags
+	var refs []string
+
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
+		case "-h", "--help":
+			return c.Help(), nil
+		default:
+			if !strings.HasPrefix(arg, "-") {
+				refs = append(refs, arg)
+			}
+		}
+	}
+
+	if len(refs) < 2 {
 		return "usage: git diff <ref1> <ref2>\n(Worktree diff not yet supported)", nil
 	}
-	ref1 := args[1]
-	ref2 := args[2]
+	ref1 := refs[0]
+	ref2 := refs[1]
 
 	// Resolve refs
 	h1, err := repo.ResolveRevision(plumbing.Revision(ref1))

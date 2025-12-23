@@ -33,26 +33,23 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	// Parse Flags
 	isDryRun := false
-	isHelp := false
 	var positionalArgs []string
-	for i, arg := range args {
-		if i == 0 {
-			continue // skip "fetch"
-		}
+
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
 		switch arg {
 		case "-n", "--dry-run":
 			isDryRun = true
 		case "-h", "--help":
-			isHelp = true
+			return c.Help(), nil
 		default:
-			if !strings.HasPrefix(arg, "-") {
-				positionalArgs = append(positionalArgs, arg)
+			if strings.HasPrefix(arg, "-") {
+				// Unknown flag
+				return "", fmt.Errorf("unknown flag: %s", arg)
 			}
+			positionalArgs = append(positionalArgs, arg)
 		}
-	}
-
-	if isHelp {
-		return c.Help(), nil
 	}
 
 	// Syntax: git fetch [remote]

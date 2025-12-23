@@ -27,8 +27,20 @@ func (c *LogCommand) Execute(ctx context.Context, s *git.Session, args []string)
 	}
 
 	oneline := false
-	if len(args) > 1 && args[1] == "--oneline" {
-		oneline = true
+
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
+		case "--oneline":
+			oneline = true
+		case "-h", "--help":
+			return c.Help(), nil
+		default:
+			// log supports <revision range>, <path>...
+			// ignore for now or error?
+			// simulated log is simple HEAD traversal
+		}
 	}
 
 	cIter, err := repo.Log(&gogit.LogOptions{All: false}) // HEAD only usually

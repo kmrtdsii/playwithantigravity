@@ -31,17 +31,29 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	defer s.Unlock()
 
 	// Parse flags
-	for _, arg := range args[1:] {
-		if arg == "-h" || arg == "--help" {
+	var url string
+
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
+		case "-h", "--help":
 			return c.Help(), nil
+		default:
+			if url == "" {
+				url = arg
+			} else {
+				// clone only takes one arg (url) and optional dir?
+				// "git clone <url> <dir>" support?
+				// Legacy only supported <url>.
+				// If we want to be strict, we can error. Or ignore.
+			}
 		}
 	}
 
-	if len(args) < 2 {
+	if url == "" {
 		return "", fmt.Errorf("usage: git clone <url>")
 	}
-
-	url := args[1]
 
 	// Extract repo name from URL
 	parts := strings.Split(url, "/")

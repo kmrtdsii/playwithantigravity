@@ -30,24 +30,55 @@ func (c *RemoteCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	// git remote add <name> <url>
 	// git remote remove <name>
 
-	if len(args) == 1 {
-		// List remotes
-		// Default: just names
-		// git remote -v: names + urls
+	// Syntax:
+	// git remote [-v]
+	// git remote add <name> <url>
+	// git remote remove <name>
+
+	cmdArgs := args[1:]
+	var subCmd string
+	verbose := false
+
+	if len(cmdArgs) == 0 {
 		return listRemotes(repo, false)
 	}
 
-	subCmd := args[1]
-	if subCmd == "-v" {
-		return listRemotes(repo, true)
+	for _, arg := range cmdArgs {
+		if arg == "-v" || arg == "--verbose" {
+			verbose = true
+		} else if arg == "-h" || arg == "--help" {
+			return c.Help(), nil
+		} else if subCmd == "" {
+			subCmd = arg
+		}
 	}
 
+	if subCmd == "" {
+		return listRemotes(repo, verbose)
+	}
+
+	// Logic dispatch
 	if subCmd == "add" {
-		if len(args) < 4 {
+		// Expect: add <name> <url>
+		// We need to find them in cmdArgs from the start or after "add"?
+		// cmdArgs contains ["add", "name", "url"] or similar order?
+		// Let's iterate cmdArgs to find "add" and subsequent args?
+		// Current simple loop found "add" as subCmd.
+		// Let's re-scan positional args from cmdArgs.
+		var pos []string
+		for _, arg := range cmdArgs {
+			if !strings.HasPrefix(arg, "-") {
+				pos = append(pos, arg)
+			}
+		}
+
+		// pos[0] is "add" (likely)
+		if len(pos) < 3 {
 			return "", fmt.Errorf("usage: git remote add <name> <url>")
 		}
-		name := args[2]
-		url := args[3]
+		name := pos[1]
+		url := pos[2]
+
 		_, err := repo.CreateRemote(&config.RemoteConfig{
 			Name: name,
 			URLs: []string{url},
@@ -55,14 +86,21 @@ func (c *RemoteCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		if err != nil {
 			return "", err
 		}
-		return "", nil // git remote add is silent on success
+		return "", nil
 	}
 
 	if subCmd == "remove" || subCmd == "rm" {
-		if len(args) < 3 {
+		var pos []string
+		for _, arg := range cmdArgs {
+			if !strings.HasPrefix(arg, "-") {
+				pos = append(pos, arg)
+			}
+		}
+
+		if len(pos) < 2 {
 			return "", fmt.Errorf("usage: git remote remove <name>")
 		}
-		name := args[2]
+		name := pos[1]
 		err := repo.DeleteRemote(name)
 		if err != nil {
 			return "", err

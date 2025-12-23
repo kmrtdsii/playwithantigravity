@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -31,23 +30,22 @@ func (c *ResetCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	mode := gogit.MixedReset
 	target := "HEAD"
 
-	argsIdx := 1
-	if len(args) > argsIdx && strings.HasPrefix(args[argsIdx], "--") {
-		switch args[argsIdx] {
+	// Parse flags
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
 		case "--soft":
 			mode = gogit.SoftReset
 		case "--mixed":
 			mode = gogit.MixedReset
 		case "--hard":
 			mode = gogit.HardReset
+		case "-h", "--help":
+			return c.Help(), nil
 		default:
-			return "", fmt.Errorf("unknown reset mode: %s", args[argsIdx])
+			target = arg
 		}
-		argsIdx++
-	}
-
-	if len(args) > argsIdx {
-		target = args[argsIdx]
 	}
 
 	// Resolve target

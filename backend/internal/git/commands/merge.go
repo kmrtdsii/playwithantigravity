@@ -38,28 +38,22 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	targetName := ""
 	squash := false
 	isDryRun := false
-	isHelp := false
 
-	for i, arg := range args {
-		if i == 0 {
-			continue
-		}
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
 		switch arg {
 		case "--squash":
 			squash = true
 		case "--dry-run", "-n":
 			isDryRun = true
 		case "--help", "-h":
-			isHelp = true
+			return c.Help(), nil
 		default:
 			if targetName == "" {
 				targetName = arg
 			}
 		}
-	}
-
-	if isHelp {
-		return c.Help(), nil
 	}
 
 	if targetName == "" {

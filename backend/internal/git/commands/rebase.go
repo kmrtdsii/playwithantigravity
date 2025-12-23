@@ -27,14 +27,27 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	if len(args) < 2 {
+	// Parse Flags
+	upstreamName := ""
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
+		case "-h", "--help":
+			return c.Help(), nil
+		default:
+			if upstreamName == "" {
+				upstreamName = arg
+			}
+		}
+	}
+
+	if upstreamName == "" {
 		return "", fmt.Errorf("usage: git rebase <upstream>")
 	}
 
 	// Update ORIG_HEAD before rebase starts
 	s.UpdateOrigHead()
-
-	upstreamName := args[1]
 
 	// 1. Resolve Upstream
 	upstreamHash, err := repo.ResolveRevision(plumbing.Revision(upstreamName))
