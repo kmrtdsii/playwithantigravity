@@ -35,8 +35,7 @@ const PullRequestSection: React.FC<PullRequestSectionProps> = ({
         }
     }, [branches, compareBase, compareCompare]);
 
-    const handleCreatePRSubmit = () => {
-        const title = prompt('PR Title', `Merge ${compareCompare} into ${compareBase}`);
+    const handleCreatePRSubmit = (title: string) => {
         if (title) {
             onCreatePR(title, '', compareCompare, compareBase);
             setIsCompareMode(false);
@@ -82,7 +81,7 @@ interface CompareViewProps {
     compareCompare: string;
     onBaseChange: (value: string) => void;
     onCompareChange: (value: string) => void;
-    onSubmit: () => void;
+    onSubmit: (title: string) => void;
     onCancel: () => void;
 }
 
@@ -96,6 +95,12 @@ const CompareView: React.FC<CompareViewProps> = ({
     onCancel,
 }) => {
     const branchNames = Object.keys(branches);
+    const [title, setTitle] = useState(`Merge ${compareCompare} into ${compareBase}`);
+
+    // Update default title when branches change
+    useEffect(() => {
+        setTitle(`Merge ${compareCompare} into ${compareBase}`);
+    }, [compareBase, compareCompare]);
 
     return (
         <div style={{
@@ -133,6 +138,27 @@ const CompareView: React.FC<CompareViewProps> = ({
 
             <div style={{
                 padding: '12px',
+                borderBottom: '1px solid var(--border-subtle)',
+                background: 'var(--bg-primary)'
+            }}>
+                <input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Pull Request Title"
+                    style={{
+                        width: '100%',
+                        padding: '8px',
+                        borderRadius: '4px',
+                        border: '1px solid var(--border-subtle)',
+                        background: 'var(--bg-secondary)',
+                        color: 'var(--text-primary)',
+                        fontSize: '0.9rem'
+                    }}
+                />
+            </div>
+
+            <div style={{
+                padding: '12px',
                 background: '#e6ffec',
                 color: '#1a7f37',
                 fontSize: '0.85rem',
@@ -160,8 +186,18 @@ const CompareView: React.FC<CompareViewProps> = ({
                     Cancel
                 </button>
                 <button
-                    onClick={onSubmit}
-                    style={{ ...actionButtonStyle, background: '#238636', fontSize: '0.9rem', padding: '6px 16px' }}
+                    onClick={() => {
+                        if (title.trim()) onSubmit(title);
+                    }}
+                    disabled={!title.trim()}
+                    style={{
+                        ...actionButtonStyle,
+                        background: title.trim() ? '#238636' : 'var(--bg-button-disabled)',
+                        fontSize: '0.9rem',
+                        padding: '6px 16px',
+                        opacity: title.trim() ? 1 : 0.6,
+                        cursor: title.trim() ? 'pointer' : 'not-allowed'
+                    }}
                 >
                     Create pull request
                 </button>

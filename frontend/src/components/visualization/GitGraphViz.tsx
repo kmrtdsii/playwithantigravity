@@ -140,6 +140,34 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                     />
                 ))}
             </div>
+
+            {/* Legend for Ghost Mode */}
+            {state.potentialCommits && state.potentialCommits.length > 0 && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    right: '16px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '6px',
+                    padding: '8px 12px',
+                    fontSize: '11px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                    zIndex: 20
+                }}>
+                    <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>Simulation Mode</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-tertiary)' }}>
+                        <span style={{
+                            width: '10px',
+                            height: '10px',
+                            borderRadius: '50%',
+                            border: '2px dashed var(--text-tertiary)',
+                            display: 'inline-block'
+                        }}></span>
+                        <span>Potential Commit</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

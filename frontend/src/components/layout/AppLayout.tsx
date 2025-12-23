@@ -8,6 +8,7 @@ import BranchingStrategies from '../visualization/BranchingStrategies';
 import FileExplorer from './FileExplorer';
 import RemoteRepoView from './RemoteRepoView';
 import DeveloperTabs from './DeveloperTabs';
+import { Modal } from '../common';
 import type { GitState, Commit } from '../../types/gitTypes';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -42,6 +43,10 @@ const AppLayout = () => {
     const [leftPaneWidth, setLeftPaneWidth] = useState(33); // Percentage
     const [vizHeight, setVizHeight] = useState(500); // Height of Top Graph in Center
     const [remoteGraphHeight, setRemoteGraphHeight] = useState(500); // Height of Top Graph in Left (Synced with Center)
+
+    // Modal State
+    const [isAddDevModalOpen, setIsAddDevModalOpen] = useState(false);
+    const [newDevName, setNewDevName] = useState('');
 
     const containerRef = useRef<HTMLDivElement>(null);
     const centerContentRef = useRef<HTMLDivElement>(null);
@@ -141,10 +146,7 @@ const AppLayout = () => {
                     developers={developers}
                     activeDeveloper={activeDeveloper}
                     onSwitchDeveloper={switchDeveloper}
-                    onAddDeveloper={() => {
-                        const name = prompt('Name?');
-                        if (name) addDeveloper(name);
-                    }}
+                    onAddDeveloper={() => setIsAddDevModalOpen(true)}
                 />
 
                 {/* ROW 2: View Toggles (Graph, Branches...) & Global Controls */}
@@ -263,6 +265,74 @@ const AppLayout = () => {
 
             </div>
 
+
+
+            {/* --- Modals --- */}
+            <Modal
+                isOpen={isAddDevModalOpen}
+                onClose={() => setIsAddDevModalOpen(false)}
+                title="Add New Developer"
+            >
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const name = formData.get('name') as string;
+                        if (name && name.trim()) {
+                            addDeveloper(name.trim());
+                            setIsAddDevModalOpen(false);
+                            setNewDevName('');
+                        }
+                    }}
+                    style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+                >
+                    <input
+                        name="name"
+                        value={newDevName}
+                        onChange={(e) => setNewDevName(e.target.value)}
+                        placeholder="Enter developer name (e.g., Alice)"
+                        autoFocus
+                        style={{
+                            padding: '8px 12px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--border-subtle)',
+                            background: 'var(--bg-primary)',
+                            color: 'var(--text-primary)',
+                            fontSize: '14px'
+                        }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                        <button
+                            type="button"
+                            onClick={() => setIsAddDevModalOpen(false)}
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-subtle)',
+                                background: 'transparent',
+                                color: 'var(--text-secondary)',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            style={{
+                                padding: '8px 16px',
+                                borderRadius: '4px',
+                                border: 'none',
+                                background: 'var(--accent-primary)',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontWeight: 500
+                            }}
+                        >
+                            Add Developer
+                        </button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 };

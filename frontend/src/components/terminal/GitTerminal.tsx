@@ -14,6 +14,7 @@ const GitTerminal = () => {
     const lastCommandCount = useRef(0);
     const stateRef = useRef(state);
     const { theme } = useTheme();
+    const fitAddonRef = useRef<FitAddon | null>(null);
 
     // Store processed state to detect user switches
     const lastActiveDeveloper = useRef(activeDeveloper);
@@ -29,7 +30,7 @@ const GitTerminal = () => {
         if (lastActiveDeveloper.current !== activeDeveloper) {
             if (xtermRef.current) {
                 xtermRef.current.clear(); // Clear visual buffer
-                xtermRef.current.writeln(`\x1b[1;32mUser: ${activeDeveloper}\x1b[0m`);
+                // REMOVED: Transient log message
             }
             lastOutputLen.current = 0; // Reset output to trigger replay
             lastCommandCount.current = -1; // Reset command count to ensure (current > last) triggers prompt
@@ -37,11 +38,7 @@ const GitTerminal = () => {
             lastActiveDeveloper.current = activeDeveloper;
 
             // Force a re-fit just in case the container size changed or flow reflowed
-            // setTimeout ensures the DOM update has settled if there were any layout changes
             setTimeout(() => {
-                // accessing fitAddon from closure would be ideal, but we need to store it in a ref or just rely on ResizeObserver
-                // However, ResizeObserver might not trigger if size didn't fundamentally change but content did.
-                // Let's create a ref for fitAddon to call it here.
                 fitAddonRef.current?.fit();
             }, 50);
         }
@@ -132,7 +129,6 @@ const GitTerminal = () => {
         }
     }, [state.output, state.commandCount, state.HEAD, state.currentPath, state.initialized, state._sessionId, sessionId]);
 
-    const fitAddonRef = useRef<FitAddon | null>(null);
 
     useEffect(() => {
         if (!terminalRef.current) return;
@@ -280,12 +276,45 @@ const GitTerminal = () => {
         }
     }, [theme]);
 
+    const currentBranch = state.HEAD?.ref || (state.HEAD?.id ? state.HEAD.id.substring(0, 7) : 'DETACHED');
+    const isDetached = !state.HEAD?.ref && !!state.HEAD?.id;
+
     return (
-        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '12px 16px', boxSizing: 'border-box' }}>
-            <div
-                ref={terminalRef}
-                style={{ width: '100%', flex: 1, minHeight: 0 }}
-            />
+        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', background: 'var(--bg-primary)' }}>
+            {/* Persistent Terminal Status Bar */}
+            <div style={{
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 12px',
+                background: 'var(--bg-secondary)',
+                borderBottom: '1px solid var(--border-subtle)',
+                fontSize: '11px',
+                gap: '16px',
+                flexShrink: 0
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: 'var(--text-tertiary)' }}>User:</span>
+                    <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{activeDeveloper}</span>
+                </div>
+                <div style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: 'var(--text-tertiary)' }}>Branch:</span>
+                    <span style={{
+                        color: isDetached ? 'var(--text-warning)' : 'var(--text-secondary)',
+                        fontFamily: 'monospace'
+                    }}>
+                        {currentBranch}
+                    </span>
+                </div>
+            </div>
+
+            <div style={{ flex: 1, minHeight: 0, padding: '12px 16px' }}>
+                <div
+                    ref={terminalRef}
+                    style={{ width: '100%', height: '100%' }}
+                />
+            </div>
         </div>
     );
 };
