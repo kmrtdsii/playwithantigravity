@@ -69,7 +69,7 @@ const DeveloperTabs: React.FC<DeveloperTabsProps> = ({
                             onKeyDown={(e) => handleKeyDown(e, index)}
                             className={`user-tab ${isActive ? 'active' : ''}`}
                         >
-                            <span>{dev}</span>
+                            <span>🏠 {dev}</span>
                         </button>
                     );
                 })}
