@@ -5,6 +5,7 @@ import type { GitState } from '../../types/gitTypes';
 import { RemoteHeader, RemoteBranchList, PullRequestSection, CloneProgress, containerStyle, actionButtonStyle } from './remote';
 import type { CloneStatus } from './remote';
 import { gitService } from '../../services/gitService';
+import { filterReachableCommits } from '../../utils/graphUtils';
 
 interface RemoteRepoViewProps {
     topHeight: number;
@@ -184,7 +185,12 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         if (!serverState) {
             return createEmptyGitState();
         }
-        return serverState;
+        // Always filter to show only reachable commits in remote view (independent of SHOW ALL toggle)
+        const filteredCommits = filterReachableCommits(serverState.commits, serverState);
+        return {
+            ...serverState,
+            commits: filteredCommits
+        };
     }, [serverState]);
 
     const remoteBranches = remoteGraphState.remoteBranches || {};
