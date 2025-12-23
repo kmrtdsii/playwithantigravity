@@ -147,7 +147,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
 
             {/* SINGLE PANE: WORKSPACES & FILES */}
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <div className="section-header" style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 'bold', color: 'var(--text-tertiary)', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)' }}>
+                <div className="section-header" style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)', letterSpacing: '0.05em' }}>
                     WORKSPACES
                 </div>
 

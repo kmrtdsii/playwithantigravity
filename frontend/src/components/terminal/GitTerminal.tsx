@@ -305,12 +305,12 @@ const GitTerminal = () => {
                 flexShrink: 0
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: 'var(--text-tertiary)' }}>User:</span>
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '10px', letterSpacing: '0.05em' }}>User:</span>
                     <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>{activeDeveloper}</span>
                 </div>
                 <div style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: 'var(--text-tertiary)' }}>Branch:</span>
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 800, fontSize: '10px', letterSpacing: '0.05em' }}>Branch:</span>
                     <span style={{
                         color: isDetached ? 'var(--text-warning)' : 'var(--text-secondary)',
                         fontFamily: 'monospace'
