@@ -96,13 +96,14 @@ export const submitButtonStyle: React.CSSProperties = {
 };
 
 export const headerStyle: React.CSSProperties = {
-    padding: '8px 12px',
+    height: '72px',
+    boxSizing: 'border-box',
+    padding: '0 12px',
     background: 'var(--bg-secondary)',
     borderBottom: '1px solid var(--border-subtle)',
     display: 'flex',
     flexDirection: 'column',
-    gap: '4px',
-    flexShrink: 0,
-    minHeight: '72px',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    gap: '6px',
+    flexShrink: 0
 };

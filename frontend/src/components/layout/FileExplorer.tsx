@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useGit } from '../../context/GitAPIContext';
 import { GitBranch, Check } from 'lucide-react';
-import type { SelectedObject } from './AppLayout';
+import type { SelectedObject } from '../../types/layoutTypes';
 
 interface FileExplorerProps {
     onSelect: (obj: SelectedObject) => void;
@@ -163,7 +163,19 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
 
             {/* SINGLE PANE: WORKSPACES & FILES */}
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <div className="section-header" style={{ padding: '8px 12px', fontSize: '11px', fontWeight: 800, color: 'var(--text-secondary)', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-subtle)', letterSpacing: '0.05em' }}>
+                <div className="section-header" style={{
+                    height: 'var(--header-height)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 var(--space-3)',
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 'var(--font-extrabold)',
+                    color: 'var(--text-secondary)',
+                    background: 'var(--bg-secondary)',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    letterSpacing: '0.05em',
+                    flexShrink: 0
+                }}>
                     WORKSPACES
                 </div>
 
