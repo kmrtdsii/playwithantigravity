@@ -263,14 +263,15 @@ func (c *SwitchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	for i := 1; i < len(args); i++ {
 		arg := args[i]
-		if arg == "-c" || arg == "--create" {
+		switch arg {
+		case "-c", "--create":
 			if i+1 < len(args) {
 				createBranch = args[i+1]
 				i++
 			}
-		} else if arg == "-h" {
+		case "-h":
 			return c.Help(), nil
-		} else {
+		default:
 			target = arg
 		}
 	}

@@ -24,10 +24,18 @@ func TestMergeCommand(t *testing.T) {
 	f.Write([]byte("base"))
 	f.Close()
 	w.Add("base.txt")
+	// Base commit
+	// ... (commit creation)
 	w.Commit("base", &gogit.CommitOptions{Author: &object.Signature{Name: "User", When: time.Now()}})
 
+	// Determine default branch name
+	headRef, _ := repo.Head()
+	defaultBranch := headRef.Name()
+
 	// Create branch feature
-	w.Checkout(&gogit.CheckoutOptions{Branch: "refs/heads/feature", Create: true})
+	if err := w.Checkout(&gogit.CheckoutOptions{Branch: "refs/heads/feature", Create: true}); err != nil {
+		t.Fatalf("Checkout feature failed: %v", err)
+	}
 	f, _ = w.Filesystem.Create("feature.txt")
 	f.Write([]byte("feature"))
 	f.Close()
@@ -35,7 +43,9 @@ func TestMergeCommand(t *testing.T) {
 	w.Commit("feature", &gogit.CommitOptions{Author: &object.Signature{Name: "User", When: time.Now()}})
 
 	// Switch back to master
-	w.Checkout(&gogit.CheckoutOptions{Branch: "refs/heads/master"})
+	if err := w.Checkout(&gogit.CheckoutOptions{Branch: defaultBranch}); err != nil {
+		t.Fatalf("Checkout master failed: %v", err)
+	}
 
 	// Merge feature
 	cmd := &MergeCommand{}
@@ -70,8 +80,13 @@ func TestRebaseCommand(t *testing.T) {
 	w.Add("base.txt")
 	w.Commit("base", &gogit.CommitOptions{Author: &object.Signature{Name: "User", When: time.Now()}})
 
+	headRef, _ := repo.Head()
+	defaultBranch := headRef.Name()
+
 	// Create branch feature
-	w.Checkout(&gogit.CheckoutOptions{Branch: "refs/heads/feature", Create: true})
+	if err := w.Checkout(&gogit.CheckoutOptions{Branch: "refs/heads/feature", Create: true}); err != nil {
+		t.Fatalf("Checkout feature failed: %v", err)
+	}
 	f, _ = w.Filesystem.Create("feature.txt")
 	f.Write([]byte("feature"))
 	f.Close()
@@ -79,7 +94,9 @@ func TestRebaseCommand(t *testing.T) {
 	w.Commit("feature", &gogit.CommitOptions{Author: &object.Signature{Name: "User", When: time.Now()}})
 
 	// Switch back to master and advance it
-	w.Checkout(&gogit.CheckoutOptions{Branch: "refs/heads/master"})
+	if err := w.Checkout(&gogit.CheckoutOptions{Branch: defaultBranch}); err != nil {
+		t.Fatalf("Checkout master failed: %v", err)
+	}
 	f, _ = w.Filesystem.Create("master.txt")
 	f.Write([]byte("master"))
 	f.Close()
@@ -87,10 +104,12 @@ func TestRebaseCommand(t *testing.T) {
 	w.Commit("master", &gogit.CommitOptions{Author: &object.Signature{Name: "User", When: time.Now()}})
 
 	// Rebase feature onto master
-	w.Checkout(&gogit.CheckoutOptions{Branch: "refs/heads/feature"})
+	if err := w.Checkout(&gogit.CheckoutOptions{Branch: "refs/heads/feature"}); err != nil {
+		t.Fatalf("Checkout feature failed: %v", err)
+	}
 
 	cmd := &RebaseCommand{}
-	res, err := cmd.Execute(context.Background(), s, []string{"rebase", "master"})
+	res, err := cmd.Execute(context.Background(), s, []string{"rebase", defaultBranch.Short()})
 	if err != nil {
 		t.Fatalf("Rebase failed: %v", err)
 	}
