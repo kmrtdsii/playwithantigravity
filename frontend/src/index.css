@@ -1,3 +1,6 @@
+/* Import Design Tokens */
+@import './styles/tokens.css';
+
 /* Global CSS with Theme Support */
 *,
 *::before,

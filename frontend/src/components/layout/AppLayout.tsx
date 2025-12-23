@@ -8,7 +8,7 @@ import BranchingStrategies from '../visualization/BranchingStrategies';
 import FileExplorer from './FileExplorer';
 import RemoteRepoView from './RemoteRepoView';
 import DeveloperTabs from './DeveloperTabs';
-import { Modal } from '../common';
+import { Modal, Resizer } from '../common';
 import type { GitState, Commit } from '../../types/gitTypes';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -147,10 +147,7 @@ const AppLayout = () => {
             </aside>
 
             {/* Main Resizer (Left vs Local) */}
-            <div
-                className="resizer-vertical"
-                onMouseDown={startResizeLeft}
-            />
+            <Resizer orientation="vertical" onMouseDown={startResizeLeft} />
 
             {/* --- COLUMN 2: LOCAL WORKSPACE (Merged Center & Right) --- */}
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -256,10 +253,7 @@ const AppLayout = () => {
                     </div>
 
                     {/* Resizer Vert (Graph vs Bottom) */}
-                    <div
-                        className="resizer"
-                        onMouseDown={startResizeCenterVert}
-                    />
+                    <Resizer orientation="horizontal" onMouseDown={startResizeCenterVert} />
 
                     {/* Bottom Area: Explorer | Terminal (Custom Resizable) */}
                     <div ref={bottomContainerRef} style={{ flex: 1, minHeight: 0, display: 'flex' }}>
@@ -269,10 +263,7 @@ const AppLayout = () => {
                         </div>
 
                         {/* Resize Handle */}
-                        <div
-                            className="resizer-vertical"
-                            onMouseDown={startResizeBottomHoriz}
-                        />
+                        <Resizer orientation="vertical" onMouseDown={startResizeBottomHoriz} />
 
                         {/* Terminal Panel */}
                         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
