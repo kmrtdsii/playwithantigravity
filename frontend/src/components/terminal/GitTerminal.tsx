@@ -145,7 +145,7 @@ const GitTerminal = () => {
             // "Cool" and modern font stack
             fontFamily: '"JetBrains Mono", "Fira Code", "MesloLGS NF", Menlo, Monaco, "Courier New", monospace',
             fontSize: 13, // Slightly smaller for professional look
-            lineHeight: 1.5, // Fixes the "jammed" look and improves readability
+            lineHeight: 1.1, // Tighter spacing per user request
             convertEol: true,
             // Add padding to the terminal content itself
             allowProposedApi: true,
