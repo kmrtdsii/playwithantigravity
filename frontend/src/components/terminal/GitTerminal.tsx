@@ -26,12 +26,15 @@ const GitTerminal = () => {
     }, [runCommand, state]);
 
     // Handle User Switch: Clear terminal and reset trackers
+    // Handle User Switch: Clear terminal and reset trackers
     useEffect(() => {
         if (lastActiveDeveloper.current !== activeDeveloper) {
-            if (xtermRef.current) {
-                xtermRef.current.clear(); // Clear visual buffer
-                // REMOVED: Transient log message
+            // Only clear visual buffer if we really switched users (not initial load)
+            // This prevents wiping the "Welcome" message on first mount
+            if (xtermRef.current && lastActiveDeveloper.current) {
+                xtermRef.current.clear();
             }
+
             lastOutputLen.current = 0; // Reset output to trigger replay
             lastCommandCount.current = -1; // Reset command count to ensure (current > last) triggers prompt
 
