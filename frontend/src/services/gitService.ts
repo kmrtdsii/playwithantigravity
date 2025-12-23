@@ -99,6 +99,26 @@ export const gitService = {
         if (!res.ok) throw new Error('Failed to ingest remote');
     },
 
+    async getRemoteInfo(url: string): Promise<{
+        repoInfo: {
+            name: string;
+            full_name: string;
+            size: number;
+            default_branch: string;
+            description: string;
+        };
+        estimatedSeconds: number;
+        sizeDisplay: string;
+        message: string;
+    }> {
+        const res = await fetch(`/api/remote/info?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to get remote info');
+        }
+        return data;
+    },
+
     async fetchPullRequests(): Promise<any[]> {
         const res = await fetch('/api/remote/pull-requests');
         if (!res.ok) throw new Error('Failed to fetch pull requests');

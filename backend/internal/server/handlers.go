@@ -38,6 +38,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("/api/remote/pull-requests/create", s.handleCreatePullRequest)
 	s.Mux.HandleFunc("/api/remote/pull-requests/merge", s.handleMergePullRequest)
 	s.Mux.HandleFunc("/api/remote/reset", s.handleResetRemote)
+	s.Mux.HandleFunc("/api/remote/info", s.handleGetRemoteInfo)
 }
 
 func (s *Server) handleGetStrategies(w http.ResponseWriter, r *http.Request) {
@@ -315,4 +316,28 @@ func (s *Server) handleResetRemote(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}
+
+func (s *Server) handleGetRemoteInfo(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		http.Error(w, "url parameter required", http.StatusBadRequest)
+		return
+	}
+
+	estimate, err := git.GetCloneEstimate(url)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(estimate)
 }

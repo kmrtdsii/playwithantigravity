@@ -1,8 +1,10 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { useGit } from '../../context/GitAPIContext';
 import GitGraphViz from '../visualization/GitGraphViz';
 import type { GitState } from '../../types/gitTypes';
-import { RemoteHeader, RemoteBranchList, PullRequestSection, containerStyle, actionButtonStyle } from './remote';
+import { RemoteHeader, RemoteBranchList, PullRequestSection, CloneProgress, containerStyle, actionButtonStyle } from './remote';
+import type { CloneStatus } from './remote';
+import { gitService } from '../../services/gitService';
 
 interface RemoteRepoViewProps {
     topHeight: number;
@@ -32,8 +34,30 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
     // --- Local State ---
     const [setupUrl, setSetupUrl] = useState('');
-    const [isSettingUp, setIsSettingUp] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
+
+    // Clone Progress State
+    const [cloneStatus, setCloneStatus] = useState<CloneStatus>('idle');
+    const [estimatedSeconds, setEstimatedSeconds] = useState<number>(0);
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [repoInfo, setRepoInfo] = useState<{
+        name: string;
+        sizeDisplay: string;
+        message: string;
+    } | undefined>(undefined);
+    const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
+
+    // Timer ref for elapsed time tracking
+    const timerRef = useRef<number | null>(null);
+
+    // Cleanup timer on unmount
+    useEffect(() => {
+        return () => {
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+            }
+        };
+    }, []);
 
     // Refresh PRs on mount only
     useEffect(() => {
@@ -51,27 +75,109 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
             // For now, only auto-configure if we are in a "disconnected" state (no serverState)
             // or if we have a setupUrl but haven't committed it (e.g. user manually typing vs auto)
             // We prioritize the auto-detected one if current UI is empty.
-            if (!serverState && !setupUrl) {
+            if (!serverState && !setupUrl && cloneStatus === 'idle') {
                 console.log('Auto-detected remote origin:', detectedUrl);
                 setSetupUrl(detectedUrl);
 
                 // Auto-connect functionality
-                // We wrap this in a customized internal function to handle the async flow
-                const connect = async () => {
-                    setIsSettingUp(true);
-                    try {
-                        await ingestRemote('origin', detectedUrl);
-                        await fetchServerState('origin');
-                    } catch (err) {
-                        console.error('Auto-connect failed:', err);
-                    } finally {
-                        setIsSettingUp(false);
-                    }
-                };
-                connect();
+                performClone(detectedUrl);
             }
         }
-    }, [state.remotes, serverState, setupUrl, ingestRemote, fetchServerState]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [state.remotes, serverState, setupUrl, cloneStatus]);
+
+    // --- Clone Process ---
+    const performClone = useCallback(async (url: string) => {
+        // Reset state
+        setErrorMessage(undefined);
+        setElapsedSeconds(0);
+        setEstimatedSeconds(0);
+        setRepoInfo(undefined);
+
+        try {
+            // Step 1: Fetch repo info
+            setCloneStatus('fetching_info');
+
+            const info = await gitService.getRemoteInfo(url);
+            setRepoInfo({
+                name: info.repoInfo.name,
+                sizeDisplay: info.sizeDisplay,
+                message: info.message,
+            });
+            setEstimatedSeconds(info.estimatedSeconds);
+
+            // Step 2: Start cloning
+            setCloneStatus('cloning');
+
+            // Start elapsed timer
+            const startTime = Date.now();
+            timerRef.current = window.setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                setElapsedSeconds(elapsed);
+            }, 500);
+
+            // Perform the actual clone
+            await ingestRemote('origin', url);
+            await fetchServerState('origin');
+
+            // Step 3: Complete
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+            setCloneStatus('complete');
+            setIsEditMode(false);
+
+            // Reset to idle after a short delay
+            setTimeout(() => {
+                setCloneStatus('idle');
+            }, 2000);
+
+        } catch (err) {
+            // Handle error
+            if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+            }
+            setCloneStatus('error');
+            setErrorMessage(err instanceof Error ? err.message : 'Unknown error occurred');
+            console.error('Clone failed:', err);
+        }
+    }, [ingestRemote, fetchServerState]);
+
+    // --- Event Handlers ---
+    const handleInitialSetup = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!setupUrl) return;
+        performClone(setupUrl);
+    };
+
+    const handleRetry = () => {
+        if (setupUrl) {
+            performClone(setupUrl);
+        }
+    };
+
+    const handleCancelClone = () => {
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
+        setCloneStatus('idle');
+        setErrorMessage(undefined);
+    };
+
+    const handleEditRemote = () => {
+        const currentUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || '';
+        setSetupUrl(currentUrl);
+        setIsEditMode(true);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditMode(false);
+        setCloneStatus('idle');
+        setErrorMessage(undefined);
+    };
 
     // --- Computed Values ---
     const remoteGraphState: GitState = useMemo(() => {
@@ -86,33 +192,8 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     const projectName = remoteUrl.split('/').pop()?.replace('.git', '') || 'Remote Repository';
     const hasSharedRemotes = !!serverState;
 
-    // --- Event Handlers ---
-    const handleInitialSetup = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!setupUrl) return;
-        setIsSettingUp(true);
-
-        try {
-            await ingestRemote('origin', setupUrl);
-            await fetchServerState('origin');
-            setIsEditMode(false);
-        } catch (err) {
-            console.error('Failed to update remote:', err);
-            alert('Failed to update remote.');
-        } finally {
-            setIsSettingUp(false);
-        }
-    };
-
-    const handleEditRemote = () => {
-        const currentUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || '';
-        setSetupUrl(currentUrl);
-        setIsEditMode(true);
-    };
-
-    const handleCancelEdit = () => {
-        setIsEditMode(false);
-    };
+    // Map cloneStatus to isSettingUp for RemoteHeader compatibility
+    const isSettingUp = cloneStatus === 'fetching_info' || cloneStatus === 'cloning';
 
     // --- Render ---
     return (
@@ -131,6 +212,21 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                     onSubmit={handleInitialSetup}
                 />
 
+                {/* Clone Progress Display */}
+                {cloneStatus !== 'idle' && (
+                    <div style={{ padding: '0 16px' }}>
+                        <CloneProgress
+                            status={cloneStatus}
+                            estimatedSeconds={estimatedSeconds}
+                            elapsedSeconds={elapsedSeconds}
+                            repoInfo={repoInfo}
+                            errorMessage={errorMessage}
+                            onRetry={handleRetry}
+                            onCancel={handleCancelClone}
+                        />
+                    </div>
+                )}
+
                 {/* Graph Area */}
                 <div style={{ flex: 1, minHeight: 0, position: 'relative', background: 'var(--bg-primary)' }}>
                     {hasSharedRemotes ? (
@@ -138,6 +234,7 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                     ) : (
                         <EmptyGraphPlaceholder
                             isEditMode={isEditMode}
+                            cloneStatus={cloneStatus}
                             onConnect={handleEditRemote}
                         />
                     )}
@@ -175,10 +272,11 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
 interface EmptyGraphPlaceholderProps {
     isEditMode: boolean;
+    cloneStatus?: CloneStatus;
     onConnect: () => void;
 }
 
-const EmptyGraphPlaceholder: React.FC<EmptyGraphPlaceholderProps> = ({ isEditMode, onConnect }) => (
+const EmptyGraphPlaceholder: React.FC<EmptyGraphPlaceholderProps> = ({ isEditMode, cloneStatus, onConnect }) => (
     <div style={{
         height: '100%',
         display: 'flex',
@@ -190,7 +288,7 @@ const EmptyGraphPlaceholder: React.FC<EmptyGraphPlaceholderProps> = ({ isEditMod
         padding: '20px',
         textAlign: 'center'
     }}>
-        {!isEditMode && (
+        {!isEditMode && cloneStatus === 'idle' && (
             <>
                 <div style={{ fontSize: '24px', opacity: 0.3 }}>🌐</div>
                 <div style={{ fontSize: '0.85rem' }}>No Remote Configured</div>
@@ -209,6 +307,11 @@ const EmptyGraphPlaceholder: React.FC<EmptyGraphPlaceholderProps> = ({ isEditMod
                     Connect Repository
                 </button>
             </>
+        )}
+        {(cloneStatus === 'fetching_info' || cloneStatus === 'cloning') && (
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                Connecting to repository...
+            </div>
         )}
     </div>
 );
