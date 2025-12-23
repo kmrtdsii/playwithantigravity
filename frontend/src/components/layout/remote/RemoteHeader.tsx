@@ -75,7 +75,12 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
                     <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
-                        {remoteUrl ? <span style={{ fontSize: '1.0rem' }}>☁️</span> : null}
+                        {remoteUrl ? (
+                            <div style={{ position: 'relative', width: '24px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ fontSize: '1.2rem', position: 'absolute', top: '-4px', left: '0', zIndex: 1 }}>☁️</span>
+                                <span style={{ fontSize: '0.7rem', position: 'absolute', bottom: '-2px', right: '2px', zIndex: 2 }}>🛢️</span>
+                            </div>
+                        ) : null}
                         <span>{displayTitle}</span>
                         {remoteUrl && (
                             <span style={{
