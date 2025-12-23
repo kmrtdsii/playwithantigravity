@@ -97,7 +97,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         )}
                     </div>
                     <div style={{
-                        fontSize: '0.7rem',
+                        fontSize: '0.85rem',
                         color: 'var(--text-secondary)',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -138,8 +138,8 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                     <button
                         onClick={onEditRemote}
                         style={{
-                            padding: '2px 8px',
-                            fontSize: '10px',
+                            padding: '3px 10px',
+                            fontSize: '12px',
                             background: 'transparent',
                             border: '1px solid var(--border-subtle)',
                             borderRadius: '4px',
