@@ -168,8 +168,12 @@ const GitTerminal = () => {
             };
         }
 
-        term.writeln('\x1b[1;32mGitGym Terminal\x1b[0m v1.0.0');
-        term.writeln('Type "git clone <url>" to start.');
+        term.writeln('\x1b[1;36mWelcome to GitGym!\x1b[0m 🚀');
+        term.writeln('To get started, please clone a repository using:');
+        term.writeln('  \x1b[33mgit clone <url>\x1b[0m');
+        term.writeln('');
+        term.writeln('Type \x1b[32m\'git help\'\x1b[0m to see available commands.');
+        term.writeln('');
 
         term.write(getPrompt(stateRef.current));
 
