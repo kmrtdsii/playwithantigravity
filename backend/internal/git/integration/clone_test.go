@@ -29,13 +29,14 @@ func TestGitCloneAndPushRestriction(t *testing.T) {
 			t.Errorf("unexpected output: %s", out)
 		}
 
-		// Change directory to the cloned repository
-		if _, err := exec("cd", "basic"); err != nil {
-			t.Fatalf("cd failed: %v", err)
+		// Verify Clone automatically changed directory
+		session, _ := GetSession(sessionID)
+		expectedDir := "/basic"
+		if session.CurrentDir != expectedDir {
+			t.Errorf("Expected CurrentDir to be %s, got %s", expectedDir, session.CurrentDir)
 		}
 
 		// Verify repo state
-		session, _ := GetSession(sessionID)
 		if session.GetRepo() == nil {
 			t.Fatal("session.GetRepo() is nil after clone")
 		}

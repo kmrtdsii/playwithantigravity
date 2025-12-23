@@ -2,7 +2,10 @@
 
 GitGym is an interactive, visual sandbox for learning and experimenting with Git commands. It provides a real-time visualization of the Git graph structure alongside a functional terminal interface, allowing users to see exactly how their commands affect the repository state.
 
-![GitGym Interface](frontend/public/vite.svg) <!-- You might want to replace this with a real screenshot later -->
+> [!TIP]
+> **For AI Agents (Gemini/Claude)**: Please refer to [.ai/context.md](.ai/context.md) for architectural guidelines and project context.
+
+![GitGym Interface](frontend/public/vite.svg)
 
 ## 🚀 Features
 
@@ -16,99 +19,65 @@ GitGym is an interactive, visual sandbox for learning and experimenting with Git
   - `git tag`, `reset`, `clean`
   - `git merge`, `rebase` (basic support)
 
+## 📚 Documentation
+
+- **Architecture**: [docs/architecture/](docs/architecture/)
+- **Specifications & User Flows**: [docs/specs/](docs/specs/)
+- **Setup Guide**: [docs/setup/](docs/setup/)
+- **AI Context**: [.ai/](.ai/)
+
 ## 🏗 Architecture
 
 GitGym is built with a modern, modular stack designed for maintainability and performance.
 
 ### Frontend (`/frontend`)
 - **Framework**: React 19 + TypeScript
-- **Build Tool**: Vite
-- **Terminal**: Xterm.js
-- **Visualization**: Custom SVG-based graph renderer
+- **State**: `GitAPIContext` (Flux-like)
+- **Terminal**: Xterm.js with "Recorder Pattern"
 - **Testing**: Playwright (E2E)
 
 ### Backend (`/backend`)
-- **Language**: Go (Golang) 1.22+
-- **Core Library**: `go-git` (pure Go implementation of Git)
-- **Design Pattern**: Command Pattern (encapsulating Git operations)
-- **API**: RESTful endpoints for session management and command execution
-
-### Infrastructure
-- **Docker**: Full containerization of frontend (Nginx) and backend services.
-- **Dev Container**: Ready-to-use development environment for VS Code.
+- **Language**: Go 1.25+
+- **Core**: `go-git`
+- **Pattern**: Command Pattern encapsulated commands
+- **API**: RESTful
 
 ## 🛠 Getting Started
-
-### Prerequisites
-- Docker & Docker Compose
 
 ### Quick Start
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/playwithantigravity.git
-   cd playwithantigravity
+   git clone https://github.com/kurobon/gitgym.git
+   cd gitgym
    ```
-
-2. Start the application:
+2. Start with Docker:
    ```bash
    docker compose up --build
    ```
-
-3. Open your browser:
-   - Navigate to [http://localhost](http://localhost) to access GitGym.
+3. Open [http://localhost](http://localhost).
 
 ### Development Setup
-We recommend using **VS Code Dev Containers** for the best experience.
-1. Open the project in VS Code.
-2. Click "Reopen in Container" when prompted.
-3. The environment comes pre-configured with Go, Node.js, and all extensions.
-
-#### Environment Automation (Optional but Recommended)
-If you prefer developing outside of a Dev Container, we use `nix` and `direnv` to automate the development environment.
-1.  **Install Nix & direnv**: Ensure both are installed on your system.
-2.  **Hook direnv to your shell**:
-    - For `bash`, add `eval "$(direnv hook bash)"` to your `~/.bashrc`.
-    - For `zsh`, add `eval "$(direnv hook zsh)"` to your `~/.zshrc`.
-3.  **Allow the environment**: Run `direnv allow` in the project root.
-4.  **VS Code Integration**: Install the `mkhl.direnv` extension to make the environment available to the IDE and Antigravity.
-
-## 🧪 Testing
-
-### Backend Tests
-Run integration tests for the Git engine and API server:
-```bash
-cd backend
-go test -v ./...
-```
-
-### Frontend E2E Tests
-Run End-to-End tests using Playwright (requires Dev Container or local Node environment):
-```bash
-cd frontend
-npm run test:e2e
-```
+See [docs/setup/git_environment.md](docs/setup/git_environment.md).
 
 ## 📂 Project Structure
 
 ```
-.
+gitgym/
+├── .ai/                # AI Context & Prompts
 ├── backend/            # Go backend service
-│   ├── cmd/
-│   │   └── server/     # Entry point
-│   │       └── main.go
-│   ├── internal/
-│   │   ├── git/        # Core Git logic (commands, session, types)
-│   │   └── server/     # HTTP handlers and router
-│   └── go.mod
+│   ├── cmd/server/     # Entry point
+│   └── internal/       # Application logic
 ├── frontend/           # React frontend
-│   ├── src/
-│   │   ├── components/ # UI Components (Terminal, GraphViz)
-│   │   ├── context/    # State management
-│   │   └── services/   # API abstraction
-│   └── tests/          # Playwright E2E specs
-├── .devcontainer/      # VS Code Dev Container config
-└── docker-compose.yml  # Production/Staging orchestration
+│   └── src/            # Source code
+├── docs/               # Documentation
+├── .devcontainer/      # DevContainer config
+└── docker-compose.yml  # Orchestration
 ```
+
+## 🧪 Testing
+
+- **Backend**: `cd backend && go test ./...`
+- **Frontend E2E**: `cd frontend && npm run test:e2e`
 
 ## 📄 License
 MIT

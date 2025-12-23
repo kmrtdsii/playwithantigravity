@@ -8,8 +8,13 @@ export default defineConfig({
     workers: process.env.CI ? 1 : undefined,
     reporter: 'html',
     use: {
-        baseURL: 'http://gitgym-frontend',
+        baseURL: 'http://localhost:5173',
         trace: 'on-first-retry',
+    },
+    webServer: {
+        command: 'npm run dev',
+        port: 5173,
+        reuseExistingServer: !process.env.CI,
     },
     projects: [
         {

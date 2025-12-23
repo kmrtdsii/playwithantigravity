@@ -26,8 +26,7 @@ const GitTerminal = () => {
     const { theme } = useTheme();
     const fitAddonRef = useRef<FitAddon | null>(null);
 
-    // Track processed developer to detect switches
-    const lastActiveDeveloper = useRef(activeDeveloper);
+
 
     // Input buffer
     const currentLineRef = useRef('');
@@ -144,7 +143,6 @@ const GitTerminal = () => {
         }
 
         // Reset local trackers
-        lastActiveDeveloper.current = activeDeveloper;
         currentLineRef.current = '';
 
         // Refit
