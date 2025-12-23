@@ -125,6 +125,26 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	s.Repos[repoName] = localRepo
 
+	// 3. Auto-cd into the cloned repository
+	s.CurrentDir = "/" + repoName
+
+	// 4. Checkout the default branch (main or master)
+	w, err := localRepo.Worktree()
+	if err == nil {
+		// Try main first, then master
+		for _, branch := range []string{"main", "master"} {
+			branchRef := plumbing.NewBranchReferenceName(branch)
+			if _, err := localRepo.Reference(branchRef, true); err == nil {
+				w.Checkout(&gogit.CheckoutOptions{
+					Branch: branchRef,
+					Create: false,
+					Force:  true,
+				})
+				break
+			}
+		}
+	}
+
 	return fmt.Sprintf("Cloned into '%s'... (Using shared remote %s)", repoName, remotePath), nil
 }
 

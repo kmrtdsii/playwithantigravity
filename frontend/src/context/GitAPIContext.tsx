@@ -166,29 +166,28 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return { ...prev, [sessionId]: [...current, ...newLines] };
             });
 
-            // Update Command Count Store
+            // Update Transient State (for immediate UI reflection)
+            // DO NOT increment commandCount here - wait until fetchState completes
+            // so that the prompt is rendered with the updated currentPath/HEAD
+            setState(prev => ({
+                ...prev,
+                output: [...prev.output, ...newLines]
+                // commandCount NOT incremented here - will be done after fetchState
+            }));
+
+            // Always fetch fresh state after command (using current sessionId)
+            // This ensures currentPath and HEAD are updated before prompt is shown
+            await fetchState(sessionId);
+
+            // NOW increment command count - this triggers prompt rendering with correct state
             setSessionCmdCounts(prev => {
                 const current = prev[sessionId] || 0;
                 return { ...prev, [sessionId]: current + 1 };
             });
-
-            // Update Transient State (for immediate UI reflection)
             setState(prev => ({
                 ...prev,
-                // Simplified: Update local state immediately with new lines appended
-                // CAUTION: prev.output might be stale if store updated? 
-                // Let's rely on fetchState or manual sync.
-                // Safest: Append to prev.output.
-                output: [...prev.output, ...newLines],
                 commandCount: prev.commandCount + 1
             }));
-
-            // Always fetch fresh state after command (using current sessionId)
-            // This will re-sync state.output from sessionOutputs via fetchState logic below?
-            // Wait, fetchState uses sessionOutputs[sid]. We just scheduled a setSessionOutputs.
-            // React batching might mean fetchState sees OLD sessionOutputs.
-            // But visual terminal limits append-only.
-            await fetchState(sessionId);
 
             // AUTO-REFRESH SERVER STATE
             if (serverState && serverState.remotes?.length === 0) {

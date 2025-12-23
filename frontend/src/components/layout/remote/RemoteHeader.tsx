@@ -96,41 +96,71 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                             </span>
                         )}
                     </div>
-                    <div style={{
-                        fontSize: '0.85rem',
-                        color: 'var(--text-secondary)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                    }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {remoteUrl || 'Connect a GitHub repository to visualize remote history.'}
-                        </span>
-                        {remoteUrl && (
-                            <button
-                                onClick={handleCopyUrl}
-                                title={isCopied ? 'Copied!' : 'Copy URL to clipboard'}
-                                style={{
-                                    background: 'transparent',
-                                    border: '1px solid var(--border-subtle)',
-                                    borderRadius: '4px',
-                                    padding: '2px 4px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: isCopied ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                                    fontSize: '10px',
-                                    flexShrink: 0
-                                }}
-                            >
-                                {isCopied ? '✓' : '📋'}
-                            </button>
-                        )}
-                    </div>
+                    {remoteUrl ? (
+                        <div style={{ marginTop: '6px' }}>
+                            {/* Label above URL box */}
+                            <div style={{
+                                fontSize: '11px',
+                                color: 'var(--text-tertiary)',
+                                marginBottom: '4px'
+                            }}>
+                                Clone using the web URL.
+                            </div>
+                            {/* GitHub-style URL input box */}
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                border: '1px solid var(--border-subtle)',
+                                borderRadius: '6px',
+                                background: 'var(--bg-primary)',
+                                overflow: 'hidden'
+                            }}>
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={remoteUrl}
+                                    style={{
+                                        flex: 1,
+                                        padding: '8px 12px',
+                                        fontSize: '12px',
+                                        fontFamily: 'monospace',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: 'var(--text-primary)',
+                                        outline: 'none',
+                                        cursor: 'text'
+                                    }}
+                                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                                />
+                                <button
+                                    onClick={handleCopyUrl}
+                                    title={isCopied ? 'Copied!' : 'Copy URL to clipboard'}
+                                    style={{
+                                        padding: '8px 12px',
+                                        background: isCopied ? 'var(--accent-primary)' : 'var(--bg-secondary)',
+                                        border: 'none',
+                                        borderLeft: '1px solid var(--border-subtle)',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: isCopied ? 'white' : 'var(--text-secondary)',
+                                        transition: 'background-color 0.15s, color 0.15s'
+                                    }}
+                                >
+                                    {isCopied ? '✓' : '📋'}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{
+                            fontSize: '12px',
+                            color: 'var(--text-tertiary)',
+                            marginTop: '4px'
+                        }}>
+                            Connect a GitHub repository to visualize remote history.
+                        </div>
+                    )}
                 </div>
 
                 {/* Only show Configure button if remote is set. If empty, the main pane button handles it. */}
