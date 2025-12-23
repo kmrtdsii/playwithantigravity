@@ -13,6 +13,8 @@ GitGym is an interactive Git learning sandbox with real-time visualization.
 
 ## Quick Commands
 
+- **[E2E Spec](docs/E2E_SPEC.md)**: Follow this spec for manual verification and UI testing.
+
 ```bash
 # Frontend
 cd frontend && npm run dev      # Start dev server
