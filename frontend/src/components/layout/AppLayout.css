@@ -119,9 +119,10 @@
     /* Hiding the old terminal header as requested */
 }
 
-/* Resizer Handle */
+/* Resizer Handle (horizontal row-resize) */
 .resizer {
     height: 4px;
+    width: 100%;
     background-color: var(--border-subtle);
     cursor: row-resize;
     flex-shrink: 0;
@@ -149,14 +150,14 @@
 }
 
 
-/* Vertical Resizer Handle */
+/* Vertical Resizer Handle (col-resize) */
 .resizer-vertical {
     width: 4px;
     background-color: var(--border-subtle);
     cursor: col-resize;
     flex-shrink: 0;
     transition: background-color 0.2s;
-    z-index: 10;
+    z-index: 20;
 }
 
 .resizer-vertical:hover,

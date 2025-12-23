@@ -51,6 +51,7 @@ const AppLayout = () => {
 
     const containerRef = useRef<HTMLDivElement>(null);
     const centerContentRef = useRef<HTMLDivElement>(null);
+    const stackContainerRef = useRef<HTMLDivElement>(null); // Parent of graph + bottom
     const leftContentRef = useRef<HTMLDivElement>(null);
 
     // Resize Refs
@@ -84,11 +85,13 @@ const AppLayout = () => {
             }
         }
 
-        // 2. Vertical Resize (Center Pane)
-        if (isResizingCenterVertical.current && centerContentRef.current) {
-            const rect = centerContentRef.current.getBoundingClientRect();
+        // 2. Vertical Resize (Center Pane) - use stack container for full height
+        if (isResizingCenterVertical.current && stackContainerRef.current) {
+            const rect = stackContainerRef.current.getBoundingClientRect();
             const newH = e.clientY - rect.top;
-            if (newH > 100 && newH < rect.height - 100) setVizHeight(newH);
+            const minHeight = 100;
+            const maxHeight = rect.height - 100; // Leave room for bottom panel
+            if (newH >= minHeight && newH <= maxHeight) setVizHeight(newH);
         }
 
         // 3. Vertical Resize (Left Pane)
@@ -136,7 +139,6 @@ const AppLayout = () => {
             <div
                 className="resizer-vertical"
                 onMouseDown={startResizeLeft}
-                style={{ cursor: 'col-resize', width: '4px', background: 'var(--border-subtle)', flexShrink: 0, zIndex: 20 }}
             />
 
             {/* --- COLUMN 2: LOCAL WORKSPACE (Merged Center & Right) --- */}
@@ -217,7 +219,7 @@ const AppLayout = () => {
                 </div>
 
                 {/* ROW 3: Stacked Content */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                <div ref={stackContainerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
                     {/* Top: Graph / Visualization */}
                     <div ref={centerContentRef} style={{ height: vizHeight, minHeight: '100px', display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -246,7 +248,6 @@ const AppLayout = () => {
                     <div
                         className="resizer"
                         onMouseDown={startResizeCenterVert}
-                        style={{ height: '4px', cursor: 'row-resize', background: 'var(--border-subtle)', width: '100%', zIndex: 10, flexShrink: 0 }}
                     />
 
                     {/* Bottom Area: Explorer | Terminal (Resizable) */}
