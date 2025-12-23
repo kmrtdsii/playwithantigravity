@@ -75,6 +75,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
                     <div style={{ fontWeight: 700, fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
+                        {remoteUrl ? <span style={{ fontSize: '1.0rem' }}>☁️</span> : null}
                         <span>{displayTitle}</span>
                         {remoteUrl && (
                             <span style={{
@@ -126,22 +127,25 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                     </div>
                 </div>
 
-                <button
-                    onClick={onEditRemote}
-                    style={{
-                        padding: '2px 8px',
-                        fontSize: '10px',
-                        background: 'transparent',
-                        border: '1px solid var(--border-subtle)',
-                        borderRadius: '4px',
-                        color: 'var(--text-secondary)',
-                        cursor: 'pointer',
-                        fontWeight: 600,
-                        whiteSpace: 'nowrap'
-                    }}
-                >
-                    {remoteUrl ? 'Configure' : 'Connect Repository'}
-                </button>
+                {/* Only show Configure button if remote is set. If empty, the main pane button handles it. */}
+                {remoteUrl && (
+                    <button
+                        onClick={onEditRemote}
+                        style={{
+                            padding: '2px 8px',
+                            fontSize: '10px',
+                            background: 'transparent',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: '4px',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        Configure
+                    </button>
+                )}
             </div>
         </div>
     );

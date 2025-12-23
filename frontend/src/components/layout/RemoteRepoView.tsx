@@ -200,7 +200,10 @@ const EmptyGraphPlaceholder: React.FC<EmptyGraphPlaceholderProps> = ({ isEditMod
                         ...actionButtonStyle,
                         background: 'var(--bg-tertiary)',
                         color: 'var(--text-primary)',
-                        border: '1px solid var(--border-subtle)'
+                        border: '1px solid var(--border-subtle)',
+                        fontSize: '14px', // Increased size
+                        padding: '10px 20px', // Increased padding
+                        marginTop: '10px'
                     }}
                 >
                     Connect Repository
