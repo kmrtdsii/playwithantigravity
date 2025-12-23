@@ -8,8 +8,9 @@ import { useTheme } from '../../context/ThemeContext';
 const GitTerminal = () => {
     const terminalRef = useRef<HTMLDivElement>(null);
     const xtermRef = useRef<Terminal | null>(null);
-    const { runCommand, state, activeDeveloper, sessionId } = useGit();
+    const { runCommand, state, activeDeveloper, sessionId, appendTerminalOutput } = useGit();
     const runCommandRef = useRef(runCommand);
+    const appendTerminalOutputRef = useRef(appendTerminalOutput);
     const lastOutputLen = useRef(0);
     const lastCommandCount = useRef(-1); // Start at -1 to ensure initial prompt renders
     const stateRef = useRef(state);
@@ -19,11 +20,15 @@ const GitTerminal = () => {
     // Store processed state to detect user switches
     const lastActiveDeveloper = useRef(activeDeveloper);
 
+    // Input buffer - must persist across renders but reset on developer switch
+    const currentLineRef = useRef('');
+
     // Keep ref updated
     useEffect(() => {
         runCommandRef.current = runCommand;
         stateRef.current = state;
-    }, [runCommand, state]);
+        appendTerminalOutputRef.current = appendTerminalOutput;
+    }, [runCommand, state, appendTerminalOutput]);
 
     // Handle User Switch: Clear terminal and reset trackers
     // Handle User Switch: Clear terminal and reset trackers
@@ -39,6 +44,7 @@ const GitTerminal = () => {
 
             lastOutputLen.current = 0; // Reset output to trigger replay
             lastCommandCount.current = -1; // Reset command count to ensure (current > last) triggers prompt
+            currentLineRef.current = ''; // Clear input buffer on user switch
 
             lastActiveDeveloper.current = activeDeveloper;
 
@@ -131,19 +137,26 @@ const GitTerminal = () => {
             // If this is a fresh session (0 commands) and empty output, show Welcome
             if (state.commandCount === 0 && state.output.length === 0) {
                 const t = xtermRef.current;
-                t.writeln('\x1b[1;36mWelcome to GitGym!\x1b[0m 🚀');
-                t.writeln('To get started, please clone a repository using:');
-                t.writeln('  \x1b[33mgit clone <url>\x1b[0m');
-                t.writeln('');
-                t.writeln('Type \x1b[32m\'git help\'\x1b[0m to see available commands.');
-                t.writeln('');
+                const welcomeLines = [
+                    '\x1b[1;36mWelcome to GitGym!\x1b[0m 🚀',
+                    'To get started, please clone a repository using:',
+                    '  \x1b[33mgit clone <url>\x1b[0m',
+                    '',
+                    'Type \x1b[32m\'git help\'\x1b[0m to see available commands.',
+                    ''
+                ];
+                welcomeLines.forEach(line => t.writeln(line));
+                // Store welcome message
+                appendTerminalOutput(welcomeLines);
             }
 
             const prompt = getPrompt(state);
             xtermRef.current.write(prompt);
+            // Store prompt (remove ANSI codes for storage)
+            appendTerminalOutput([prompt]);
             lastCommandCount.current = state.commandCount;
         }
-    }, [state.output, state.commandCount, state.HEAD, state.currentPath, state.initialized, state._sessionId, sessionId]);
+    }, [state.output, state.commandCount, state.HEAD, state.currentPath, state.initialized, state._sessionId, sessionId, appendTerminalOutput]);
 
 
     useEffect(() => {
@@ -188,15 +201,13 @@ const GitTerminal = () => {
 
         xtermRef.current = term;
 
-        let currentLine = '';
-
         term.onData((data) => {
             const code = data.charCodeAt(0);
 
             // Enter key
             if (code === 13) {
                 term.write('\r\n');
-                const cmd = currentLine.trim();
+                const cmd = currentLineRef.current.trim();
                 setTimeout(() => {
                     if (cmd) {
                         if (cmd === 'clear') {
@@ -223,7 +234,10 @@ const GitTerminal = () => {
                                 // User said: "git コマンド以外のバックエンドコードはそのまま削除しないように"
                                 // "ターミナルは... git コマンド限定にしたい"
                                 // If I run `git ls`, git will complain "git: 'ls' is not a git command". This satisfies "Git commands only" (invalid ones are rejected by git).
-                                term.writeln(`\r\n\x1b[90m(Auto-prefixed: ${fullCmd})\x1b[0m`);
+                                const autoPrefixMsg = `\r\n\x1b[90m(Auto-prefixed: ${fullCmd})\x1b[0m`;
+                                term.writeln(autoPrefixMsg);
+                                // Store auto-prefix message
+                                appendTerminalOutputRef.current([`(Auto-prefixed: ${fullCmd})`]);
                             }
 
                             if (runCommandRef.current) {
@@ -235,11 +249,11 @@ const GitTerminal = () => {
                     }
                 }, 0);
 
-                currentLine = '';
+                currentLineRef.current = '';
             }
             else if (code === 127) { // Backspace
-                if (currentLine.length > 0) {
-                    const charToRemove = currentLine.slice(-1);
+                if (currentLineRef.current.length > 0) {
+                    const charToRemove = currentLineRef.current.slice(-1);
                     const isWide = !!charToRemove.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/);
 
                     if (isWide) {
@@ -247,15 +261,15 @@ const GitTerminal = () => {
                     } else {
                         term.write('\b \b');
                     }
-                    currentLine = currentLine.slice(0, -1);
+                    currentLineRef.current = currentLineRef.current.slice(0, -1);
                 }
             }
             else if (code === 3) { // Ctrl+C
-                currentLine = '';
+                currentLineRef.current = '';
                 term.write(`^C\r\n${getPrompt(stateRef.current)}`);
             }
             else if (code >= 32) {
-                currentLine += data;
+                currentLineRef.current += data;
                 term.write(data);
             }
         });

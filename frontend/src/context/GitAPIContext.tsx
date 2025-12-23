@@ -7,6 +7,7 @@ interface GitContextType {
     state: GitState;
     sessionId: string;
     runCommand: (cmd: string) => Promise<void>;
+    appendTerminalOutput: (lines: string[]) => void;
     showAllCommits: boolean;
     toggleShowAllCommits: () => void;
     stageFile: (file: string) => Promise<void>;
@@ -221,6 +222,21 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    // Append lines to terminal output (for prompts, welcome messages, etc.)
+    const appendTerminalOutput = (lines: string[]) => {
+        if (!sessionId) return;
+
+        setSessionOutputs(prev => {
+            const current = prev[sessionId] || [];
+            return { ...prev, [sessionId]: [...current, ...lines] };
+        });
+
+        setState(prev => ({
+            ...prev,
+            output: [...prev.output, ...lines]
+        }));
+    };
+
     const toggleShowAllCommits = () => {
         setShowAllCommits(prev => !prev);
     };
@@ -309,6 +325,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             state,
             sessionId, // Expose current session ID
             runCommand,
+            appendTerminalOutput,
             showAllCommits,
             toggleShowAllCommits,
             stageFile,

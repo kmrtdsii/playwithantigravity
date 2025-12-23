@@ -87,6 +87,20 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [state.remotes, serverState, setupUrl, cloneStatus]);
 
+    // --- URL Validation ---
+    const validateUrl = (url: string): string | null => {
+        if (!url.trim()) {
+            return 'URLを入力してください';
+        }
+
+        // Check domain and protocol - must start with https://github.com
+        if (!url.startsWith('https://github.com')) {
+            return 'https://github.com で始まる必要があります';
+        }
+
+        return null; // Valid format, repo existence will be checked by API
+    };
+
     // --- Clone Process ---
     const performClone = useCallback(async (url: string) => {
         // Reset state
@@ -94,6 +108,14 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         setElapsedSeconds(0);
         setEstimatedSeconds(0);
         setRepoInfo(undefined);
+
+        // Validate URL first
+        const validationError = validateUrl(url);
+        if (validationError) {
+            setCloneStatus('error');
+            setErrorMessage(validationError);
+            return;
+        }
 
         try {
             // Step 1: Fetch repo info
@@ -141,7 +163,14 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                 timerRef.current = null;
             }
             setCloneStatus('error');
-            setErrorMessage(err instanceof Error ? err.message : 'Unknown error occurred');
+
+            // Provide user-friendly error messages
+            const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+            if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.toLowerCase().includes('failed')) {
+                setErrorMessage('無効なリポジトリです。URLが正しいか確認してください');
+            } else {
+                setErrorMessage(errorMsg);
+            }
             console.error('Clone failed:', err);
         }
     }, [ingestRemote, fetchServerState]);
