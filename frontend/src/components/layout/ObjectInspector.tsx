@@ -1,109 +1,145 @@
 import React from 'react';
 import { useGit } from '../../context/GitAPIContext';
 
-interface ObjectInspectorProps {
-    selectedObject?: {
-        type: 'commit' | 'file';
-        id: string; // Commit Hash or File Path
-        data?: any; // Additional data (message, author, content preview, status, view, etc.)
-    } | null;
+interface SelectedObject {
+    type: 'commit' | 'file';
+    id: string;
+    data?: CommitData | FileData;
 }
+
+interface CommitData {
+    message?: string;
+    author?: string;
+    timestamp?: string;
+}
+
+interface FileData {
+    view?: 'staged' | 'worktree';
+    content?: string;
+}
+
+interface ObjectInspectorProps {
+    selectedObject?: SelectedObject | null;
+}
+
+// --- Sub-Components (moved outside of main component) ---
+
+interface HeadInspectorProps {
+    headId: string | null | undefined;
+    headRef: string | null | undefined;
+    headType: 'branch' | 'commit' | 'none';
+}
+
+const HeadInspector: React.FC<HeadInspectorProps> = ({ headId, headRef, headType }) => (
+    <div>
+        <div style={headerStyle}>HEAD Inspector</div>
+        <div style={contentStyle}>
+            <div style={itemStyle}>
+                <span style={labelStyle}>Current HEAD:</span>
+                <span style={valueStyle}>{headId || headRef || 'Detached'}</span>
+            </div>
+            <div style={itemStyle}>
+                <span style={labelStyle}>Branch:</span>
+                <span style={valueStyle}>{headType === 'branch' ? headRef : 'Detached'}</span>
+            </div>
+        </div>
+    </div>
+);
+
+interface CommitInspectorProps {
+    commit: { id: string; data?: CommitData };
+}
+
+const CommitInspector: React.FC<CommitInspectorProps> = ({ commit }) => (
+    <div>
+        <div style={headerStyle}>Commit Inspector</div>
+        <div style={contentStyle}>
+            <div style={itemStyle}>
+                <span style={labelStyle}>Hash:</span>
+                <span style={{ ...valueStyle, fontFamily: 'monospace' }}>{commit.id.substring(0, 7)}</span>
+            </div>
+            {commit.data?.message && (
+                <div style={{ margin: '12px 0' }}>
+                    <span style={labelStyle}>Message:</span>
+                    <p style={{ marginTop: '4px', whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
+                        {commit.data.message}
+                    </p>
+                </div>
+            )}
+            {commit.data?.author && (
+                <div style={itemStyle}>
+                    <span style={labelStyle}>Author:</span>
+                    <span style={valueStyle}>{commit.data.author}</span>
+                </div>
+            )}
+            {commit.data?.timestamp && (
+                <div style={itemStyle}>
+                    <span style={labelStyle}>Date:</span>
+                    <span style={valueStyle}>{new Date(commit.data.timestamp).toLocaleString()}</span>
+                </div>
+            )}
+        </div>
+    </div>
+);
+
+interface FileInspectorProps {
+    file: { id: string; data?: FileData };
+    fileStatuses: Record<string, string>;
+}
+
+const FileInspector: React.FC<FileInspectorProps> = ({ file, fileStatuses }) => {
+    const { id, data } = file;
+    const view = data?.view;
+    const xy = fileStatuses[id] || '??';
+    let inspectorTitle = 'File Inspector';
+    if (view === 'staged') inspectorTitle = 'index Inspector (HEAD vs Index)';
+    if (view === 'worktree') inspectorTitle = 'Worktree Inspector (Index vs Worktree)';
+    const actionSuggestion = getActionSuggestion(xy, view);
+
+    return (
+        <div>
+            <div style={headerStyle}>{inspectorTitle}</div>
+            <div style={contentStyle}>
+                <div style={itemStyle}>
+                    <span style={labelStyle}>Path:</span>
+                    <span style={valueStyle}>{id}</span>
+                </div>
+                <div style={itemStyle}>
+                    <span style={labelStyle}>Status Code:</span>
+                    <span style={{ ...valueStyle, fontFamily: 'monospace', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                        {xy}
+                    </span>
+                </div>
+                {actionSuggestion && (
+                    <div style={{ marginTop: '16px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '6px', borderLeft: '4px solid var(--accent-primary)' }}>
+                        <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '4px' }}>
+                            SUGGESTED ACTION
+                        </span>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                            {actionSuggestion}
+                        </span>
+                    </div>
+                )}
+                <div style={{ marginTop: '20px', fontStyle: 'italic', color: 'var(--text-tertiary)' }}>
+                    File content preview not yet implemented.
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Main Component ---
 
 const ObjectInspector: React.FC<ObjectInspectorProps> = ({ selectedObject }) => {
     const { state } = useGit();
 
-    const HeadInspector = () => (
-        <div>
-            <div style={headerStyle}>HEAD Inspector</div>
-            <div style={contentStyle}>
-                <div style={itemStyle}>
-                    <span style={labelStyle}>Current HEAD:</span>
-                    <span style={valueStyle}>{state.HEAD.id || state.HEAD.ref || 'Detached'}</span>
-                </div>
-                <div style={itemStyle}>
-                    <span style={labelStyle}>Branch:</span>
-                    <span style={valueStyle}>{state.HEAD.type === 'branch' ? state.HEAD.ref : 'Detached'}</span>
-                </div>
-            </div>
-        </div>
-    );
-
-    const CommitInspector = ({ commit }: { commit: { id: string, data?: any } }) => (
-        <div>
-            <div style={headerStyle}>Commit Inspector</div>
-            <div style={contentStyle}>
-                <div style={itemStyle}>
-                    <span style={labelStyle}>Hash:</span>
-                    <span style={{ ...valueStyle, fontFamily: 'monospace' }}>{commit.id.substring(0, 7)}</span>
-                </div>
-                {commit.data?.message && (
-                    <div style={{ margin: '12px 0' }}>
-                        <span style={labelStyle}>Message:</span>
-                        <p style={{ marginTop: '4px', whiteSpace: 'pre-wrap', color: 'var(--text-primary)' }}>
-                            {commit.data.message}
-                        </p>
-                    </div>
-                )}
-                {commit.data?.author && (
-                    <div style={itemStyle}>
-                        <span style={labelStyle}>Author:</span>
-                        <span style={valueStyle}>{commit.data.author}</span>
-                    </div>
-                )}
-                {commit.data?.timestamp && (
-                    <div style={itemStyle}>
-                        <span style={labelStyle}>Date:</span>
-                        <span style={valueStyle}>{new Date(commit.data.timestamp).toLocaleString()}</span>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-
-    const FileInspector = ({ file }: { file: { id: string, data?: any } }) => {
-        const { id, data } = file;
-        const view = data?.view;
-        const xy = state.fileStatuses[id] || '??';
-        let inspectorTitle = 'File Inspector';
-        if (view === 'staged') inspectorTitle = 'index Inspector (HEAD vs Index)';
-        if (view === 'worktree') inspectorTitle = 'Worktree Inspector (Index vs Worktree)';
-        const actionSuggestion = getActionSuggestion(xy, view);
-
-        return (
-            <div>
-                <div style={headerStyle}>{inspectorTitle}</div>
-                <div style={contentStyle}>
-                    <div style={itemStyle}>
-                        <span style={labelStyle}>Path:</span>
-                        <span style={valueStyle}>{id}</span>
-                    </div>
-                    <div style={itemStyle}>
-                        <span style={labelStyle}>Status Code:</span>
-                        <span style={{ ...valueStyle, fontFamily: 'monospace', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                            {xy}
-                        </span>
-                    </div>
-                    {actionSuggestion && (
-                        <div style={{ marginTop: '16px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: '6px', borderLeft: '4px solid var(--accent-primary)' }}>
-                            <span style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--accent-primary)', marginBottom: '4px' }}>
-                                SUGGESTED ACTION
-                            </span>
-                            <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>
-                                {actionSuggestion}
-                            </span>
-                        </div>
-                    )}
-                    <div style={{ marginTop: '20px', fontStyle: 'italic', color: 'var(--text-tertiary)' }}>
-                        File content preview not yet implemented.
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
     return (
         <div style={containerStyle}>
-            <HeadInspector />
+            <HeadInspector
+                headId={state.HEAD.id}
+                headRef={state.HEAD.ref}
+                headType={state.HEAD.type}
+            />
 
             <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '24px 0' }}></div>
 
@@ -113,14 +149,25 @@ const ObjectInspector: React.FC<ObjectInspectorProps> = ({ selectedObject }) => 
                 </div>
             )}
 
-            {selectedObject?.type === 'commit' && <CommitInspector commit={selectedObject} />}
-            {selectedObject?.type === 'file' && <FileInspector file={selectedObject} />}
+            {selectedObject?.type === 'commit' && (
+                <CommitInspector commit={{ id: selectedObject.id, data: selectedObject.data as CommitData }} />
+            )}
+            {selectedObject?.type === 'file' && (
+                <FileInspector
+                    file={{ id: selectedObject.id, data: selectedObject.data as FileData }}
+                    fileStatuses={state.fileStatuses}
+                />
+            )}
         </div>
     );
 };
 
-// Helper for Action Guide
-const getActionSuggestion = (xy: string, view?: string) => {
+// --- Helper Functions ---
+
+/**
+ * Returns an action suggestion based on file status code.
+ */
+const getActionSuggestion = (xy: string, view?: string): string | null => {
     const x = xy[0];
     const y = xy[1];
 
@@ -128,7 +175,6 @@ const getActionSuggestion = (xy: string, view?: string) => {
     if (xy === '!!') return "Ignored file.";
 
     if (view === 'staged') {
-        // Focusing on X (Index)
         if (x === 'M') return "Staged change. Run `git commit` to record it.";
         if (x === 'A') return "Staged new file. Run `git commit` to record it.";
         if (x === 'D') return "Staged deletion. Run `git commit` to record it.";
@@ -136,20 +182,19 @@ const getActionSuggestion = (xy: string, view?: string) => {
     }
 
     if (view === 'worktree') {
-        // Focusing on Y (Worktree)
         if (y === 'M') return "Modified in worktree. Run `git add <file>` to stage changes.";
         if (y === 'D') return "Deleted in worktree. Run `git add <file>` to stage deletion.";
         if (y === ' ') return "Clean in worktree.";
     }
 
-    // Default general advice if no view specific
     if (y === 'M') return "Has unstaged changes. Run `git add` to stage.";
     if (x === 'M' || x === 'A') return "Has staged changes. Ready to commit.";
 
     return "Check file status.";
 };
 
-// Styles
+// --- Styles ---
+
 const containerStyle: React.CSSProperties = {
     padding: '16px',
     height: '100%',

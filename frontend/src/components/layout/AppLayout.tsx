@@ -8,13 +8,13 @@ import BranchingStrategies from '../visualization/BranchingStrategies';
 import FileExplorer from './FileExplorer';
 import RemoteRepoView from './RemoteRepoView';
 import DeveloperTabs from './DeveloperTabs';
-import type { GitState } from '../../types/gitTypes';
+import type { GitState, Commit } from '../../types/gitTypes';
 import { useTheme } from '../../context/ThemeContext';
 
 export interface SelectedObject {
     type: 'commit' | 'file';
     id: string; // Hash or Path
-    data?: any;
+    data?: Commit | { view?: string; message?: string };
 }
 
 type ViewMode = 'graph' | 'branches' | 'tags' | 'strategies';
