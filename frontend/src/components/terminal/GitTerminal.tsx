@@ -140,7 +140,7 @@ const GitTerminal = () => {
             }
 
             const prompt = getPrompt(state);
-            xtermRef.current.write(`\r\n${prompt}`);
+            xtermRef.current.write(prompt);
             lastCommandCount.current = state.commandCount;
         }
     }, [state.output, state.commandCount, state.HEAD, state.currentPath, state.initialized, state._sessionId, sessionId]);
