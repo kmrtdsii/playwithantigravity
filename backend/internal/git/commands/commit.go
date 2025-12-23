@@ -1,5 +1,10 @@
 package commands
 
+// commit.go - Simulated Git Commit Command
+//
+// Records changes to the repository by creating a new commit object.
+// Supports -m (message), --amend, and --allow-empty flags.
+
 import (
 	"context"
 	"fmt"
@@ -35,7 +40,9 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	// Naive arg parsing
 	for i := 1; i < len(args); i++ {
-		if args[i] == "-m" && i+1 < len(args) {
+		if args[i] == "-h" || args[i] == "--help" {
+			return c.Help(), nil
+		} else if args[i] == "-m" && i+1 < len(args) {
 			msg = args[i+1]
 			i++
 		} else if args[i] == "--amend" {
@@ -111,5 +118,14 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 }
 
 func (c *CommitCommand) Help() string {
-	return "usage: git commit [-m <msg>] [--amend]\n\nRecord changes to the repository."
+	return `usage: git commit [options]
+
+Options:
+    -m <msg>          use the given <msg> as the commit message
+    --amend           amend the previous commit
+    --allow-empty     allow creating a commit with no changes
+    --help            display this help message
+
+Record changes to the repository.
+`
 }

@@ -62,8 +62,9 @@ func TestGitBranchDelete(t *testing.T) {
 	}
 
 	// 8. Test invalid flag (prevent creation of branch named "-r")
-	if _, err := ExecuteGitCommand(sessionID, []string{"branch", "-r"}); err == nil {
-		t.Error("Expected error when using invalid flag -r, got nil")
+	// "branch -r" is valid (lists remotes). It should NOT create a branch named "-r".
+	if _, err := ExecuteGitCommand(sessionID, []string{"branch", "-r"}); err != nil {
+		t.Errorf("Expected success for valid flag -r, got %v", err)
 	}
 	output, err = ExecuteGitCommand(sessionID, []string{"branch"})
 	if err != nil {

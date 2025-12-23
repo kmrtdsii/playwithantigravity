@@ -1,5 +1,11 @@
 package commands
 
+// merge.go - Simulated Git Merge Command
+//
+// Joins two or more development histories together.
+// Supports --squash and --dry-run flags.
+// This is a simulation and creates merge commits in-memory.
+
 import (
 	"context"
 	"fmt"
@@ -32,18 +38,28 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	targetName := ""
 	squash := false
 	isDryRun := false
+	isHelp := false
 
 	for i, arg := range args {
 		if i == 0 {
 			continue
 		}
-		if arg == "--squash" {
+		switch arg {
+		case "--squash":
 			squash = true
-		} else if arg == "--dry-run" || arg == "-n" {
+		case "--dry-run", "-n":
 			isDryRun = true
-		} else if targetName == "" {
-			targetName = arg
+		case "--help", "-h":
+			isHelp = true
+		default:
+			if targetName == "" {
+				targetName = arg
+			}
 		}
+	}
+
+	if isHelp {
+		return c.Help(), nil
 	}
 
 	if targetName == "" {
@@ -196,5 +212,13 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 }
 
 func (c *MergeCommand) Help() string {
-	return "usage: git merge [--squash] <branch>"
+	return `usage: git merge [options] <branch>
+
+Options:
+    --squash          squash merge (apply changes but do not commit)
+    -n, --dry-run     dry run
+    --help            display this help message
+
+Join two or more development histories together.
+`
 }

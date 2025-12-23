@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
+	"github.com/kurobon/gitgym/backend/internal/state"
 )
 
 func TestServerEndpoints(t *testing.T) {
@@ -103,12 +104,12 @@ func TestServerEndpoints(t *testing.T) {
 			t.Errorf("Expected 200, got %d", resp.StatusCode)
 		}
 
-		var state git.GraphState
-		if err := json.NewDecoder(resp.Body).Decode(&state); err != nil {
+		var stateObj state.GraphState
+		if err := json.NewDecoder(resp.Body).Decode(&stateObj); err != nil {
 			t.Fatalf("Failed to decode graph state: %v", err)
 		}
 
-		if state.HEAD.Type == "" {
+		if stateObj.HEAD.Type == "" {
 			t.Error("Expected HEAD info in state")
 		}
 	})

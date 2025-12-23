@@ -1,6 +1,7 @@
-package git
+package state
 
 import (
+	"fmt"
 	"log"
 	"sort"
 	"time"
@@ -12,9 +13,9 @@ import (
 
 // GetGraphState returns the current state of the repository for frontend visualization
 func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphState, error) {
-	session, err := sm.GetSession(sessionID)
-	if err != nil {
-		return nil, err
+	session, ok := sm.GetSession(sessionID)
+	if !ok {
+		return nil, fmt.Errorf("session not found")
 	}
 
 	session.mu.RLock()

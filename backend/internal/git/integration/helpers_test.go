@@ -6,6 +6,7 @@ import (
 
 	"github.com/kurobon/gitgym/backend/internal/git"
 	_ "github.com/kurobon/gitgym/backend/internal/git/commands"
+	"github.com/kurobon/gitgym/backend/internal/state"
 )
 
 var testSessionManager *git.SessionManager
@@ -20,9 +21,9 @@ func InitSession(id string) error {
 }
 
 func ExecuteGitCommand(sessionID string, args []string) (string, error) {
-	session, err := testSessionManager.GetSession(sessionID)
-	if err != nil {
-		return "", err
+	session, ok := testSessionManager.GetSession(sessionID)
+	if !ok {
+		return "", fmt.Errorf("session not found")
 	}
 
 	if len(args) == 0 {
@@ -35,7 +36,7 @@ func ExecuteGitCommand(sessionID string, args []string) (string, error) {
 	return git.Dispatch(context.Background(), session, cmdName, cmdArgs)
 }
 
-func GetGraphState(sessionID string, showAll bool) (*git.GraphState, error) {
+func GetGraphState(sessionID string, showAll bool) (*state.GraphState, error) {
 	return testSessionManager.GetGraphState(sessionID, showAll)
 }
 
@@ -48,5 +49,9 @@ func ListFiles(sessionID string) (string, error) {
 }
 
 func GetSession(id string) (*git.Session, error) {
-	return testSessionManager.GetSession(id)
+	s, ok := testSessionManager.GetSession(id)
+	if !ok {
+		return nil, fmt.Errorf("session not found")
+	}
+	return s, nil
 }

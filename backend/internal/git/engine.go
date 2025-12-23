@@ -24,16 +24,16 @@ func RegisterCommand(name string, factory CommandFactory) {
 
 // Global dispatcher
 func Dispatch(ctx context.Context, session *Session, cmdName string, args []string) (string, error) {
-	// Simple aliasing/handling could go here
+	// All commands (git and shell) are registered in the same registry
 	factory, ok := registry[cmdName]
 	if !ok {
-		return "", fmt.Errorf("git: '%s' is not a git command. See 'git --help'", cmdName)
+		return "", fmt.Errorf("'%s' is not a recognized command. See 'help'", cmdName)
 	}
 
 	// Clear any simulation/potential commits from previous dry-runs
-	session.mu.Lock()
+	session.Lock()
 	session.PotentialCommits = nil
-	session.mu.Unlock()
+	session.Unlock()
 
 	cmd := factory()
 	return cmd.Execute(ctx, session, args)

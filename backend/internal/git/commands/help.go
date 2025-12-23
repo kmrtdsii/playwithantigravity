@@ -1,5 +1,10 @@
 package commands
 
+// help.go - Git Help Command
+//
+// Displays help information for available commands.
+// Usage: git help [<command>]
+
 import (
 	"context"
 	"fmt"

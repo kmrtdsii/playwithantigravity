@@ -1,5 +1,14 @@
 package commands
 
+// push.go - Simulated Git Push Command
+//
+// IMPORTANT: This implementation does NOT perform actual network operations.
+// It simulates push by copying objects between in-memory repositories:
+//   - Session-local repos (s.Repos)
+//   - Shared virtual remotes (s.Manager.SharedRemotes)
+//
+// This is safe for educational/sandbox use. No real GitHub/GitLab push occurs.
+
 import (
 	"context"
 	"fmt"
@@ -29,20 +38,30 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	// Parse Flags
 	isForce := false
 	isDryRun := false
+	isHelp := false
 	var positionalArgs []string
 	for i, arg := range args {
 		if i == 0 {
 			continue // skip "push"
 		}
-		if arg == "-f" || arg == "--force" {
+		switch arg {
+		case "-f", "--force":
 			isForce = true
-		} else if arg == "-n" || arg == "--dry-run" {
+		case "-n", "--dry-run":
 			isDryRun = true
-		} else if strings.HasPrefix(arg, "-") {
-			// ignore other flags for now
-		} else {
-			positionalArgs = append(positionalArgs, arg)
+		case "-h", "--help":
+			isHelp = true
+		default:
+			if strings.HasPrefix(arg, "-") {
+				// ignore other flags for now
+			} else {
+				positionalArgs = append(positionalArgs, arg)
+			}
 		}
+	}
+
+	if isHelp {
+		return c.Help(), nil
 	}
 
 	// Syntax: git push [remote] [refspec]
@@ -208,7 +227,16 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 }
 
 func (c *PushCommand) Help() string {
-	return "usage: git push [remote] [branch]"
+	return `usage: git push [options] [<remote>] [<refspec>]
+
+Options:
+    -f, --force       force updates (overwrites non-fast-forward)
+    -n, --dry-run     dry run (show what would be pushed without doing it)
+    --help            display this help message
+
+Note: This is a simulated push. Objects are copied to in-memory
+virtual remotes only. No actual network operations are performed.
+`
 }
 
 // Helpers

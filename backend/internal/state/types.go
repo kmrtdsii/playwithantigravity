@@ -1,10 +1,4 @@
-package git
-
-// ReflogEntry represents an entry in the reflog
-type ReflogEntry struct {
-	Hash    string
-	Message string
-}
+package state
 
 // GraphState represents the serialized state for the frontend
 type GraphState struct {
@@ -30,16 +24,6 @@ type GraphState struct {
 type Remote struct {
 	Name string   `json:"name"`
 	URLs []string `json:"urls"`
-}
-
-type Commit struct {
-	ID             string `json:"id"`
-	Message        string `json:"message"`
-	ParentID       string `json:"parentId"`
-	SecondParentID string `json:"secondParentId"`
-	Branch         string `json:"branch"` // Naive branch inference
-	Timestamp      string `json:"timestamp"`
-	TreeID         string `json:"treeId"`
 }
 
 type Head struct {

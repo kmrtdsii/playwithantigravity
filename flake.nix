@@ -58,6 +58,9 @@
               /bin/bash scripts/check-git-config.sh
             fi
 
+            # Ensure git man pages are accessible
+            export MANPATH="${pkgs.git}/share/man:$MANPATH"
+
             # Zsh を使っている場合の補完設定（任意）
             export SHELL=$(which zsh)
           '';

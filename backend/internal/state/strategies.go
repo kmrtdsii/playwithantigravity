@@ -1,4 +1,4 @@
-package git
+package state
 
 // GetBranchingStrategies returns a list of supported branching strategies for education
 func GetBranchingStrategies() []BranchingStrategy {

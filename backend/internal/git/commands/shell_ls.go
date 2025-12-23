@@ -1,5 +1,10 @@
 package commands
 
+// shell_ls.go - Shell Command: List Directory
+//
+// This is a SHELL COMMAND (not a git command).
+// Lists the contents of the current or specified directory.
+
 import (
 	"context"
 	"fmt"

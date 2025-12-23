@@ -1,5 +1,10 @@
 package commands
 
+// shell_cd.go - Shell Command: Change Directory
+//
+// This is a SHELL COMMAND (not a git command).
+// Changes the current working directory in the simulated filesystem.
+
 import (
 	"context"
 	"fmt"

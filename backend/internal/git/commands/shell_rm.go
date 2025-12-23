@@ -1,5 +1,10 @@
 package commands
 
+// shell_rm.go - Shell Command: Remove File/Directory
+//
+// This is a SHELL COMMAND (not a git command).
+// Removes files or directories from the simulated filesystem.
+
 import (
 	"context"
 	"fmt"

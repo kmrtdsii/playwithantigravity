@@ -1,5 +1,11 @@
 package commands
 
+// clone.go - Simulated Git Clone Command
+//
+// IMPORTANT: This implementation does NOT clone from real network URLs.
+// It looks up SharedRemotes (pre-ingested virtual remotes) or creates
+// a simulated remote from the URL. Objects are copied in-memory.
+
 import (
 	"context"
 	"fmt"
@@ -24,13 +30,15 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	s.Lock()
 	defer s.Unlock()
 
-	if len(args) < 2 {
-		return "", fmt.Errorf("usage: git clone <url>")
+	// Parse flags
+	for _, arg := range args[1:] {
+		if arg == "-h" || arg == "--help" {
+			return c.Help(), nil
+		}
 	}
 
-	// Ensure we are in root
-	if s.CurrentDir != "/" && s.CurrentDir != "" {
-		return "", fmt.Errorf("git clone invalid permissions: you can only clone from the root directory")
+	if len(args) < 2 {
+		return "", fmt.Errorf("usage: git clone <url>")
 	}
 
 	url := args[1]
@@ -149,5 +157,11 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 }
 
 func (c *CloneCommand) Help() string {
-	return "usage: git clone <url>\n\nClone a repository into a new directory." // We actually clone into root of filesystem for this session
+	return `usage: git clone <url>
+
+Clone a repository into a new directory.
+
+Note: This is simulated cloning from virtual shared remotes.
+No actual network operations are performed.
+`
 }

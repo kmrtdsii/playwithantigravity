@@ -1,5 +1,10 @@
 package commands
 
+// add.go - Simulated Git Add Command
+//
+// Stages file contents to the index for the next commit.
+// This operates on the in-memory worktree and index.
+
 import (
 	"context"
 	"fmt"
@@ -17,6 +22,13 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 	s.Lock()
 	defer s.Unlock()
 
+	// Parse flags
+	for _, arg := range args[1:] {
+		if arg == "-h" || arg == "--help" {
+			return c.Help(), nil
+		}
+	}
+
 	repo := s.GetRepo()
 	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
@@ -24,7 +36,7 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 
 	w, _ := repo.Worktree()
 	if len(args) < 2 {
-		return "", fmt.Errorf("usage: git add <file>")
+		return "", fmt.Errorf("Nothing specified, nothing added.\nMaybe you wanted to say 'git add .'?")
 	}
 
 	// args[0] is "add"
@@ -42,5 +54,12 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 }
 
 func (c *AddCommand) Help() string {
-	return "usage: git add <file>...\n\nAdd file contents to the index."
+	return `usage: git add [options] [--] <pathspec>...
+
+Options:
+    .                 add all changes in current directory
+    <file>            add specific file
+
+Add file contents to the index (staging area).
+`
 }

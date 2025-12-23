@@ -1,5 +1,10 @@
 package commands
 
+// shell_touch.go - Shell Command: Create/Update File
+//
+// This is a SHELL COMMAND (not a git command).
+// Creates a new file or updates modification time of existing file.
+
 import (
 	"context"
 	"fmt"

@@ -18,9 +18,9 @@ func TestSessionManager(t *testing.T) {
 	}
 
 	// 2. Get session
-	s2, err := sm.GetSession(id)
-	if err != nil {
-		t.Fatalf("failed to get session: %v", err)
+	s2, ok := sm.GetSession(id)
+	if !ok {
+		t.Fatalf("failed to get session: session not found")
 	}
 	if s2 != s {
 		t.Error("GetSession returned different session instance")
@@ -36,8 +36,8 @@ func TestSessionManager(t *testing.T) {
 	}
 
 	// 4. Non-existent
-	if _, err := sm.GetSession("ghost"); err == nil {
-		t.Error("expected error for non-existent session, got nil")
+	if _, ok := sm.GetSession("ghost"); ok {
+		t.Error("expected false for non-existent session, got true")
 	}
 }
 

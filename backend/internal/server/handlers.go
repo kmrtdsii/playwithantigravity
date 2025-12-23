@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
+	"github.com/kurobon/gitgym/backend/internal/state"
 )
 
 type Server struct {
@@ -42,7 +43,7 @@ func (s *Server) routes() {
 }
 
 func (s *Server) handleGetStrategies(w http.ResponseWriter, r *http.Request) {
-	strategies := git.GetBranchingStrategies()
+	strategies := state.GetBranchingStrategies()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(strategies)
 }
@@ -113,10 +114,10 @@ func (s *Server) handleExecCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. Get Session
-	session, err := s.SessionManager.GetSession(req.SessionID)
-	if err != nil {
+	session, ok := s.SessionManager.GetSession(req.SessionID)
+	if !ok {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		json.NewEncoder(w).Encode(map[string]string{"error": "session not found"})
 		return
 	}
 
@@ -178,17 +179,17 @@ func (s *Server) handleGetRemoteState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build state from the shared repo
-	state := git.BuildGraphState(repo)
+	stateObj := state.BuildGraphState(repo)
 	// Add logic to populate shared remotes
-	state.SharedRemotes = []string{name} // The requested one is definitely there.
+	stateObj.SharedRemotes = []string{name} // The requested one is definitely there.
 
 	// CLEANUP FOR VISUALIZATION:
 	// Only show local branches (simulated as server branches) and tags.
-	state.Remotes = []git.Remote{}                 // Clear remotes
-	state.RemoteBranches = make(map[string]string) // Clear remote tracking branches
+	stateObj.Remotes = []state.Remote{}               // Clear remotes
+	stateObj.RemoteBranches = make(map[string]string) // Clear remote tracking branches
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(state)
+	json.NewEncoder(w).Encode(stateObj)
 }
 
 func (s *Server) handleSimulateRemoteCommit(w http.ResponseWriter, r *http.Request) {

@@ -1,5 +1,11 @@
 package commands
 
+// pull.go - Simulated Git Pull Command
+//
+// Fetches from and integrates with another repository or a local branch.
+// This is equivalent to git fetch + git merge in simulation.
+// IMPORTANT: No actual network operations are performed.
+
 import (
 	"context"
 	"fmt"
@@ -19,16 +25,24 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 	// git pull = git fetch + git merge
 
 	isDryRun := false
+	isHelp := false
 	var cleanArgs []string
 	for i, arg := range args {
 		if i == 0 {
 			continue
 		}
-		if arg == "-n" || arg == "--dry-run" {
+		switch arg {
+		case "-n", "--dry-run":
 			isDryRun = true
-		} else {
+		case "-h", "--help":
+			isHelp = true
+		default:
 			cleanArgs = append(cleanArgs, arg)
 		}
+	}
+
+	if isHelp {
+		return c.Help(), nil
 	}
 
 	// 1. Fetch
@@ -135,7 +149,15 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 }
 
 func (c *PullCommand) Help() string {
-	return "usage: git pull [remote] [branch]"
+	return `usage: git pull [options] [<remote>] [<branch>]
+
+Options:
+    -n, --dry-run     dry run
+    --help            display this help message
+
+Fetch from and integrate with another repository or a local branch.
+Note: This is a simulated pull from virtual remotes.
+`
 }
 
 // isFastForward moved to utils.go

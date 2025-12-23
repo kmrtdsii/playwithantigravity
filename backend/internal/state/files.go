@@ -1,6 +1,7 @@
-package git
+package state
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,10 +11,14 @@ import (
 
 // ListFiles returns a list of files in the worktree
 func (sm *SessionManager) ListFiles(sessionID string) (string, error) {
-	session, err := sm.GetSession(sessionID)
-	if err != nil {
-		return "", err
+	session, ok := sm.GetSession(sessionID)
+	if !ok {
+		return "", fmt.Errorf("session not found")
 	}
+	// Original code returned err if session not found? GetSession returns bool.
+	// We should probably return error if not found.
+	// But let's check GetSession signature in session.go.
+	// func (sm *SessionManager) GetSession(id string) (*Session, bool)
 
 	session.mu.RLock()
 	defer session.mu.RUnlock()
@@ -43,18 +48,18 @@ func (sm *SessionManager) ListFiles(sessionID string) (string, error) {
 	return strings.Join(files, "\n"), nil
 }
 
-// TouchFile updates the modification time and appends content to a file to ensure it's treated as modified
+// TouchFile updates the modification time and appends content to a file
 func (sm *SessionManager) TouchFile(sessionID, filename string) error {
-	session, err := sm.GetSession(sessionID)
-	if err != nil {
-		return err
+	session, ok := sm.GetSession(sessionID)
+	if !ok {
+		return fmt.Errorf("session not found")
 	}
 
 	session.mu.Lock()
 	defer session.mu.Unlock()
 
 	// Check if file exists
-	_, err = session.Filesystem.Stat(filename)
+	_, err := session.Filesystem.Stat(filename)
 	if err != nil {
 		// File likely doesn't exist, create it (empty)
 		f, err := session.Filesystem.Create(filename)
@@ -65,7 +70,7 @@ func (sm *SessionManager) TouchFile(sessionID, filename string) error {
 		return nil
 	}
 
-	// File exists, append to it to update hash/modification
+	// File exists, append to it
 	f, err := session.Filesystem.OpenFile(filename, os.O_APPEND|os.O_RDWR, 0644)
 	if err != nil {
 		return err

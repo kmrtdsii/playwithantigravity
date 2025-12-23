@@ -1,5 +1,10 @@
 package commands
 
+// fetch.go - Simulated Git Fetch Command
+//
+// IMPORTANT: This implementation does NOT perform actual network operations.
+// It copies objects from in-memory virtual remotes (SharedRemotes or session-local).
+
 import (
 	"context"
 	"fmt"
@@ -28,18 +33,26 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	// Parse Flags
 	isDryRun := false
+	isHelp := false
 	var positionalArgs []string
 	for i, arg := range args {
 		if i == 0 {
 			continue // skip "fetch"
 		}
-		if arg == "-n" || arg == "--dry-run" {
+		switch arg {
+		case "-n", "--dry-run":
 			isDryRun = true
-		} else if strings.HasPrefix(arg, "-") {
-			// ignore other flags
-		} else {
-			positionalArgs = append(positionalArgs, arg)
+		case "-h", "--help":
+			isHelp = true
+		default:
+			if !strings.HasPrefix(arg, "-") {
+				positionalArgs = append(positionalArgs, arg)
+			}
 		}
+	}
+
+	if isHelp {
+		return c.Help(), nil
 	}
 
 	// Syntax: git fetch [remote]
@@ -139,7 +152,15 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 }
 
 func (c *FetchCommand) Help() string {
-	return "usage: git fetch [remote]"
+	return `usage: git fetch [options] [<remote>]
+
+Options:
+    -n, --dry-run     dry run (show what would be fetched without doing it)
+    --help            display this help message
+
+Download objects and refs from another repository.
+Note: This is a simulated fetch from virtual remotes.
+`
 }
 
 // Duplicated helpers for Fetch (different direction)
