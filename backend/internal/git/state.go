@@ -122,12 +122,22 @@ func populateBranchesAndTags(repo *gogit.Repository, state *GraphState) error {
 		return nil
 	})
 
-	// Get Remote Branches
+	// Get Remote Branches and Tags from References
+	// Note: repo.Tags() sometimes fails while repo.References() works.
+	// We do a single pass for robustness.
 	refs, err := repo.References()
 	if err == nil {
 		refs.ForEach(func(r *plumbing.Reference) error {
 			if r.Name().IsRemote() {
 				state.RemoteBranches[r.Name().Short()] = r.Hash().String()
+			} else if r.Name().IsTag() {
+				hash := r.Hash().String()
+				// Check if it's an annotated tag
+				tagObj, err := repo.TagObject(r.Hash())
+				if err == nil {
+					hash = tagObj.Target.String()
+				}
+				state.Tags[r.Name().Short()] = hash
 			}
 			return nil
 		})
@@ -139,14 +149,6 @@ func populateBranchesAndTags(repo *gogit.Repository, state *GraphState) error {
 		state.References["ORIG_HEAD"] = origHeadRef.Hash().String()
 	}
 
-	// Get Tags
-	tIter, err := repo.Tags()
-	if err == nil {
-		tIter.ForEach(func(r *plumbing.Reference) error {
-			state.Tags[r.Name().Short()] = r.Hash().String()
-			return nil
-		})
-	}
 	return nil
 }
 
@@ -167,17 +169,51 @@ func populateCommits(repo *gogit.Repository, state *GraphState, showAll bool) {
 		seen := make(map[string]bool)
 		var queue []plumbing.Hash
 
-		// 1. HEAD
+		// 1. Seed with ALL Refs (HEAD, Branches, Tags, Remotes)
+		// This ensures we show "Active" branches even if they are not merged into HEAD.
+
+		// HEAD
 		h, err := repo.Head()
 		if err == nil {
 			queue = append(queue, h.Hash())
 		}
-		// Note: Branches/Tags reachable from HEAD will be naturally found.
-		// Detached branches are NOT shown if showAll=false, unless we explicitly add all branch/tag heads to queue.
-		// Replicating original behavior: Only reachable from HEAD.
+
+		// Local Branches
+		bIter, err := repo.Branches()
+		if err == nil {
+			bIter.ForEach(func(r *plumbing.Reference) error {
+				queue = append(queue, r.Hash())
+				return nil
+			})
+		}
+
+		// Remote Branches
+		// Note: repo.References() includes everything, but we can filter or just add them.
+		// Adding all refs is safer for visibility.
+		refs, err := repo.References()
+		if err == nil {
+			refs.ForEach(func(r *plumbing.Reference) error {
+				// We want remotes and tags specifically if not covered above
+				if r.Name().IsRemote() {
+					queue = append(queue, r.Hash())
+				} else if r.Name().IsTag() {
+					// Resolve annotated tag for seeding
+					hash := r.Hash()
+					tagObj, err := repo.TagObject(hash)
+					if err == nil {
+						hash = tagObj.Target
+					}
+					queue = append(queue, hash)
+				}
+				return nil
+			})
+		}
 
 		// BFS
 		for len(queue) > 0 {
+			if len(collectedCommits) >= 1000 {
+				break
+			}
 			current := queue[0]
 			queue = queue[1:]
 

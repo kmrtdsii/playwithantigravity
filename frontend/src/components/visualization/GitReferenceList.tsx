@@ -1,7 +1,8 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit } from '../../types/gitTypes';
+import { Cloud, GitBranch } from 'lucide-react';
 
 interface GitReferenceListProps {
     type: 'branches' | 'tags';
@@ -17,21 +18,35 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect, sel
     // Create a map of Commit ID -> Commit Object for easy lookup
     const commitMap = new Map(commits.map(c => [c.id, c]));
 
-    const listItems = Object.entries(references || {}).map(([name, commitId]) => {
-        const commit = commitMap.get(commitId);
-        return {
-            name,
-            commitId,
-            commit
-        };
-    }).sort((a, b) => {
-        if (type === 'tags') {
-            const timeA = a.commit ? new Date(a.commit.timestamp).getTime() : 0;
-            const timeB = b.commit ? new Date(b.commit.timestamp).getTime() : 0;
-            return timeB - timeA;
+    const listItems = useMemo(() => {
+        const items: { name: string; commitId: string; commit: Commit | undefined; isRemote: boolean }[] = [];
+
+        // 1. Local Branches / Tags
+        if (references) {
+            Object.entries(references).forEach(([name, commitId]) => {
+                const commit = commitMap.get(commitId);
+                items.push({ name, commitId, commit, isRemote: false });
+            });
         }
-        return a.name.localeCompare(b.name);
-    });
+
+        // 2. Remote Branches (only if type is 'branches')
+        if (type === 'branches' && state.remoteBranches) {
+            Object.entries(state.remoteBranches).forEach(([name, commitId]) => {
+                const commit = commitMap.get(commitId);
+                items.push({ name, commitId, commit, isRemote: true });
+            });
+        }
+
+        // Sort items
+        return items.sort((a, b) => {
+            if (type === 'tags') {
+                const timeA = a.commit ? new Date(a.commit.timestamp).getTime() : 0;
+                const timeB = b.commit ? new Date(b.commit.timestamp).getTime() : 0;
+                return timeB - timeA;
+            }
+            return a.name.localeCompare(b.name);
+        });
+    }, [references, state.remoteBranches, commits, type]);
 
     if (!listItems.length) {
         return (
@@ -77,8 +92,11 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect, sel
                                 } as any}
                                 className="hover:bg-opacity-10 hover:bg-white"
                             >
-                                <td style={{ padding: '8px 16px', fontWeight: 'bold', color: type === 'branches' ? 'var(--accent-primary)' : 'var(--text-secondary)' }}>
-                                    {item.name}
+                                <td style={{ padding: '8px 16px', fontWeight: 'bold', color: type === 'branches' ? (item.isRemote ? 'var(--text-secondary)' : 'var(--accent-primary)') : 'var(--text-secondary)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {type === 'branches' && (item.isRemote ? <Cloud size={14} /> : <GitBranch size={14} />)}
+                                        {item.name}
+                                    </div>
                                 </td>
                                 <td style={{ padding: '8px 16px', color: 'var(--text-tertiary)' }}>
                                     {item.commitId.substring(0, 7)}

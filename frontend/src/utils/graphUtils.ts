@@ -10,7 +10,7 @@ import type { Commit, GitState } from '../types/gitTypes';
  */
 export function filterReachableCommits(
     commits: Commit[],
-    state: Pick<GitState, 'HEAD' | 'branches' | 'tags'>
+    state: Pick<GitState, 'HEAD' | 'branches' | 'tags' | 'remoteBranches'>
 ): Commit[] {
     if (commits.length === 0) return [];
 
@@ -30,6 +30,13 @@ export function filterReachableCommits(
 
     if (state.tags) {
         Object.values(state.tags).forEach((commitId) => {
+            queue.push(commitId);
+        });
+    }
+
+    // Include remote branches as seeds
+    if (state.remoteBranches) {
+        Object.values(state.remoteBranches).forEach((commitId) => {
             queue.push(commitId);
         });
     }

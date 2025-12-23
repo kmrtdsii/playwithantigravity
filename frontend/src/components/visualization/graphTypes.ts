@@ -41,7 +41,7 @@ export interface Badge {
     /** Display text (e.g., "main", "v1.0", "HEAD") */
     text: string;
     /** Badge type for styling */
-    type: 'branch' | 'head' | 'tag';
+    type: 'branch' | 'head' | 'tag' | 'remote-branch';
     /** Whether this is the currently checked out branch */
     isActive?: boolean;
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import './AppLayout.css';
 import { useGit } from '../../context/GitAPIContext';
 
@@ -9,7 +9,7 @@ import RemoteRepoView from './RemoteRepoView';
 import DeveloperTabs from './DeveloperTabs';
 import BottomPanel from './BottomPanel';
 import { Modal, Resizer } from '../common';
-import type { GitState } from '../../types/gitTypes';
+
 import type { SelectedObject } from '../../types/layoutTypes';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -27,12 +27,7 @@ const AppLayout = () => {
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
 
 
-    const localState: GitState = useMemo(() => {
-        return {
-            ...state,
-            remoteBranches: {} // Hide remote-tracking branches in local view
-        };
-    }, [state]);
+
 
     // --- Layout State ---
     const [leftPaneWidth, setLeftPaneWidth] = useState(33); // Percentage
@@ -217,7 +212,7 @@ const AppLayout = () => {
                         {state.HEAD && state.HEAD.type !== 'none' ? (
                             viewMode === 'graph' ? (
                                 <GitGraphViz
-                                    state={localState}
+                                    // state={state} // Use context state to show all branches including remotes
                                     onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
                                     selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
                                 />

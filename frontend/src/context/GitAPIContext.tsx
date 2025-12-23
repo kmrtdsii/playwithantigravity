@@ -85,8 +85,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // 2. Create Bob
             await addDeveloper('Bob');
 
-            // 2. Create Bob
-            await addDeveloper('Bob');
+
         };
         init();
     }, []);
