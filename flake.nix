@@ -31,16 +31,18 @@
           # 2. 環境変数の設定 (Settings に相当)
           shellHook = ''
             # Force Nix Node version to take precedence over local tools (like Volta)
-            export PATH=${pkgs.nodejs_22}/bin:$PATH
+            export IN_NIX_SHELL=1
             
             # Explicitly alias binaries to ensure the correct version is used even if PATH is mangled
-            alias node=${pkgs.nodejs_22}/bin/node
-            alias npm=${pkgs.nodejs_22}/bin/npm
-            alias npx=${pkgs.nodejs_22}/bin/npx
+            # alias node=${pkgs.nodejs_22}/bin/node
+            # alias npm=${pkgs.nodejs_22}/bin/npm
+            # alias npx=${pkgs.nodejs_22}/bin/npx
 
-            # Playwright が Nix で管理されたブラウザを指すように設定
-            export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
-            export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+            # Playwright Config:
+            # Nix (playwright-driver) と NPM パッケージのバージョン不一致を避けるため、
+            # ブラウザ管理は Playwright 標準の仕組み (npx playwright install) に任せます。
+            # export PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-driver.browsers}
+            # export PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
             echo "--- GitGym Dev Environment ---"
             echo "Go: $(go version)"
