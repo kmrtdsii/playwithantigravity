@@ -6,9 +6,7 @@ import { CommitBadge } from './GraphBadges';
 interface CommitRowProps {
     node: VizNode;
     badges: Array<{ text: string; type: string; isActive?: boolean }>;
-    isHovered: boolean;
     isSelected: boolean;
-    onHover: (id: string | null) => void;
     onClick: () => void;
 }
 
@@ -17,14 +15,10 @@ const TEXT_OFFSET_X = 140;
 export const CommitRow: React.FC<CommitRowProps> = ({
     node,
     badges,
-    isHovered,
     isSelected,
-    onHover,
     onClick
 }) => (
     <div
-        onMouseEnter={() => onHover(node.id)}
-        onMouseLeave={() => onHover(null)}
         onClick={onClick}
         style={{
             position: 'absolute',
@@ -42,10 +36,9 @@ export const CommitRow: React.FC<CommitRowProps> = ({
             paddingRight: '16px',
             userSelect: 'none',
             opacity: node.opacity,
-            backgroundColor: isHovered || isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-            borderLeft: isHovered || isSelected ? '4px solid var(--accent-primary)' : '4px solid transparent',
+            /* Hover/Select styles moved to CSS */
         }}
-        className="commit-row"
+        className={`commit-row ${isSelected ? 'selected' : ''}`}
     >
         {/* Commit ID */}
         <span

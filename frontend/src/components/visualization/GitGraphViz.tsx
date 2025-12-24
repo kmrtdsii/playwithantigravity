@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit, GitState } from '../../types/gitTypes';
 import { computeLayout } from './computeLayout';
@@ -32,8 +32,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     const state = propState || contextState;
     const { commits, potentialCommits, branches, references, remoteBranches, tags, HEAD } = state;
 
-    // Hover state for row highlighting
-    const [hoveredId, setHoveredId] = useState<string | null>(null);
+    // Hover state removed for performance (handled by CSS)
 
     // Compute layout with memoization
     const { nodes, edges, height, badgesMap } = useMemo(() =>
@@ -133,9 +132,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                         key={node.id}
                         node={node}
                         badges={badgesMap[node.id] || []}
-                        isHovered={node.id === hoveredId}
                         isSelected={node.id === selectedCommitId}
-                        onHover={setHoveredId}
                         onClick={() => onSelect?.(node)}
                     />
                 ))}
