@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useGit } from '../context/GitAPIContext';
@@ -21,6 +21,7 @@ export const useTerminal = (
     } = useGit();
 
     const { theme } = useTheme();
+    const [isReady, setIsReady] = useState(false);
 
     // Input buffer and cursor position
     const currentLineRef = useRef('');
@@ -65,7 +66,7 @@ export const useTerminal = (
 
     // --- INITIALIZATION & REPLAY ---
     useEffect(() => {
-        if (!xtermRef.current) return;
+        if (!xtermRef.current || !isReady) return;
 
         xtermRef.current.write('\x1bc'); // Full Reset
 
@@ -120,7 +121,7 @@ export const useTerminal = (
         prevDeveloperRef.current = activeDeveloper;
         setTimeout(() => fitAddonRef.current?.fit(), 50);
 
-    }, [activeDeveloper, sessionId, clearTranscript, getTranscript, writeAndRecord, fitAddonRef, xtermRef]);
+    }, [activeDeveloper, sessionId, clearTranscript, getTranscript, writeAndRecord, fitAddonRef, xtermRef, isReady]);
 
     // --- SYNC EXTERNAL COMMANDS ---
     useEffect(() => {
@@ -178,6 +179,8 @@ export const useTerminal = (
         fitAddon.fit();
 
         xtermRef.current = term;
+        // Defer readiness to avoid synchronous state update warning
+        setTimeout(() => setIsReady(true), 0);
 
         // --- COMMAND HANDLER ---
         term.onData((data) => {
