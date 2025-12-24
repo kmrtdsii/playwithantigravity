@@ -52,12 +52,10 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 	// 1.5. Capture Old Paths for Pruning Stale Workspaces
 	sm.mu.Lock()
 	oldPaths := make(map[string]bool)
-	for _, p := range sm.SharedRemotePaths {
-		oldPaths[p] = true
+	for k, v := range sm.SharedRemotePaths {
+		oldPaths[k] = true // Capture URL/Name (Keys)
+		oldPaths[v] = true // Capture Resolved Path (Values) - just in case
 	}
-	// Also can we get URLs? The keys are also URLs.
-	// But clone uses the PATH as the URL for local clones (see clone.go).
-	// So matching against path is correct.
 	sm.mu.Unlock()
 
 	// 2. Clear InMemory Maps - Needs LOCK
@@ -187,23 +185,15 @@ func (sm *SessionManager) CreatePullRequest(title, description, sourceBranch, ta
 
 	id := strconv.Itoa(len(sm.PullRequests) + 1)
 	pr := &PullRequest{
-		ID:      id,
-		Title:   title,
-		HeadRef: sourceBranch,
-		BaseRef: targetBranch,
-		// State: "open", // Missing State field in struct init?
-		State:     "open",
-		CreatedAt: time.Now(),
-		// Description? Struct definition in session.go missing Description?
-		// Let's check session.go struct definition.
-		// It has ID, Title, State, HeadRepo, HeadRef, BaseRepo, BaseRef, CreatedAt.
-		// No Description or Creator.
-		// I will ignore Description/Creator or add them to struct if needed.
-		// Assuming handler passes them but struct might strictly not store them.
-		// I'll stick to struct.
+		ID:          id,
+		Title:       title,
+		HeadRef:     sourceBranch,
+		BaseRef:     targetBranch,
+		State:       "OPEN",
+		Description: description,
+		Creator:     creator,
+		CreatedAt:   time.Now(),
 	}
-	// Fill optional if I can add to struct?
-	// For now, adhere to struct in session.go
 	sm.PullRequests = append(sm.PullRequests, pr)
 	return pr, nil
 }
@@ -225,7 +215,7 @@ func (sm *SessionManager) MergePullRequest(id int, remoteName string) error {
 		return fmt.Errorf("pull request %d not found", id)
 	}
 
-	if pr.State != "open" {
+	if pr.State != "OPEN" {
 		return fmt.Errorf("pull request is not open")
 	}
 
@@ -236,7 +226,7 @@ func (sm *SessionManager) MergePullRequest(id int, remoteName string) error {
 	// We need to merge pr.HeadRef into pr.BaseRef in repo.
 
 	// Simple simulation: just update state
-	pr.State = "merged"
+	pr.State = "MERGED"
 
 	// Ideally we perform git merge
 	// But for MVP session restoration, just status update is enough.

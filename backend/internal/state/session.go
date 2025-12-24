@@ -55,14 +55,16 @@ type Commit struct {
 
 // PullRequest structure
 type PullRequest struct {
-	ID        string
-	Title     string
-	State     string // "open", "closed", "merged"
-	HeadRepo  string // simulating fork
-	HeadRef   string // branch
-	BaseRepo  string
-	BaseRef   string
-	CreatedAt time.Time
+	ID          string    `json:"id"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	State       string    `json:"status"`       // "OPEN", "CLOSED", "MERGED"
+	HeadRepo    string    `json:"headRepo"`     // simulating fork
+	HeadRef     string    `json:"sourceBranch"` // branch
+	BaseRepo    string    `json:"baseRepo"`
+	BaseRef     string    `json:"targetBranch"`
+	Creator     string    `json:"creator"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 // NewSessionManager creates a new session manager
