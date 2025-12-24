@@ -188,17 +188,17 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			if iter.NumParents() == 0 {
 				break
 			}
-			p, err := iter.Parent(0)
-			if err != nil {
-				return "", fmt.Errorf("failed to traverse parents: %v", err)
+			p, pErr := iter.Parent(0)
+			if pErr != nil {
+				return "", fmt.Errorf("failed to traverse parents: %v", pErr)
 			}
 			iter = p
 		}
 	} else {
 		// Standard upstream..HEAD calculation
-		mergeBases, err := upstreamCommit.MergeBase(headCommit)
-		if err != nil {
-			return "", fmt.Errorf("failed to find merge base: %v", err)
+		mergeBases, mbErr := upstreamCommit.MergeBase(headCommit)
+		if mbErr != nil {
+			return "", fmt.Errorf("failed to find merge base: %v", mbErr)
 		}
 		if len(mergeBases) == 0 {
 			return "", fmt.Errorf("fatal: no common ancestor found. Use --root to rebase unrelated histories.")
@@ -216,6 +216,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 				// If HEAD is behind, rebase usually fast-forwards HEAD to upstream.
 				// Let's assume FF.
 				// .. logic ..
+				_ = base
 			}
 			if base.Hash == upstreamCommit.Hash {
 				// Upstream is ancestor of HEAD. We are ahead.
@@ -232,9 +233,9 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			if iter.NumParents() == 0 {
 				break
 			}
-			p, err := iter.Parent(0) // Linear history assumption for simple rebase
-			if err != nil {
-				return "", fmt.Errorf("failed to traverse parents: %v", err)
+			p, pErr := iter.Parent(0) // Linear history assumption for simple rebase
+			if pErr != nil {
+				return "", fmt.Errorf("failed to traverse parents: %v", pErr)
 			}
 			iter = p
 		}
@@ -247,16 +248,16 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	// 6. Hard Reset to Target (NewBase)
 	w, _ := repo.Worktree()
-	if err := w.Reset(&gogit.ResetOptions{Commit: *targetHash, Mode: gogit.HardReset}); err != nil {
-		return "", fmt.Errorf("failed to reset to newbase: %v", err)
+	if resetErr := w.Reset(&gogit.ResetOptions{Commit: *targetHash, Mode: gogit.HardReset}); resetErr != nil {
+		return "", fmt.Errorf("failed to reset to newbase: %v", resetErr)
 	}
 
 	// 7. Replay Commits (using shared helper)
 	replayedCount := 0
 	for _, c := range commitsToReplay {
 		// Apply changes from this commit using shared helper
-		if err := git.ApplyCommitChanges(w, c); err != nil {
-			return "", fmt.Errorf("failed to apply commit %s: %v", c.Hash.String()[:7], err)
+		if applyErr := git.ApplyCommitChanges(w, c); applyErr != nil {
+			return "", fmt.Errorf("failed to apply commit %s: %v", c.Hash.String()[:7], applyErr)
 		}
 
 		// Ensure timestamp distinctness
@@ -278,6 +279,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	if preserve {
 		// We aren't actually implementing merge preservation yet, just acknowledged flag.
+		_ = preserve
 	}
 
 	s.RecordReflog(fmt.Sprintf("rebase: finished rebase onto %s", targetHash.String()))

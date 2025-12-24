@@ -118,9 +118,9 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 			return "", err
 		}
 
-		w, err := repo.Worktree()
-		if err != nil {
-			return "", err
+		w, wErr := repo.Worktree()
+		if wErr != nil {
+			return "", wErr
 		}
 
 		err = w.Reset(&gogit.ResetOptions{

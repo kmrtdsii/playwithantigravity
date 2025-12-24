@@ -104,8 +104,8 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 			localRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, branchName))
 
 			// Check if update needed
-			currentLocal, err := repo.Reference(localRefName, true)
-			if err == nil && currentLocal.Hash() == r.Hash() {
+			currentLocal, errRef := repo.Reference(localRefName, true)
+			if errRef == nil && currentLocal.Hash() == r.Hash() {
 				return nil // up to date
 			}
 

@@ -34,10 +34,13 @@ func (c *TagCommand) Execute(ctx context.Context, s *git.Session, args []string)
 			return "", err
 		}
 		var sb strings.Builder
-		tags.ForEach(func(r *plumbing.Reference) error {
+		err = tags.ForEach(func(r *plumbing.Reference) error {
 			sb.WriteString(r.Name().Short() + "\n")
 			return nil
 		})
+		if err != nil {
+			return "", err
+		}
 		return sb.String(), nil
 	}
 

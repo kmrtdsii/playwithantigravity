@@ -52,11 +52,7 @@ func TestSession_GetRepo(t *testing.T) {
 
 	// Add a repo at root
 	s.Repos[""] = nil // Just a placeholder to check path matching
-	if s.GetRepo() != nil {
-		// Wait, value is nil anyway.
-		// Let's use a real-ish object check if we had one,
-		// but since Repos is map[string]*git.Repository, nil is a valid value for the key.
-	}
+	// if s.GetRepo() != nil { } // Removed empty check
 
 	// Test path normalization
 	s.CurrentDir = "/"

@@ -47,9 +47,9 @@ func (c *TouchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	_, err := s.Filesystem.Stat(fullPath)
 	if err != nil {
 		// File likely doesn't exist, create it (empty)
-		f, err := s.Filesystem.Create(fullPath)
-		if err != nil {
-			return "", err
+		f, createErr := s.Filesystem.Create(fullPath)
+		if createErr != nil {
+			return "", createErr
 		}
 		f.Close()
 		return fmt.Sprintf("Created '%s'", filename), nil

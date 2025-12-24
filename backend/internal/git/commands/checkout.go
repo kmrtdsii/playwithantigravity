@@ -76,10 +76,8 @@ func (c *CheckoutCommand) Execute(ctx context.Context, s *git.Session, args []st
 		default:
 			if target == "" {
 				target = arg
-			} else {
-				// multiple args not supported for branch checkout unless paths
-				// For simulation, we simplify.
 			}
+			// else: multiple args not supported for branch checkout unless paths
 		}
 	}
 
@@ -186,8 +184,8 @@ func (c *CheckoutCommand) createAndCheckout(repo *gogit.Repository, w *gogit.Wor
 	}
 
 	newRef := plumbing.NewHashReference(refName, *hash)
-	if err := repo.Storer.SetReference(newRef); err != nil {
-		return "", err
+	if errRef := repo.Storer.SetReference(newRef); errRef != nil {
+		return "", errRef
 	}
 
 	// Checkout
@@ -195,8 +193,8 @@ func (c *CheckoutCommand) createAndCheckout(repo *gogit.Repository, w *gogit.Wor
 		Branch: refName,
 		Force:  forceCheckout,
 	}
-	if err := w.Checkout(opts); err != nil {
-		return "", err
+	if errCheckout := w.Checkout(opts); errCheckout != nil {
+		return "", errCheckout
 	}
 
 	s.RecordReflog(fmt.Sprintf("checkout: moving from %s to %s", startPoint, branchName))
@@ -248,8 +246,8 @@ func (c *CheckoutCommand) checkoutRefOrPath(repo *gogit.Repository, w *gogit.Wor
 	hash, err := repo.ResolveRevision(plumbing.Revision(target))
 	if err == nil {
 		// Verify it's a commit
-		if _, err := repo.CommitObject(*hash); err != nil {
-			return "", fmt.Errorf("reference is not a commit: %v", err)
+		if _, errObj := repo.CommitObject(*hash); errObj != nil {
+			return "", fmt.Errorf("reference is not a commit: %v", errObj)
 		}
 
 		err = w.Checkout(&gogit.CheckoutOptions{

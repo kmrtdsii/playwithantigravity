@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
 	_ "github.com/kurobon/gitgym/backend/internal/git/commands" // Register commands
@@ -29,8 +30,17 @@ func main() {
 	// Initialize HTTP Server
 	srv := server.NewServer(sessionManager)
 
+	// Security: Use http.Server with timeouts (G114)
+	httpServer := &http.Server{
+		Addr:         ":8080",
+		Handler:      srv,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
 	log.Println("Server listening on :8080")
-	if err := http.ListenAndServe(":8080", srv); err != nil {
+	if err := httpServer.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
