@@ -7,19 +7,10 @@ interface FileExplorerProps {
     onSelect: (obj: SelectedObject) => void;
 }
 
-interface FileNode {
-    name: string;
-    path: string;
-    isDir: boolean;
-    children?: FileNode[];
-    status?: string; // XY status from git
-}
 
 const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
     const { state, runCommand } = useGit();
-    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
     const [showBranches, setShowBranches] = useState(true);
-
     // Active Project Detection
     const currentPathClean = state.currentPath ? state.currentPath.replace(/^\//, '') : '';
     const isRoot = !currentPathClean;
@@ -32,17 +23,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
     const localBranches = useMemo(() => {
         return Object.keys(state.branches || {}).sort();
     }, [state.branches]);
-
-    // Build Entry Tree from flat file list (Working Tree)
-    // const fileTree = ... // Removed
-
-    const toggleFolder = (path: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        const newSet = new Set(expandedFolders);
-        if (newSet.has(path)) newSet.delete(path);
-        else newSet.add(path);
-        setExpandedFolders(newSet);
-    };
 
     const handleProjectClick = (projectName: string) => {
         if (activeProject === projectName) {
@@ -59,11 +39,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
         }
     };
 
-    const handleDirClick = (node: FileNode, e: React.MouseEvent) => {
-        e.stopPropagation();
-        toggleFolder(node.path, e);
-    };
-
     const handleDeleteProject = (projectName: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm(`Are you sure you want to delete project '${projectName}'? This cannot be undone.`)) {
@@ -72,14 +47,6 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
             }
             runCommand(`rm -rf ${projectName}`);
         }
-    };
-
-    const getStatusColor = (status?: string) => {
-        if (!status) return 'var(--text-secondary)';
-        if (status.includes('?')) return '#ff5f56';
-        if (status.includes('M')) return '#ffbd2e';
-        if (status.includes('A')) return '#27c93f';
-        return 'var(--text-primary)';
     };
 
     // const renderTree = (nodes: FileNode[], depth: number = 0) => { ... } // Removed
