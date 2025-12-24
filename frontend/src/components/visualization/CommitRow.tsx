@@ -44,12 +44,12 @@ export const CommitRow: React.FC<CommitRowProps> = ({
         <span
             onClick={(e) => e.stopPropagation()}
             style={{
-                color: isSelected ? 'var(--accent-primary, #3b82f6)' : 'var(--text-tertiary)',
+                color: 'var(--text-tertiary)',
                 fontSize: '10px',
                 width: '60px',
                 textAlign: 'left',
                 flexShrink: 0,
-                fontWeight: isSelected ? 'bold' : 'normal',
+                fontWeight: 'normal',
                 marginRight: '8px',
                 fontFamily: 'var(--font-mono)',
                 userSelect: 'text',

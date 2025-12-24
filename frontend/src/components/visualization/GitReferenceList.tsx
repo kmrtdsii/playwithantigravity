@@ -10,7 +10,7 @@ interface GitReferenceListProps {
     selectedCommitId?: string;
 }
 
-const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect, selectedCommitId }) => {
+const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) => {
     const { state } = useGit();
     const references = type === 'branches' ? state.branches : state.tags;
     const { commits } = state;
@@ -75,7 +75,7 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect, sel
                 </thead>
                 <tbody>
                     {listItems.map((item) => {
-                        const isSelected = item.commitId === selectedCommitId;
+
                         return (
                             <tr
                                 key={item.name}
@@ -83,9 +83,7 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect, sel
                                 style={{
                                     cursor: 'pointer',
                                     borderBottom: '1px solid var(--border-subtle)',
-                                    backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                                    // Use box-shadow for left accent border in table row
-                                    boxShadow: isSelected ? 'inset 4px 0 0 var(--accent-primary)' : 'none',
+                                    // Removed highlight styles
                                     transition: 'background-color 0.2s',
                                     ':hover': { backgroundColor: 'var(--bg-secondary)' }
                                 } as React.CSSProperties}
