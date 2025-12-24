@@ -50,41 +50,90 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 
             return (
                 <div style={{
-                    padding: '20px',
+                    padding: '24px',
                     background: 'var(--bg-secondary, #1a1a2e)',
                     border: '1px solid var(--border-subtle, #333)',
                     borderRadius: '8px',
                     color: 'var(--text-primary, #fff)',
-                    fontFamily: 'system-ui, sans-serif'
+                    fontFamily: 'system-ui, -apple-system, sans-serif',
+                    maxWidth: '800px',
+                    margin: '40px auto',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
                 }}>
                     <h3 style={{
-                        margin: '0 0 12px 0',
-                        color: '#ff7b72',
-                        fontSize: '1rem'
+                        margin: '0 0 16px 0',
+                        color: '#ff7b72', // GitHub Error Red
+                        fontSize: '1.25rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
                     }}>
-                        Something went wrong
+                        <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+                        Application Error
                     </h3>
-                    <p style={{
-                        margin: '0 0 12px 0',
-                        fontSize: '0.875rem',
-                        color: 'var(--text-secondary, #aaa)'
+
+                    <div style={{
+                        background: 'rgba(255,123,114,0.1)',
+                        border: '1px solid rgba(255,123,114,0.2)',
+                        borderRadius: '6px',
+                        padding: '16px',
+                        marginBottom: '16px'
                     }}>
-                        {this.state.error?.message || 'An unexpected error occurred'}
-                    </p>
+                        <p style={{
+                            margin: '0',
+                            fontSize: '1rem',
+                            fontWeight: 500,
+                            color: 'var(--text-primary, #e6edf3)'
+                        }}>
+                            {this.state.error?.message || 'An unexpected error occurred'}
+                        </p>
+                    </div>
+
+                    <details style={{ marginBottom: '20px' }}>
+                        <summary style={{
+                            cursor: 'pointer',
+                            color: 'var(--text-secondary, #8b949e)',
+                            fontSize: '0.9rem',
+                            userSelect: 'none'
+                        }}>
+                            View Stack Trace
+                        </summary>
+                        <pre style={{
+                            marginTop: '10px',
+                            padding: '12px',
+                            background: '#0d1117',
+                            border: '1px solid #30363d',
+                            borderRadius: '6px',
+                            color: '#c9d1d9',
+                            fontSize: '0.75rem',
+                            overflowX: 'auto',
+                            lineHeight: '1.45',
+                            whiteSpace: 'pre-wrap'
+                        }}>
+                            {this.state.error?.stack}
+                        </pre>
+                    </details>
+
                     <button
                         onClick={() => this.setState({ hasError: false, error: null })}
                         style={{
-                            padding: '6px 12px',
+                            padding: '8px 16px',
                             background: 'var(--accent-primary, #3b82f6)',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '4px',
+                            borderRadius: '6px',
                             cursor: 'pointer',
-                            fontSize: '0.8rem'
+                            fontSize: '0.9rem',
+                            fontWeight: 600,
+                            transition: 'background 0.2s'
                         }}
                     >
                         Try Again
                     </button>
+
+                    <div style={{ marginTop: '16px', fontSize: '0.8rem', color: 'var(--text-tertiary, #484f58)' }}>
+                        Tip: Open the Developer Tools console for full logs.
+                    </div>
                 </div>
             );
         }

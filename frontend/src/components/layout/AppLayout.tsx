@@ -14,6 +14,7 @@ import AddDeveloperModal from './AddDeveloperModal'; // New Import
 import type { SelectedObject } from '../../types/layoutTypes';
 import { useTheme } from '../../context/ThemeContext';
 import { useResizablePanes } from '../../hooks/useResizablePanes'; // New Hook
+import { motion, AnimatePresence } from 'framer-motion';
 
 type ViewMode = 'graph' | 'branches' | 'tags';
 
@@ -176,24 +177,52 @@ const AppLayout = () => {
                 <div ref={stackContainerRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
 
                     {/* Top: Graph / Visualization */}
-                    <div ref={centerContentRef} style={{ height: vizHeight, minHeight: '100px', display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border-subtle)' }}>
-                        {state.HEAD && state.HEAD.type !== 'none' ? (
-                            viewMode === 'graph' ? (
-                                <GitGraphViz
-                                    // state={state} // Use context state to show all branches including remotes
-                                    onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
-                                    selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
-                                />
+                    <div ref={centerContentRef} style={{ height: vizHeight, minHeight: '100px', display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border-subtle)', overflow: 'hidden', position: 'relative' }}>
+                        <AnimatePresence mode="wait">
+                            {state.HEAD && state.HEAD.type !== 'none' ? (
+                                viewMode === 'graph' ? (
+                                    <motion.div
+                                        key="graph"
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 10 }}
+                                        transition={{ duration: 0.2 }}
+                                        style={{ width: '100%', height: '100%' }}
+                                    >
+                                        <GitGraphViz
+                                            // state={state} // Use context state to show all branches including remotes
+                                            onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
+                                            selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
+                                        />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key={viewMode}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 10 }}
+                                        transition={{ duration: 0.2 }}
+                                        style={{ width: '100%', height: '100%' }}
+                                    >
+                                        <GitReferenceList
+                                            type={viewMode === 'branches' ? 'branches' : 'tags'}
+                                            onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
+                                            selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
+                                        />
+                                    </motion.div>
+                                )
                             ) : (
-                                <GitReferenceList
-                                    type={viewMode === 'branches' ? 'branches' : 'tags'}
-                                    onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
-                                    selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
-                                />
-                            )
-                        ) : (
-                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>No Repository Loaded</div>
-                        )}
+                                <motion.div
+                                    key="empty"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}
+                                >
+                                    No Repository Loaded
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
 
                     {/* Resizer Vert (Graph vs Bottom) */}
