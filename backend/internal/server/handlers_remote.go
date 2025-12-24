@@ -53,6 +53,8 @@ func (s *Server) handleSimulateRemoteCommit(w http.ResponseWriter, r *http.Reque
 	var req struct {
 		Name    string `json:"name"`
 		Message string `json:"message"`
+		Author  string `json:"author"` // Optional
+		Email   string `json:"email"`  // Optional
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -68,7 +70,7 @@ func (s *Server) handleSimulateRemoteCommit(w http.ResponseWriter, r *http.Reque
 		req.Message = "Simulated commit from team member"
 	}
 
-	if err := s.SessionManager.SimulateCommit(req.Name, req.Message); err != nil {
+	if err := s.SessionManager.SimulateCommit(req.Name, req.Message, req.Author, req.Email); err != nil {
 		http.Error(w, fmt.Sprintf("failed to simulate commit: %v", err), http.StatusInternalServerError)
 		return
 	}

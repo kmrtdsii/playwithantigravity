@@ -56,14 +56,16 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         style={inputStyle}
                         autoFocus
                         onFocus={(e) => e.target.select()}
+                        data-testid="remote-url-input"
                     />
-                    <button type="button" onClick={onCancelEdit} style={cancelButtonStyle}>
+                    <button type="button" onClick={onCancelEdit} style={cancelButtonStyle} data-testid="remote-cancel-btn">
                         Cancel
                     </button>
                     <button
                         type="submit"
                         disabled={isSettingUp || !setupUrl}
                         style={{ ...submitButtonStyle, opacity: isSettingUp ? 0.7 : 1 }}
+                        data-testid="remote-update-btn"
                     >
                         {isSettingUp ? 'UPDATING...' : 'UPDATE'}
                     </button>
@@ -113,6 +115,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                             fontWeight: 600,
                             whiteSpace: 'nowrap'
                         }}
+                        data-testid="remote-configure-btn"
                     >
                         Configure
                     </button>

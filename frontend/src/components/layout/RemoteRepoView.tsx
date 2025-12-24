@@ -128,7 +128,7 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     const isSettingUp = cloneStatus === 'fetching_info' || cloneStatus === 'cloning';
 
     return (
-        <div style={containerStyle}>
+        <div style={containerStyle} data-testid="remote-repo-view">
             {/* TOP SPLIT: Info & Graph */}
             <div style={{ height: topHeight, display: 'flex', flexDirection: 'column', flexShrink: 0, minHeight: 0 }}>
                 <RemoteHeader

@@ -59,6 +59,7 @@ const AppLayout = () => {
                 className="left-pane"
                 style={{ width: `${leftPaneWidth}% `, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-subtle)' }}
                 ref={leftContentRef}
+                data-testid="layout-left-pane"
             >
                 <div className="pane-content" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                     <RemoteRepoView
@@ -72,7 +73,7 @@ const AppLayout = () => {
             <Resizer orientation="vertical" onMouseDown={startResizeLeft} />
 
             {/* --- COLUMN 2: LOCAL WORKSPACE (Merged Center & Right) --- */}
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }} data-testid="layout-workspace-pane">
 
                 {/* ROW 1: User Tabs (Alice / Bob) */}
                 <DeveloperTabs
@@ -109,6 +110,7 @@ const AppLayout = () => {
                                     fontWeight: 600,
                                     textTransform: 'capitalize'
                                 }}
+                                data-testid={`view-mode-${mode}`}
                             >
                                 {mode}
                             </button>
@@ -117,7 +119,7 @@ const AppLayout = () => {
 
                     {/* Right Side Controls */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px', fontSize: '10px', color: 'var(--text-secondary)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px', fontSize: '10px', color: 'var(--text-secondary)' }} data-testid="show-all-toggle">
                             <input
                                 type="checkbox"
                                 checked={showAllCommits}
@@ -142,6 +144,7 @@ const AppLayout = () => {
                                 gap: '4px'
                             }}
                             title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                            data-testid="theme-toggle"
                         >
                             {theme === 'dark' ? '☀️' : '🌙'}
                         </button>

@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -47,11 +48,6 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		default:
 			if url == "" {
 				url = arg
-			} else {
-				// clone only takes one arg (url) and optional dir?
-				// "git clone <url> <dir>" support?
-				// Legacy only supported <url>.
-				// If we want to be strict, we can error. Or ignore.
 			}
 		}
 	}
@@ -70,14 +66,14 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	// SECURITY: Input Validation
 	if !SafeRepoNameRegex.MatchString(repoName) {
-		return "", fmt.Errorf("invalid repository name: contains unsafe characters")
+		return "", fmt.Errorf("invalid repository name '%s': must contain only alphanumeric characters, underscores, or hyphens", repoName)
 	}
 	if repoName == "." || repoName == ".." {
-		return "", fmt.Errorf("invalid repository name")
+		return "", fmt.Errorf("invalid repository name: cannot be relative path")
 	}
 
 	if _, exists := s.Repos[repoName]; exists {
-		return "", fmt.Errorf("repository '%s' already exists", repoName)
+		return "", fmt.Errorf("destination path '%s' already exists and is not an empty directory", repoName)
 	}
 
 	// 1. Resolve Remote Repository (Shared vs Session-local)
@@ -110,7 +106,13 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	if remoteRepo == nil {
 		// Fallback: Create Simulated Remote (Legacy behavior)
-		remotePath = fmt.Sprintf("remotes/%s.git", repoName)
+		// SECURITY: Prevent traversal in path construction
+		repoNameClean := filepath.Clean(repoName)
+		if strings.Contains(repoNameClean, "..") {
+			return "", fmt.Errorf("security violation: invalid remote path")
+		}
+
+		remotePath = fmt.Sprintf("remotes/%s.git", repoNameClean)
 		if err := s.Filesystem.MkdirAll("remotes", 0755); err != nil {
 			return "", fmt.Errorf("failed to create remotes directory: %w", err)
 		}

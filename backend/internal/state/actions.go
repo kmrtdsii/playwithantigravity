@@ -96,7 +96,7 @@ func (sm *SessionManager) RemoveRemote(name string) error {
 }
 
 // SimulateCommit creates a dummy commit on the given remote repository
-func (sm *SessionManager) SimulateCommit(remoteName, message string) error {
+func (sm *SessionManager) SimulateCommit(remoteName, message, authorName, authorEmail string) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
@@ -126,10 +126,17 @@ func (sm *SessionManager) SimulateCommit(remoteName, message string) error {
 		return err
 	}
 
+	if authorName == "" {
+		authorName = "Simulated User"
+	}
+	if authorEmail == "" {
+		authorEmail = "simulated@example.com"
+	}
+
 	_, err = w.Commit(message, &gogit.CommitOptions{
 		Author: &object.Signature{
-			Name:  "Simulated User",
-			Email: "simulated@example.com",
+			Name:  authorName,
+			Email: authorEmail,
 			When:  time.Now(),
 		},
 	})
