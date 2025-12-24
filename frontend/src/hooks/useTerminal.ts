@@ -347,7 +347,8 @@ export const useTerminal = (
             resizeObserver.disconnect();
             term.dispose();
         };
-    }, [theme, terminalRef, writeAndRecord, xtermRef, fitAddonRef]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [terminalRef, writeAndRecord, xtermRef, fitAddonRef]);
 
     // Theme Update
     useEffect(() => {

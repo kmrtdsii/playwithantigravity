@@ -34,9 +34,9 @@ func main() {
 	httpServer := &http.Server{
 		Addr:         ":8080",
 		Handler:      srv,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  300 * time.Second, // Increased for large repo operations
+		WriteTimeout: 300 * time.Second, // Increased for large repo operations
+		IdleTimeout:  300 * time.Second,
 	}
 
 	log.Println("Server listening on :8080")
