@@ -12,7 +12,6 @@ import (
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -111,8 +110,8 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 				return nil
 			}
 
-			// 1. Copy Objects
-			err = fetchCopyCommitRecursive(srcRepo, repo, r.Hash())
+			// 1. Copy Objects using Shared Helper
+			err = git.CopyCommitRecursive(srcRepo, repo, r.Hash())
 			if err != nil {
 				return err
 			}
@@ -158,82 +157,4 @@ Options:
 Download objects and refs from another repository.
 Note: This is a simulated fetch from virtual remotes.
 `
-}
-
-// Duplicated helpers for Fetch (different direction)
-
-func fetchCopyCommitRecursive(src, dst *gogit.Repository, hash plumbing.Hash) error {
-	if fetchHasObject(dst, hash) {
-		return nil
-	}
-
-	obj, err := src.Storer.EncodedObject(plumbing.CommitObject, hash)
-	if err != nil {
-		return err
-	}
-	_, err = dst.Storer.SetEncodedObject(obj)
-	if err != nil {
-		return err
-	}
-
-	commit, err := object.DecodeCommit(src.Storer, obj)
-	if err != nil {
-		return err
-	}
-
-	for _, p := range commit.ParentHashes {
-		if err := fetchCopyCommitRecursive(src, dst, p); err != nil {
-			return err
-		}
-	}
-	return fetchCopyTreeRecursive(src, dst, commit.TreeHash)
-}
-
-func fetchCopyTreeRecursive(src, dst *gogit.Repository, hash plumbing.Hash) error {
-	if fetchHasObject(dst, hash) {
-		return nil
-	}
-	obj, err := src.Storer.EncodedObject(plumbing.TreeObject, hash)
-	if err != nil {
-		return err
-	}
-	_, err = dst.Storer.SetEncodedObject(obj)
-	if err != nil {
-		return err
-	}
-
-	tree, err := object.DecodeTree(src.Storer, obj)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range tree.Entries {
-		if entry.Mode.IsFile() {
-			if err := fetchCopyBlob(src, dst, entry.Hash); err != nil {
-				return err
-			}
-		} else if entry.Mode == 0040000 { // Dir
-			if err := fetchCopyTreeRecursive(src, dst, entry.Hash); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func fetchCopyBlob(src, dst *gogit.Repository, hash plumbing.Hash) error {
-	if fetchHasObject(dst, hash) {
-		return nil
-	}
-	obj, err := src.Storer.EncodedObject(plumbing.BlobObject, hash)
-	if err != nil {
-		return err
-	}
-	_, err = dst.Storer.SetEncodedObject(obj)
-	return err
-}
-
-func fetchHasObject(repo *gogit.Repository, hash plumbing.Hash) bool {
-	_, err := repo.Storer.EncodedObject(plumbing.AnyObject, hash)
-	return err == nil
 }

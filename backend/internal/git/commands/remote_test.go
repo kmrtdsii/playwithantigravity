@@ -61,7 +61,16 @@ func TestFetchCommand(t *testing.T) {
 	fs := memfs.New()
 	remoteRepo, _ := gogit.Init(remoteSt, fs)
 	w, _ := remoteRepo.Worktree()
-	w.Commit("Remote Commit", &gogit.CommitOptions{Author: &object.Signature{Name: "Remote", When: time.Now()}})
+
+	// Create a dummy file to commit
+	f, _ := fs.Create("dummy")
+	f.Close()
+	w.Add("dummy")
+
+	_, err := w.Commit("Remote Commit", &gogit.CommitOptions{Author: &object.Signature{Name: "Remote", When: time.Now()}})
+	if err != nil {
+		t.Fatalf("Remote setup commit failed: %v", err)
+	}
 
 	// Register as shared remote
 	sm.SharedRemotes["test-shared"] = remoteRepo

@@ -104,7 +104,7 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 		return fmt.Sprintf("%s\nAlready up to date.", fetchOutput), nil
 	}
 
-	isFF, err := isFastForward(repo, headHash, targetHash)
+	isFF, err := git.IsFastForward(repo, headHash, targetHash)
 	if err != nil {
 		return "", err
 	}
@@ -134,7 +134,7 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 		return fmt.Sprintf("%s\nUpdating %s..%s\nFast-forward", fetchOutput, headHash.String()[:7], targetHash.String()[:7]), nil
 	}
 
-	isUpToDate, err := isFastForward(repo, targetHash, headHash)
+	isUpToDate, err := git.IsFastForward(repo, targetHash, headHash)
 	if err != nil {
 		return "", err
 	}

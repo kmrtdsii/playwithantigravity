@@ -163,7 +163,7 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	if refToPush.Name().IsBranch() && !isForce {
 		targetRef, err := targetRepo.Reference(refToPush.Name(), true)
 		if err == nil {
-			isFF, err := isFastForward(repo, targetRef.Hash(), refToPush.Hash())
+			isFF, err := git.IsFastForward(repo, targetRef.Hash(), refToPush.Hash())
 			if err != nil {
 				return "", err
 			}
@@ -203,7 +203,7 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	if obj.Type() == plumbing.TagObject {
 		// It's an annotated tag.
 		// Copy tag object
-		if !hasObject(targetRepo, hashToSync) {
+		if !git.HasObject(targetRepo, hashToSync) {
 			_, err = targetRepo.Storer.SetEncodedObject(obj)
 			if err != nil {
 				return "", err
@@ -216,11 +216,11 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 		}
 
 		// Recursively copy the commit it points to
-		if err := copyCommitRecursive(repo, targetRepo, tagObj.Target); err != nil {
+		if err := git.CopyCommitRecursive(repo, targetRepo, tagObj.Target); err != nil {
 			return "", err
 		}
 	} else if obj.Type() == plumbing.CommitObject {
-		if err := copyCommitRecursive(repo, targetRepo, hashToSync); err != nil {
+		if err := git.CopyCommitRecursive(repo, targetRepo, hashToSync); err != nil {
 			return "", err
 		}
 	} else {
@@ -258,102 +258,3 @@ Note: This is a simulated push. Objects are copied to in-memory
 virtual remotes only. No actual network operations are performed.
 `
 }
-
-// Helpers
-
-func copyCommitRecursive(src, dst *gogit.Repository, hash plumbing.Hash) error {
-	// Check if dst has it
-	if hasObject(dst, hash) {
-		return nil
-	}
-
-	// Get from Source
-	obj, err := src.Storer.EncodedObject(plumbing.CommitObject, hash)
-	if err != nil {
-		return err
-	}
-
-	// Write to Dest
-	_, err = dst.Storer.SetEncodedObject(obj)
-	if err != nil {
-		return err
-	}
-
-	// Decode to parse tree/parents
-	commit, err := object.DecodeCommit(src.Storer, obj)
-	if err != nil {
-		return err
-	}
-
-	// Recurse parents
-	for _, p := range commit.ParentHashes {
-		if err := copyCommitRecursive(src, dst, p); err != nil {
-			return err
-		}
-	}
-
-	// Copy Tree
-	return copyTreeRecursive(src, dst, commit.TreeHash)
-}
-
-func copyTreeRecursive(src, dst *gogit.Repository, hash plumbing.Hash) error {
-	if hasObject(dst, hash) {
-		return nil
-	}
-
-	obj, err := src.Storer.EncodedObject(plumbing.TreeObject, hash)
-	if err != nil {
-		return err
-	}
-
-	_, err = dst.Storer.SetEncodedObject(obj)
-	if err != nil {
-		return err
-	}
-
-	tree, err := object.DecodeTree(src.Storer, obj)
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range tree.Entries {
-		if entry.Mode == 0160000 {
-			// Submodule (commit), ignore or handle?
-			continue
-		}
-		if entry.Mode.IsFile() {
-			if err := copyBlob(src, dst, entry.Hash); err != nil {
-				return err
-			}
-		} else {
-			if err := copyTreeRecursive(src, dst, entry.Hash); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func copyBlob(src, dst *gogit.Repository, hash plumbing.Hash) error {
-	if hasObject(dst, hash) {
-		return nil
-	}
-	obj, err := src.Storer.EncodedObject(plumbing.BlobObject, hash)
-	if err != nil {
-		return err
-	}
-	_, err = dst.Storer.SetEncodedObject(obj)
-	return err
-}
-
-func hasObject(repo *gogit.Repository, hash plumbing.Hash) bool {
-	// HasEncodedObject might be faster check
-	_, err := repo.Storer.EncodedObject(plumbing.AnyObject, hash)
-	return err == nil
-}
-
-// Unused legacy helpers removed
-// func copyObject(src, dst *gogit.Repository, hash plumbing.Hash) error { return nil }
-// func copyTree(src, dst *gogit.Repository, hash plumbing.Hash) error { return nil }
-
-// isFastForward moved to utils.go

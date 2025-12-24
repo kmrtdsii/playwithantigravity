@@ -52,7 +52,12 @@ func TestPersistentRemoteCycle(t *testing.T) {
 	}
 
 	// Verify Bare Repo Exists
-	bareRepoPath := filepath.Join(dataDir, "origin")
+	sm.RLock()
+	bareRepoPath, ok := sm.SharedRemotePaths["origin"]
+	sm.RUnlock()
+	if !ok {
+		t.Fatal("SharedRemotePaths['origin'] not set")
+	}
 	if _, err := os.Stat(bareRepoPath); os.IsNotExist(err) {
 		t.Fatalf("Pseudo-remote not created at %s", bareRepoPath)
 	}

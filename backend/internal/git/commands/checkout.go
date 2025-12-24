@@ -12,7 +12,6 @@ import (
 
 func init() {
 	git.RegisterCommand("checkout", func() git.Command { return &CheckoutCommand{} })
-	git.RegisterCommand("switch", func() git.Command { return &SwitchCommand{} })
 }
 
 type CheckoutCommand struct{}
@@ -229,80 +228,4 @@ Options:
     --detach          detach HEAD at named commit
     --help            display this help message
 `
-}
-
-// SwitchCommand is similar but strictly for branches
-type SwitchCommand struct{}
-
-func (c *SwitchCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
-	// Simplified wrapper reusing checkout logic or keep separate?
-	// Keep separate valid implementation or redirect?
-	// For "Refactor", let's keep SwitchCommand simple or use CheckoutCommand logic if consistent.
-	// But SwitchCommand was tiny. I'll leave SwitchCommand alone or minimal refactor if requested.
-	// Task was "Refactor Git Commands", specifically checkout.
-	// I'll leave SwitchCommand unchanged in structure but maybe fix parsing if needed.
-	// Actually I'll Replace the WHOLE file so I must include SwitchCommand content.
-
-	s.Lock()
-	defer s.Unlock()
-
-	repo := s.GetRepo()
-	if repo == nil {
-		return "", fmt.Errorf("fatal: not a git repository")
-	}
-	w, _ := repo.Worktree()
-
-	if len(args) < 2 {
-		return "", fmt.Errorf("usage: git switch [-c] <branch>")
-	}
-
-	// Naive parsing for switch for now, or unified?
-	// Let's implement basic
-	var createBranch string
-	target := ""
-
-	for i := 1; i < len(args); i++ {
-		arg := args[i]
-		switch arg {
-		case "-c", "--create":
-			if i+1 < len(args) {
-				createBranch = args[i+1]
-				i++
-			}
-		case "-h":
-			return c.Help(), nil
-		default:
-			target = arg
-		}
-	}
-
-	if createBranch != "" {
-		// logic for create
-		opts := &gogit.CheckoutOptions{
-			Create: true,
-			Branch: plumbing.ReferenceName("refs/heads/" + createBranch),
-		}
-		if err := w.Checkout(opts); err != nil {
-			return "", err
-		}
-		s.RecordReflog(fmt.Sprintf("switch: moving to %s", createBranch))
-		return fmt.Sprintf("Switched to a new branch '%s'", createBranch), nil
-	}
-
-	if target == "" {
-		return "", fmt.Errorf("missing branch name")
-	}
-
-	err := w.Checkout(&gogit.CheckoutOptions{
-		Branch: plumbing.ReferenceName("refs/heads/" + target),
-	})
-	if err != nil {
-		return "", err
-	}
-	s.RecordReflog(fmt.Sprintf("switch: moving to %s", target))
-	return fmt.Sprintf("Switched to branch '%s'", target), nil
-}
-
-func (c *SwitchCommand) Help() string {
-	return "usage: git switch [-c] <branch>"
 }
