@@ -1,21 +1,21 @@
-# Refactoring Guide
+# Refactoring Checklist
 
-Use this prompt/checklist when asked to refactor code.
+Use this checklist when improving existing code integrity.
 
 ## 1. Analysis
-- [ ] Identify the specific "Smell" or issue (Duplication, Complexity, Stale Reference).
-- [ ] Check existing tests. **If no tests exist for the target code, create a characterization test first.**
+- [ ] **Identify the Smell**: Is it duplication? Complexity? Poor naming?
+- [ ] **Safety Net**: Check existing tests. **If no tests exist, create a characterization test first.**
 
 ## 2. Planning
-- [ ] Describe the intended structure.
-- [ ] Verify that the architectural patterns (e.g., Recorder Pattern in Terminal) remain intact.
-- [ ] List touched files.
+- [ ] **Strategy**: Describe the intended structure vs current structure.
+- [ ] **Architecture Check**: Ensure refactoring respects core architectural constraints (Consult `docs/architecture/`).
+- [ ] **Scope**: List touched files to ensure the scope is manageable.
 
 ## 3. Execution Rules
-- **Incremental Steps**: Do not rewrite the entire file in one go if it handles multiple concerns.
-- **Maintain Interfaces**: Do not change public APIs unless explicitly required.
-- **Strict Linting**: Ensure no new lint errors are introduced.
+- **Incremental Steps**: Make small, safe moves. Don't rewrite the world effectively in one go.
+- **Maintain Interfaces**: Public APIs should remain stable unless a breaking change is intended and approved.
+- **Strict Linting**: Fix existing lints in touched files; introduce no new ones.
 
 ## 4. Verification
-- [ ] Run existing tests for regression.
-- [ ] Manual verification steps (if UI is involved).
+- [ ] **Regression Testing**: Run existing tests to ensure behavior is unchanged.
+- [ ] **Cleanup**: Remove dead code or old artifacts.
