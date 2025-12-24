@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,10 +16,9 @@ import (
 
 // IngestRemote creates a new shared remote repository from a URL (simulated clone)
 func (sm *SessionManager) IngestRemote(name, url string) error {
-	sm.mu.Lock()
-	defer sm.mu.Unlock()
-
 	// Define local path for persistence
+	// READ LOCK only to get config if needed, but DataDir is static usually or we can just access it if it's not changing.
+	// Safe to read DataDir if it's set on init.
 	baseDir := sm.DataDir
 	if baseDir == "" {
 		baseDir = ".gitgym-data/remotes"
@@ -49,9 +49,11 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 		}
 	}
 
-	// 2. Clear InMemory Maps (since we only support one remote now)
+	// 2. Clear InMemory Maps - Needs LOCK
+	sm.mu.Lock()
 	sm.SharedRemotes = make(map[string]*gogit.Repository)
 	sm.SharedRemotePaths = make(map[string]string)
+	sm.mu.Unlock() // Release lock before cloning
 
 	// ensure target dir exists
 	if err := os.MkdirAll(repoPath, 0755); err != nil {
@@ -63,6 +65,7 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 	// In the future, we could open and Fetch, but for "Ingest/Update" action, full sync is safer.
 	os.RemoveAll(repoPath)
 
+	log.Printf("IngestRemote: Cloning %s into %s", url, repoPath)
 	repo, err := gogit.PlainClone(repoPath, true, &gogit.CloneOptions{
 		URL:      url,
 		Progress: os.Stdout,
@@ -71,6 +74,11 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 	if err != nil {
 		return fmt.Errorf("failed to clone remote: %w", err)
 	}
+	log.Printf("IngestRemote: Clone successful")
+
+	// 4. Update State - Needs LOCK
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 
 	// Store under Name
 	sm.SharedRemotes[name] = repo

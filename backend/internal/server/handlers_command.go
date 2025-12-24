@@ -44,9 +44,14 @@ func (s *Server) handleExecCommand(w http.ResponseWriter, r *http.Request) {
 	// 2. Get Session
 	session, ok := s.SessionManager.GetSession(req.SessionID)
 	if !ok {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"error": "session not found"})
-		return
+		log.Printf("Session %s not found (likely backend restart). Recreating...", req.SessionID)
+		var err error
+		session, err = s.SessionManager.CreateSession(req.SessionID)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"error": "failed to restore session: " + err.Error()})
+			return
+		}
 	}
 
 	// 3. Dispatch Command
@@ -77,8 +82,16 @@ func (s *Server) handleGetGraphState(w http.ResponseWriter, r *http.Request) {
 
 	state, err := s.SessionManager.GetGraphState(sessionID, showAll)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		if err.Error() == "session not found" {
+			// Auto-restore session for graph view as well
+			s.SessionManager.CreateSession(sessionID)
+			state, err = s.SessionManager.GetGraphState(sessionID, showAll)
+		}
+
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
