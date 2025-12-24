@@ -19,7 +19,7 @@ export const createBezierPath = (x1: number, y1: number, x2: number, y2: number)
     return `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
 };
 
-/**
+/**　
  * Computes the visual layout for the Git graph.
  * 
  * This function takes raw commit data and produces positioned nodes and edges

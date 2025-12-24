@@ -182,10 +182,33 @@ func (s *Session) UpdateOrigHead() {
 	// Implementation placeholder - logic moved from session.go
 }
 
-// Helper: RemoveAll (Recursive delete for memfs/billy if needed)
+// Helper: RemoveAll (Recursive delete for memfs/billy)
 func (s *Session) RemoveAll(path string) error {
-	// Simple implementation attempting to remove
-	// For memfs, we might need manual walk if Remove fails on directory
+	fi, err := s.Filesystem.Stat(path)
+	if err != nil {
+		return nil // Already gone
+	}
+
+	if !fi.IsDir() {
+		return s.Filesystem.Remove(path)
+	}
+
+	entries, err := s.Filesystem.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		childPath := path + "/" + entry.Name()
+		if len(path) > 0 && path[len(path)-1] == '/' {
+			childPath = path + entry.Name()
+		}
+
+		if err := s.RemoveAll(childPath); err != nil {
+			return err
+		}
+	}
+
 	return s.Filesystem.Remove(path)
 }
 

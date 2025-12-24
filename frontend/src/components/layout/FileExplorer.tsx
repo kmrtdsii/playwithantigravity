@@ -45,7 +45,8 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
             if (activeProject === projectName) {
                 runCommand('cd /');
             }
-            runCommand(`rm -rf ${projectName}`);
+            runCommand(`rm -rf /${projectName}`);
+
         }
     };
 
