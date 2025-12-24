@@ -128,26 +128,47 @@ const AppLayout = () => {
                             />
                             SHOW ALL
                         </label>
-                        {/* Theme Toggle */}
-                        <button
-                            onClick={toggleTheme}
-                            style={{
-                                background: 'transparent',
-                                border: '1px solid var(--border-subtle)',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '10px',
-                                cursor: 'pointer',
-                                color: 'var(--text-secondary)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                            }}
-                            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                            data-testid="theme-toggle"
-                        >
-                            {theme === 'dark' ? '☀️' : '🌙'}
-                        </button>
+                        {/* Theme Toggle - Segmented Switch */}
+                        <div style={{
+                            display: 'flex',
+                            background: 'var(--bg-tertiary)',
+                            borderRadius: '4px',
+                            border: '1px solid var(--border-subtle)',
+                            overflow: 'hidden'
+                        }}>
+                            <button
+                                onClick={() => theme === 'dark' && toggleTheme()}
+                                style={{
+                                    background: theme === 'light' ? 'var(--accent-primary)' : 'transparent',
+                                    color: theme === 'light' ? 'white' : 'var(--text-secondary)',
+                                    border: 'none',
+                                    padding: '4px 10px',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'background 0.15s, color 0.15s'
+                                }}
+                                data-testid="theme-light-btn"
+                            >
+                                Light
+                            </button>
+                            <button
+                                onClick={() => theme === 'light' && toggleTheme()}
+                                style={{
+                                    background: theme === 'dark' ? 'var(--accent-primary)' : 'transparent',
+                                    color: theme === 'dark' ? 'white' : 'var(--text-secondary)',
+                                    border: 'none',
+                                    padding: '4px 10px',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    transition: 'background 0.15s, color 0.15s'
+                                }}
+                                data-testid="theme-dark-btn"
+                            >
+                                Dark
+                            </button>
+                        </div>
                     </div>
                 </div>
 
