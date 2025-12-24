@@ -67,8 +67,9 @@ export const useTerminal = (
 
     const { theme } = useTheme();
 
-    // Input buffer
+    // Input buffer and cursor position
     const currentLineRef = useRef('');
+    const cursorPosRef = useRef(0); // Position within currentLine (0 = start)
 
     // Refs to avoid stale closures in callbacks
     const runCommandRef = useRef(runCommand);
@@ -138,6 +139,7 @@ export const useTerminal = (
         }
 
         currentLineRef.current = '';
+        cursorPosRef.current = 0;
         setTimeout(() => fitAddonRef.current?.fit(), 50);
 
     }, [activeDeveloper, sessionId]);
@@ -215,6 +217,7 @@ export const useTerminal = (
                 }
 
                 currentLineRef.current = '';
+                cursorPosRef.current = 0;
 
                 if (!cmd) {
                     const prompt = getPrompt(stateRef.current);
@@ -281,23 +284,78 @@ export const useTerminal = (
                 }, 0);
 
             } else if (code === 127) { // BACKSPACE
-                if (currentLineRef.current.length > 0) {
-                    const charToRemove = currentLineRef.current.slice(-1);
+                if (cursorPosRef.current > 0) {
+                    const line = currentLineRef.current;
+                    const pos = cursorPosRef.current;
+                    const charToRemove = line.charAt(pos - 1);
                     const isWide = !!charToRemove.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/);
 
-                    if (isWide) term.write('\b\b  \b\b');
-                    else term.write('\b \b');
+                    // Remove char from buffer at cursor position
+                    currentLineRef.current = line.slice(0, pos - 1) + line.slice(pos);
+                    cursorPosRef.current--;
 
-                    currentLineRef.current = currentLineRef.current.slice(0, -1);
+                    // Redraw: move back, print rest of line + space, move cursor back
+                    const remaining = currentLineRef.current.slice(cursorPosRef.current);
+                    if (isWide) {
+                        term.write('\b\b' + remaining + '  \b\b' + '\b'.repeat(remaining.length));
+                    } else {
+                        term.write('\b' + remaining + ' ' + '\b'.repeat(remaining.length + 1));
+                    }
+                }
+            } else if (data === '\x1b[3~') { // DELETE key
+                const line = currentLineRef.current;
+                const pos = cursorPosRef.current;
+                if (pos < line.length) {
+                    // Remove char at cursor position
+                    currentLineRef.current = line.slice(0, pos) + line.slice(pos + 1);
+
+                    // Redraw: print rest of line + space, move cursor back
+                    const remaining = currentLineRef.current.slice(pos);
+                    term.write(remaining + ' ' + '\b'.repeat(remaining.length + 1));
+                }
+            } else if (data === '\x1b[D') { // ARROW LEFT
+                if (cursorPosRef.current > 0) {
+                    cursorPosRef.current--;
+                    term.write('\x1b[D'); // Move cursor left
+                }
+            } else if (data === '\x1b[C') { // ARROW RIGHT
+                if (cursorPosRef.current < currentLineRef.current.length) {
+                    cursorPosRef.current++;
+                    term.write('\x1b[C'); // Move cursor right
+                }
+            } else if (data === '\x1b[H' || data === '\x1b[1~') { // HOME key
+                if (cursorPosRef.current > 0) {
+                    term.write('\x1b[' + cursorPosRef.current + 'D');
+                    cursorPosRef.current = 0;
+                }
+            } else if (data === '\x1b[F' || data === '\x1b[4~') { // END key
+                const moveRight = currentLineRef.current.length - cursorPosRef.current;
+                if (moveRight > 0) {
+                    term.write('\x1b[' + moveRight + 'C');
+                    cursorPosRef.current = currentLineRef.current.length;
                 }
             } else if (code === 3) { // CTRL+C
                 currentLineRef.current = '';
+                cursorPosRef.current = 0;
                 writeAndRecord('^C', true);
                 const prompt = getPrompt(stateRef.current);
                 writeAndRecord(prompt, false);
-            } else if (code >= 32) { // TYPING
-                currentLineRef.current += data;
-                term.write(data);
+            } else if (code >= 32) { // TYPING (printable chars)
+                const line = currentLineRef.current;
+                const pos = cursorPosRef.current;
+
+                // Insert char at cursor position
+                currentLineRef.current = line.slice(0, pos) + data + line.slice(pos);
+                cursorPosRef.current += data.length;
+
+                // If cursor is at end, just write the char
+                if (pos === line.length) {
+                    term.write(data);
+                } else {
+                    // Otherwise, redraw rest of line and move cursor back
+                    const remaining = currentLineRef.current.slice(pos);
+                    term.write(remaining + '\b'.repeat(remaining.length - data.length));
+                }
             }
         });
 
