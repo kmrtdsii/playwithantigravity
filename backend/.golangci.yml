@@ -1,0 +1,24 @@
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gosec
+
+linters-settings:
+  govet:
+    enable:
+      - nilness
+      - shadow
+  gosec:
+    excludes:
+      - G104 # We will handle error checking via errcheck, G104 can be noisy with raw file writes in tests

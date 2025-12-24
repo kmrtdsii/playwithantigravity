@@ -65,7 +65,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     }
 
     return (
-        <div style={{
+        <div data-testid="git-graph-container" style={{
             height: '100%',
             overflow: 'auto',
             background: 'var(--bg-primary)',

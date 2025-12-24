@@ -28,5 +28,11 @@ dist-ssr
 .direnv
 
 # Go binaries
-main
-server
+
+# Go binaries
+/bin/
+backend/cmd/server/server
+backend/cmd/cli/cli
+*.test
+*.out
+coverage.txt

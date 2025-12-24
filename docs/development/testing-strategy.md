@@ -35,6 +35,7 @@ We use **Playwright** for End-to-End (E2E) testing.
 ### Philosophy
 - **User-Centric**: Test flows (e.g., "User creates a branch"), not implementation details.
 - **Visual Assertions**: Since GitGym is a visualization tool, check that the graph updates correctly using locator assertions.
+- **Selectors**: Always use `data-testid` attributes (`page.getByTestId('...')`) for reliable element targeting. Do not use CSS classes or text content which may change.
 
 ### Structure
 - `tests/e2e/`: Contains all E2E specs.
@@ -45,4 +46,17 @@ We use **Playwright** for End-to-End (E2E) testing.
 - **Local**:
   ```bash
   npm run test:e2e
+  ```
+
+## 3. Agent Verification Workflow
+As an Antigravity Agent, you must verify your work holistically before requesting user review.
+- **Unified Script**: Run `scripts/test-all.sh` (if available) or manually run:
+    1.  Backend Tests + Lint
+    2.  Frontend Lint
+    3.  Frontend Check
+- **Pattern**:
+    1.  Make changes.
+    2.  Run `test-all.sh`.
+    3.  Fix **ALL** issues.
+    4.  Only then create `walkthrough.md`.
   ```

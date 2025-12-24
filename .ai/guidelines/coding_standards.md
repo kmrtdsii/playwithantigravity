@@ -5,6 +5,7 @@
 2. **SRP (Single Responsibility Principle)**: Functions and classes should do one thing well.
 3. **DRY (Don't Repeat Yourself)**: Extract common logic, but avoid premature optimization.
 4. **Early Returns**: Reduce nesting by using guard clauses.
+5. **Strict Linting**: Code must pass `golangci-lint` (Go) and strict ESLint (TS) without warnings. Linting is not a suggestion; it is a requirement for code health.
 
 ## Naming Conventions
 - **Variables**: Descriptive and specific (e.g., `userList` instead of `list`).

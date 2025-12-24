@@ -19,7 +19,7 @@ const GitTerminal = () => {
     const isDetached = !state.HEAD?.ref && !!state.HEAD?.id;
 
     return (
-        <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', background: 'var(--bg-primary)' }}>
+        <div data-testid="git-terminal" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', background: 'var(--bg-primary)' }}>
             {/* Persistent Terminal Status Bar */}
             <div style={{
                 height: 'var(--header-height)',

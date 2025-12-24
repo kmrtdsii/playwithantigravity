@@ -28,6 +28,8 @@
           # 1. Packages
           buildInputs = with pkgs; [
             go_1_25
+            golangci-lint
+            nodejs_22
             nodejs_22
             docker
             docker-compose

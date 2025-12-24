@@ -9,13 +9,14 @@
 - **Language**: Go.
 - **Framework**: Standard Library / internal packages.
 - **Database**: (Check if any used, e.g., SQLite, Postgres).
-- **Tools**: `exclude-go` (for excluding files).
+- **Tools**: `exclude-go` (for excluding files), `golangci-lint` (Strict Linting).
 
 ## Frontend
 - **Framework**: React.
 - **Build Tool**: Vite.
 - **Language**: TypeScript (`.ts`, `.tsx`).
 - **Styling**: Vanilla CSS (CSS Variables), no Tailwind unless requested.
+- **Animation**: `framer-motion` for complex transitions and micro-interactions.
 
 ## Testing
 - **Backend**: Go `testing` package.
