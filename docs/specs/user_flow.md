@@ -8,7 +8,7 @@ This document defines the core user journey for verifying the multi-user simulat
 - **Action**:
   1. Navigate to the **Remote Repository** panel (Left Pane).
   2. Click "Connect Repository" or "Configure".
-  3. Enter the URL: `https://github.com/kmrtdsii/gitgym.git`.
+  3. Enter the URL: `https://github.com/git-fixtures/basic.git`.
   4. Click "Update" / "Connect".
 - **Verification**:
   - [ ] The "No Remote Configured" placeholder disappears.
@@ -23,7 +23,7 @@ This document defines the core user journey for verifying the multi-user simulat
   1. Ensure the "Bob" tab is active.
   2. In the terminal, execute:
      ```bash
-     git clone https://github.com/kmrtdsii/gitgym.git
+     git clone https://github.com/git-fixtures/basic.git
      ```
 - **Verification**:
   - [ ] **Terminal**: Output shows standard git clone progress (`Cloning into 'gitgym'...`).
