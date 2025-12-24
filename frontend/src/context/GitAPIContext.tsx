@@ -2,14 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import type { GitState, PullRequest } from '../types/gitTypes';
 import { gitService } from '../services/gitService';
 import { filterReachableCommits } from '../utils/graphUtils';
-
-// [Architectural Decision] Terminal Recording System
-// To ensure exact reproduction of the terminal state (including prompts, colors, empty lines),
-// we treat the terminal output as a "Transcript" that matches exactly what xterm.js displayed.
-export interface TranscriptLine {
-    text: string;
-    hasNewline: boolean;
-}
+import { useTerminalTranscript, type TranscriptLine } from '../hooks/useTerminalTranscript';
 
 interface GitContextType {
     state: GitState;
@@ -84,8 +77,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             // 2. Create Bob
             await addDeveloper('Bob');
-
-
         };
         init();
     }, []);
@@ -93,10 +84,8 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [sessionOutputs, setSessionOutputs] = useState<Record<string, string[]>>({});
     const [sessionCmdCounts, setSessionCmdCounts] = useState<Record<string, number>>({});
 
-    // Terminal Transcript Store
-    const [terminalTranscripts, setTerminalTranscripts] = useState<Record<string, TranscriptLine[]>>({});
-    // Ref to access latest transcripts in callbacks without stale closures
-    const terminalTranscriptsRef = useRef<Record<string, TranscriptLine[]>>({});
+    // Use extracted hook for transcript management
+    const { appendToTranscript, getTranscript, clearTranscript } = useTerminalTranscript(sessionId);
 
     // FIX: Use refs to avoid stale closure issues in async callbacks
     // These refs always hold the latest value
@@ -109,14 +98,8 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, [sessionOutputs]);
 
     useEffect(() => {
-        terminalTranscriptsRef.current = terminalTranscripts;
-    }, [terminalTranscripts]);
-
-    useEffect(() => {
         sessionCmdCountsRef.current = sessionCmdCounts;
     }, [sessionCmdCounts]);
-
-
 
     const fetchState = async (sid: string) => {
         try {
@@ -236,37 +219,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return [errorLine];
         }
     };
-
-    // --- Terminal Recording Implementation ---
-
-    const appendToTranscript = (text: string, hasNewline: boolean = true) => {
-        if (!sessionId) return;
-
-        const line: TranscriptLine = { text, hasNewline };
-
-        setTerminalTranscripts(prev => {
-            const current = prev[sessionId] || [];
-            return {
-                ...prev,
-                [sessionId]: [...current, line]
-            };
-        });
-    };
-
-    const getTranscript = (): TranscriptLine[] => {
-        // Use ref to access latest state immediately
-        return terminalTranscriptsRef.current[sessionId] || [];
-    };
-
-    const clearTranscript = () => {
-        if (!sessionId) return;
-        setTerminalTranscripts(prev => ({
-            ...prev,
-            [sessionId]: []
-        }));
-    };
-
-    // -----------------------------------------
 
     const toggleShowAllCommits = () => {
         setShowAllCommits(prev => !prev);
