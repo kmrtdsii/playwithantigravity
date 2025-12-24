@@ -191,10 +191,12 @@ const timeTextStyle: React.CSSProperties = {
 
 const errorMessageStyle: React.CSSProperties = {
     fontSize: '12px',
-    color: 'var(--color-error)',
+    color: '#d32f2f', // Red-700 for visibility
     fontWeight: 500,
     marginTop: '6px',
     lineHeight: 1.4,
+    wordBreak: 'break-word',
+    whiteSpace: 'pre-wrap',
 };
 
 const buttonContainerStyle: React.CSSProperties = {

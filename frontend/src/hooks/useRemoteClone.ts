@@ -89,7 +89,7 @@ export const useRemoteClone = () => {
 
             const errorMsg = err instanceof Error ? err.message : 'Unknown error';
             if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.toLowerCase().includes('failed')) {
-                setErrorMessage('無効なリポジトリです。URLが正しいか確認してください');
+                setErrorMessage(`無効なリポジトリです。URLが正しいか確認してください (${errorMsg})`);
             } else {
                 setErrorMessage(errorMsg);
             }

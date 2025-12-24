@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -69,17 +68,7 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 			Progress: os.Stdout,
 		})
 		if err != nil {
-			// Fallback: Init empty
-			fmt.Printf("Clone failed (%v), initializing empty bare repo...\n", err)
-			repo, err = gogit.PlainInit(repoPath, true)
-			if err != nil {
-				return fmt.Errorf("failed to init bare repo: %w", err)
-			}
-			// Add the origin remote so we know the URL later
-			repo.CreateRemote(&config.RemoteConfig{
-				Name: "origin",
-				URLs: []string{url},
-			})
+			return fmt.Errorf("failed to clone remote: %w", err)
 		}
 	} else {
 		// Repo exists (was matching URL hash). Check if valid?

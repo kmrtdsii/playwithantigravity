@@ -86,38 +86,15 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
             return createEmptyGitState();
         }
 
-        // Transform remoteBranches (origin/xxx) to be displayed as local branches (xxx)
-        const mappedBranches: Record<string, string> = {};
-        const remotePrefix = 'origin/'; // Assuming origin for now
-        let remoteHeadId: string | undefined;
+        // Since serverState represents the remote repo itself, its local branches (refs/heads/*) 
+        // are what we want to display. backend/handlers_remote.go explicitly clears remoteBranches.
+        const mappedBranches = serverState.branches || {};
 
-        Object.entries(serverState.remoteBranches || {}).forEach(([ref, commitId]) => {
-            if (ref.startsWith(remotePrefix)) {
-                const shortName = ref.slice(remotePrefix.length);
-                if (shortName === 'HEAD') {
-                    remoteHeadId = commitId;
-                } else {
-                    mappedBranches[shortName] = commitId;
-                }
-            }
-        });
+        // Determine HEAD
+        let newHEAD = serverState.HEAD;
 
-        // Determine synthetic HEAD for the remote view
-        let newHEAD = { type: 'none', ref: null } as any;
-        // 1. Try to use remote HEAD if available
-        if (remoteHeadId) {
-            // Check if it matches a known branch
-            const branchMatch = Object.entries(mappedBranches).find(([_, id]) => id === remoteHeadId);
-            if (branchMatch) {
-                newHEAD = { type: 'branch', ref: branchMatch[0] };
-            } else {
-                newHEAD = { type: 'commit', id: remoteHeadId };
-            }
-        } else {
-            // 2. Fallback: If 'main' or 'master' exists, treat as HEAD for visualization?
-            // Or just leave as none. User said "HEAD and main ...", so HEAD likely exists or they want it.
-            // If we can't find origin/HEAD, we shouldn't fake it too much.
-            // But usually git clone sets it.
+        // Fallback for HEAD if missing (common in bare repos if HEAD ref is missing or detached)
+        if (!newHEAD || newHEAD.type === 'none') {
             if (mappedBranches['main']) {
                 newHEAD = { type: 'branch', ref: 'main' };
             } else if (mappedBranches['master']) {
@@ -128,17 +105,16 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         // Construct the synthetic state representing the remote
         const syntheticState: GitState = {
             ...serverState,
-            branches: mappedBranches,      // Show origin/xxx as xxx
-            remoteBranches: {},            // Hide the actual remote/xxx refs
-            HEAD: newHEAD,                 // Use remote HEAD
-            // Tags from serverState are usually shared, so keep them.
-            // Staging/Modified etc should probably be empty for remote view?
+            branches: mappedBranches,
+            remoteBranches: {},
+            HEAD: newHEAD,
+            // Clear workstation specific state
             staging: [],
             modified: [],
             untracked: [],
         };
 
-        // Filter commits to only those reachable from remote refs
+        // Filter commits to only those reachable from refs
         return {
             ...syntheticState,
             commits: filterReachableCommits(serverState.commits, syntheticState)
