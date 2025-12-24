@@ -85,8 +85,9 @@ func TestPersistentRemoteCycle(t *testing.T) {
 	// It should point to bareRepoPath
 	// We check if it contains "data/origin"
 	// Note: exact string match might fail due to absolute path differences on some OS, but expected behavior is absolute path to dataDir/origin
-	if originURL == sourceRepoPath {
-		t.Errorf("FAIL: Origin points to real URL '%s', expected local pseudo-remote", originURL)
+	// it should point to sourceRepoPath (friendly URL) now, masked from internal path
+	if originURL != sourceRepoPath {
+		t.Errorf("FAIL: Origin points to '%s', expected friendly URL '%s'", originURL, sourceRepoPath)
 	}
 	t.Logf("Cloned from: %s", originURL)
 
