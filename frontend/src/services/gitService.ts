@@ -1,4 +1,4 @@
-import type { GitState } from '../types/gitTypes';
+import type { GitState, PullRequest } from '../types/gitTypes';
 
 interface InitResponse {
     status: string;
@@ -113,13 +113,13 @@ export const gitService = {
         return data;
     },
 
-    async fetchPullRequests(): Promise<any[]> {
+    async fetchPullRequests(): Promise<PullRequest[]> {
         const res = await fetch('/api/remote/pull-requests');
         if (!res.ok) throw new Error('Failed to fetch pull requests');
         return res.json();
     },
 
-    async createPullRequest(pr: { title: string; description: string; sourceBranch: string; targetBranch: string; creator: string }): Promise<any> {
+    async createPullRequest(pr: { title: string; description: string; sourceBranch: string; targetBranch: string; creator: string }): Promise<PullRequest> {
         const res = await fetch('/api/remote/pull-requests/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
