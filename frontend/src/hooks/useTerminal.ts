@@ -71,6 +71,10 @@ export const useTerminal = (
     const currentLineRef = useRef('');
     const cursorPosRef = useRef(0); // Position within currentLine (0 = start)
 
+    // Per-developer input persistence (survives tab switches)
+    const inputPerDeveloperRef = useRef<Map<string, { text: string; cursor: number }>>(new Map());
+    const prevDeveloperRef = useRef<string | null>(null);
+
     // Refs to avoid stale closures in callbacks
     const runCommandRef = useRef(runCommand);
     const appendToTranscriptRef = useRef(appendToTranscript);
@@ -138,8 +142,27 @@ export const useTerminal = (
             writeAndRecord(prompt, false);
         }
 
-        currentLineRef.current = '';
-        cursorPosRef.current = 0;
+        // Save previous developer's input before switching
+        if (prevDeveloperRef.current && prevDeveloperRef.current !== activeDeveloper) {
+            inputPerDeveloperRef.current.set(prevDeveloperRef.current, {
+                text: currentLineRef.current,
+                cursor: cursorPosRef.current
+            });
+        }
+
+        // Restore input for current developer (if any)
+        const savedInput = inputPerDeveloperRef.current.get(activeDeveloper);
+        if (savedInput) {
+            currentLineRef.current = savedInput.text;
+            cursorPosRef.current = savedInput.cursor;
+            // Write the restored input to terminal
+            xtermRef.current?.write(savedInput.text);
+        } else {
+            currentLineRef.current = '';
+            cursorPosRef.current = 0;
+        }
+
+        prevDeveloperRef.current = activeDeveloper;
         setTimeout(() => fitAddonRef.current?.fit(), 50);
 
     }, [activeDeveloper, sessionId]);
