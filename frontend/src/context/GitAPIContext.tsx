@@ -7,7 +7,7 @@ import { useTerminalTranscript, type TranscriptLine } from '../hooks/useTerminal
 interface GitContextType {
     state: GitState;
     sessionId: string;
-    runCommand: (cmd: string) => Promise<string[]>; // Return output for terminal to display
+    runCommand: (cmd: string, options?: { silent?: boolean }) => Promise<string[]>; // Return output for terminal to display
     // Terminal Recording API
     appendToTranscript: (text: string, hasNewline?: boolean) => void;
     getTranscript: () => TranscriptLine[];
@@ -170,52 +170,63 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
-    const runCommand = async (cmd: string): Promise<string[]> => {
+    const runCommand = async (cmd: string, options?: { silent?: boolean }): Promise<string[]> => {
         if (!sessionId) {
             console.error("No session ID");
             return [];
         }
 
         console.log(`Executing command: ${cmd} (Session: ${sessionId})`);
-        // Store command echo BEFORE backend call (persists on tab switch)
+
+        // 1. Echo Command (Skip if silent)
         const commandEcho = `> ${cmd}`;
-        setSessionOutputs(prev => {
-            const current = prev[sessionId] || [];
-            return { ...prev, [sessionId]: [...current, commandEcho] };
-        });
-        setState(prev => ({
-            ...prev,
-            output: [...prev.output, commandEcho]
-        }));
+        if (!options?.silent) {
+            setSessionOutputs(prev => {
+                const current = prev[sessionId] || [];
+                return { ...prev, [sessionId]: [...current, commandEcho] };
+            });
+            setState(prev => ({
+                ...prev,
+                output: [...prev.output, commandEcho]
+            }));
+        }
 
         try {
             const data = await gitService.executeCommand(sessionId, cmd);
             console.log("GitAPI: Command response:", data);
 
             let newLines: string[] = [];
+            let isError = false;
+
             if (data.error) {
                 newLines = [`Error: ${data.error}`];
+                isError = true;
             } else if (data.output) {
-                newLines = [data.output]; // Output is usually a single block string, terminal splits it
+                newLines = [data.output];
             }
 
-            // Update Persistent Store
-            setSessionOutputs(prev => {
-                const current = prev[sessionId] || [];
-                return { ...prev, [sessionId]: [...current, ...newLines] };
-            });
+            // 2. Append Output (Skip if silent AND no error)
+            if (!options?.silent || isError) {
+                // Update Persistent Store
+                setSessionOutputs(prev => {
+                    const current = prev[sessionId] || [];
+                    return { ...prev, [sessionId]: [...current, ...newLines] };
+                });
 
-            // Update Transient State
-            setState(prev => ({
-                ...prev,
-                output: [...prev.output, ...newLines]
-            }));
+                // Update Transient State
+                setState(prev => ({
+                    ...prev,
+                    output: [...prev.output, ...newLines]
+                }));
+            }
 
             // Always fetch fresh state after command (using current sessionId)
             // This ensures currentPath and HEAD are updated before prompt is shown
             await fetchState(sessionId);
 
             // NOW increment command count - this triggers prompt rendering with correct state
+            // Even silent commands effectively trigger a prompt refresh via 'pathChanged', 
+            // but incrementing this ensures reliability.
             setSessionCmdCounts(prev => {
                 const current = prev[sessionId] || 0;
                 return { ...prev, [sessionId]: current + 1 };
@@ -238,7 +249,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             console.error(e);
 
             const errorLine = "Network error";
-            // Handle error store update
+            // Handle error store update (Always show network errors)
             setSessionOutputs(prev => ({ ...prev, [sessionId]: [...(prev[sessionId] || []), errorLine] }));
             setSessionCmdCounts(prev => ({ ...prev, [sessionId]: (prev[sessionId] || 0) + 1 }));
 

@@ -44,6 +44,7 @@ export const useTerminal = (
     const lastPathRef = useRef(state.currentPath);
     const lastHeadRef = useRef(state.HEAD?.id);
     const isLocalCommandRef = useRef(false);
+    const lastPromptTriggerRef = useRef(0);
 
     useEffect(() => {
         runCommandRef.current = runCommand;
@@ -73,10 +74,13 @@ export const useTerminal = (
 
         xtermRef.current.write('\x1bc'); // Full Reset
 
-        // Sync ref with current state length to avoid re-printing history handled by replay
-        // We defer to Replay logic, and just set the index.
+        // Sync ref with current state level to avoid re-printing history via Sync effect.
+        // We defer to Replay logic for what is shown.
+        // Even if transcript is 'stale' vs state, we don't want Sync to double-print or insert newlines during init.
         const transcript = getTranscriptRef.current ? getTranscriptRef.current() : [];
-        lastOutputLengthRef.current = transcript.length > 0 ? transcript.length : 0;
+        const stateLen = stateRef.current.output.length;
+        // Use the maximum to ensure we don't trigger "New Output" for things we supposedly already have or skipped.
+        lastOutputLengthRef.current = Math.max(transcript.length, stateLen);
 
         if (transcript.length > 0) {
             transcript.forEach(line => {
@@ -97,8 +101,8 @@ export const useTerminal = (
             ];
 
             welcomeLines.forEach(line => writeAndRecord(line, true));
-            const prompt = getPrompt(stateRef.current);
-            writeAndRecord(prompt, false);
+            // Let SYNC Effect handle the prompt
+            setTimeout(() => setPromptTrigger(prev => prev + 1), 50);
         }
 
         // Save previous developer's input before switching
@@ -126,6 +130,8 @@ export const useTerminal = (
 
     }, [activeDeveloper, sessionId, clearTranscript, getTranscript, writeAndRecord, fitAddonRef, xtermRef, isReady]);
 
+    const [promptTrigger, setPromptTrigger] = useState(0);
+
     // --- SYNC EXTERNAL & LOCAL COMMANDS ---
     useEffect(() => {
         const currentLength = state.output.length;
@@ -135,39 +141,52 @@ export const useTerminal = (
         // Check for state changes relevant to prompt (Path, HEAD)
         const pathChanged = state.currentPath !== lastPathRef.current;
         const headChanged = state.HEAD?.id !== lastHeadRef.current;
-        const localCmdFinished = isLocalCommandRef.current;
+        const promptTriggered = promptTrigger !== lastPromptTriggerRef.current;
 
-        // If anything significant changed, update terminal
-        if (hasNewOutput || pathChanged || headChanged || localCmdFinished) {
-            // 1. Write New Output Lines (if not local)
-            // Local commands write their own output for immediate feedback.
-            // External commands (bg jobs) or unexpected output need writing here.
-            if (hasNewOutput && !localCmdFinished && xtermRef.current) {
+        // If Local Command is in progress:
+        // 1. We acknowledge the output length (so we don't print it again).
+        // 2. We DEFER the Prompt update (by NOT updating path/head refs).
+        // 3. We return early.
+        if (isLocalCommandRef.current) {
+            lastOutputLengthRef.current = currentLength;
+            return;
+        }
+
+        // If anything significant changed, OR if we explicitly triggered a prompt update (e.g. after local cmd)
+        if (hasNewOutput || pathChanged || headChanged || promptTriggered) {
+            // 1. Write New Output Lines (Background / External)
+            if (hasNewOutput && xtermRef.current) {
                 const newLines = state.output.slice(prevLength);
-                // If we aren't at start of line, newline? (Simplified: assume yes)
+                // Ensure we start on new line if needed
                 xtermRef.current.write('\r\n');
                 newLines.forEach(line => {
                     xtermRef.current?.writeln(line);
                 });
             }
 
-            // 2. Write Prompt (Always, if state changed after a command)
+            // 2. Write Prompt (Always Update In-Place)
             if (xtermRef.current) {
-                // Logic: If (Local Command Finished OR Background Output), Reprint Prompt.
-                // Or if state changed significantly?
-                if (localCmdFinished || hasNewOutput || pathChanged) {
-                    const prompt = getPrompt(state);
-                    xtermRef.current.write(prompt);
+                const prompt = getPrompt(state);
+
+                // CRITICAL FIX: Overwrite the current line instead of appending.
+                // We use \x1b[2K (Clear Line) + \r (Carriage Return) to strictly reset the line.
+                // We MUST use writeAndRecord so this "correction" is persisted in history for tab switching.
+                writeAndRecord(`\x1b[2K\r${prompt}`, false);
+
+                // Restore user input if they started typing during the update.
+                // We do NOT record this transient restoration to the transcript, purely visual.
+                if (currentLineRef.current) {
+                    xtermRef.current.write(currentLineRef.current);
                 }
             }
 
-            // Updates Refs & Reset Flags
+            // Updates Refs
             lastOutputLengthRef.current = currentLength;
             lastPathRef.current = state.currentPath;
             lastHeadRef.current = state.HEAD?.id;
-            isLocalCommandRef.current = false;
+            lastPromptTriggerRef.current = promptTrigger;
         }
-    }, [state, state.output, state.HEAD, state.currentPath, writeAndRecord, xtermRef]);
+    }, [state, state.output, state.HEAD, state.currentPath, writeAndRecord, xtermRef, promptTrigger]);
 
     // --- SETUP XTERM ---
     useEffect(() => {
@@ -274,16 +293,12 @@ export const useTerminal = (
                             });
                         } catch (e) {
                             writeAndRecord(`Error: ${e}`, true);
-                            // On error, state might not update, so we must print prompt manually
-                            // Or clear flag?
-                            const prompt = getPrompt(stateRef.current);
-                            writeAndRecord(prompt, false);
-                            isLocalCommandRef.current = false;
                         }
                     }
 
-                    // REMOVED: setTimeout prompt writing.
-                    // Verification: We rely on useEffect listening to 'state' changes to print the prompt using FRESH state.
+                    // Command Finished: Release Lock and Trigger Prompt
+                    isLocalCommandRef.current = false;
+                    setPromptTrigger(prev => prev + 1);
 
                 }, 0);
 

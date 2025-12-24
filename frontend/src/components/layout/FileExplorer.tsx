@@ -26,9 +26,9 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
 
     const handleProjectClick = (projectName: string) => {
         if (activeProject === projectName) {
-            runCommand(`cd /`);
+            runCommand(`cd /`, { silent: true });
         } else {
-            runCommand(`cd /${projectName}`);
+            runCommand(`cd /${projectName}`, { silent: true });
         }
     };
 
@@ -43,7 +43,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
         e.stopPropagation();
         if (confirm(`Are you sure you want to delete project '${projectName}'? This cannot be undone.`)) {
             if (activeProject === projectName) {
-                runCommand('cd /');
+                runCommand('cd /', { silent: true });
             }
             runCommand(`rm -rf /${projectName}`);
 
