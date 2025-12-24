@@ -27,7 +27,7 @@ export const useTerminal = (
     const currentLineRef = useRef('');
     const cursorPosRef = useRef(0); // Position within currentLine (0 = start)
 
-    // Per-developer input persistence (survives tab switches)
+    // Per-developer input persistence
     const inputPerDeveloperRef = useRef<Map<string, { text: string; cursor: number }>>(new Map());
     const prevDeveloperRef = useRef<string | null>(null);
 
@@ -39,8 +39,11 @@ export const useTerminal = (
     const stateRef = useRef(state);
 
     // Command Syncing Refs
-    const isLocalCommandRef = useRef(false);
+    // State Tracking Refs
     const lastOutputLengthRef = useRef(0);
+    const lastPathRef = useRef(state.currentPath);
+    const lastHeadRef = useRef(state.HEAD?.id);
+    const isLocalCommandRef = useRef(false);
 
     useEffect(() => {
         runCommandRef.current = runCommand;
@@ -123,28 +126,46 @@ export const useTerminal = (
 
     }, [activeDeveloper, sessionId, clearTranscript, getTranscript, writeAndRecord, fitAddonRef, xtermRef, isReady]);
 
-    // --- SYNC EXTERNAL COMMANDS ---
+    // --- SYNC EXTERNAL & LOCAL COMMANDS ---
     useEffect(() => {
         const currentLength = state.output.length;
         const prevLength = lastOutputLengthRef.current;
+        const hasNewOutput = currentLength > prevLength;
 
-        if (currentLength > prevLength) {
-            // New output detected!
-            if (!isLocalCommandRef.current && xtermRef.current) {
+        // Check for state changes relevant to prompt (Path, HEAD)
+        const pathChanged = state.currentPath !== lastPathRef.current;
+        const headChanged = state.HEAD?.id !== lastHeadRef.current;
+        const localCmdFinished = isLocalCommandRef.current;
+
+        // If anything significant changed, update terminal
+        if (hasNewOutput || pathChanged || headChanged || localCmdFinished) {
+            // 1. Write New Output Lines (if not local)
+            // Local commands write their own output for immediate feedback.
+            // External commands (bg jobs) or unexpected output need writing here.
+            if (hasNewOutput && !localCmdFinished && xtermRef.current) {
                 const newLines = state.output.slice(prevLength);
-
-                xtermRef.current.write('\r\n'); // Move to new line
-
+                // If we aren't at start of line, newline? (Simplified: assume yes)
+                xtermRef.current.write('\r\n');
                 newLines.forEach(line => {
                     xtermRef.current?.writeln(line);
                 });
-
-                // Re-render prompt with NEW state
-                const prompt = getPrompt(state);
-                xtermRef.current.write(prompt);
             }
-            // Always update ref
+
+            // 2. Write Prompt (Always, if state changed after a command)
+            if (xtermRef.current) {
+                // Logic: If (Local Command Finished OR Background Output), Reprint Prompt.
+                // Or if state changed significantly?
+                if (localCmdFinished || hasNewOutput || pathChanged) {
+                    const prompt = getPrompt(state);
+                    xtermRef.current.write(prompt);
+                }
+            }
+
+            // Updates Refs & Reset Flags
             lastOutputLengthRef.current = currentLength;
+            lastPathRef.current = state.currentPath;
+            lastHeadRef.current = state.HEAD?.id;
+            isLocalCommandRef.current = false;
         }
     }, [state, state.output, state.HEAD, state.currentPath, writeAndRecord, xtermRef]);
 
@@ -253,14 +274,16 @@ export const useTerminal = (
                             });
                         } catch (e) {
                             writeAndRecord(`Error: ${e}`, true);
+                            // On error, state might not update, so we must print prompt manually
+                            // Or clear flag?
+                            const prompt = getPrompt(stateRef.current);
+                            writeAndRecord(prompt, false);
+                            isLocalCommandRef.current = false;
                         }
                     }
 
-                    setTimeout(() => {
-                        const prompt = getPrompt(stateRef.current);
-                        writeAndRecord(prompt, false);
-                        isLocalCommandRef.current = false;
-                    }, 50);
+                    // REMOVED: setTimeout prompt writing.
+                    // Verification: We rely on useEffect listening to 'state' changes to print the prompt using FRESH state.
 
                 }, 0);
 
