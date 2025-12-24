@@ -65,15 +65,15 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
             {/* Content Body */}
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
-                    {status === 'fetching_info' && 'Fetching repository info...'}
+                    {status === 'fetching_info' && 'Connecting to remote...'}
                     {status === 'cloning' && (
                         <span>
-                            Cloning repository...
+                            Syncing remote repository...
                             {repoInfo && <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}> ({repoInfo.sizeDisplay})</span>}
                         </span>
                     )}
-                    {status === 'complete' && 'Clone complete!'}
-                    {status === 'error' && 'Clone failed'}
+                    {status === 'complete' && 'Remote synced!'}
+                    {status === 'error' && 'Sync failed'}
                 </div>
 
                 {/* Progress Bar */}
