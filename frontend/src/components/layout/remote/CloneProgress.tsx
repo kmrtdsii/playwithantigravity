@@ -1,5 +1,6 @@
 import React from 'react';
-import { Loader2, AlertCircle, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle, RefreshCw, XCircle } from 'lucide-react';
+import { Button } from '../../common/Button';
 
 export type CloneStatus = 'idle' | 'fetching_info' | 'cloning' | 'complete' | 'error';
 
@@ -17,10 +18,6 @@ interface CloneProgressProps {
     onCancel?: () => void;
 }
 
-/**
- * CloneProgress - Displays progress during repository clone operations.
- * Shows estimated time, progress bar, and error handling UI.
- */
 const CloneProgress: React.FC<CloneProgressProps> = ({
     status,
     estimatedSeconds = 0,
@@ -32,205 +29,102 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
 }) => {
     if (status === 'idle') return null;
 
+    // Calculation logic
     const progress = estimatedSeconds > 0
         ? Math.min(100, (elapsedSeconds / estimatedSeconds) * 100)
         : 0;
 
-    const formatTime = (seconds: number): string => {
+    const remainingSeconds = Math.max(0, estimatedSeconds - elapsedSeconds);
+    const formatTime = (seconds: number) => {
         if (seconds < 60) return `${Math.round(seconds)}s`;
         const mins = Math.floor(seconds / 60);
         const secs = Math.round(seconds % 60);
         return `${mins}m ${secs}s`;
     };
 
-    const remainingSeconds = Math.max(0, estimatedSeconds - elapsedSeconds);
-
     return (
-        <div style={containerStyle}>
-            {/* Status Icon */}
-            <div style={iconContainerStyle}>
-                {status === 'fetching_info' && (
-                    <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+        <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px',
+            padding: '12px 16px',
+            background: 'var(--bg-tertiary)',
+            borderRadius: 'var(--radius-md)',
+            marginTop: '12px',
+            border: '1px solid var(--border-subtle)'
+        }}>
+            {/* Icon State */}
+            <div style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: '2px' }}>
+                {(status === 'fetching_info' || status === 'cloning') && (
+                    <Loader2 size={20} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
                 )}
-                {status === 'cloning' && (
-                    <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
-                )}
-                {status === 'complete' && (
-                    <CheckCircle size={20} color="var(--color-success)" />
-                )}
-                {status === 'error' && (
-                    <AlertCircle size={20} color="var(--color-error)" />
-                )}
+                {status === 'complete' && <CheckCircle size={20} color="var(--color-success)" />}
+                {status === 'error' && <AlertCircle size={20} color="var(--color-error)" />}
             </div>
 
-            {/* Content */}
-            <div style={contentStyle}>
-                {/* Status Text */}
-                <div style={statusTextStyle}>
+            {/* Content Body */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
                     {status === 'fetching_info' && 'Fetching repository info...'}
                     {status === 'cloning' && (
-                        <>
+                        <span>
                             Cloning repository...
-                            {repoInfo && (
-                                <span style={infoTextStyle}> ({repoInfo.sizeDisplay})</span>
-                            )}
-                        </>
+                            {repoInfo && <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}> ({repoInfo.sizeDisplay})</span>}
+                        </span>
                     )}
                     {status === 'complete' && 'Clone complete!'}
                     {status === 'error' && 'Clone failed'}
                 </div>
 
-                {/* Progress Bar (only when cloning) */}
+                {/* Progress Bar */}
                 {status === 'cloning' && estimatedSeconds > 0 && (
-                    <div style={progressContainerStyle}>
-                        <div style={progressBarStyle}>
-                            <div
-                                style={{
-                                    ...progressFillStyle,
-                                    width: `${progress}%`,
-                                }}
-                            />
+                    <div style={{ marginTop: '8px' }}>
+                        <div style={{ height: '6px', background: 'var(--bg-secondary)', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{
+                                height: '100%',
+                                background: 'var(--accent-primary)',
+                                borderRadius: '3px',
+                                width: `${progress}%`,
+                                transition: 'width 0.3s ease-out'
+                            }} />
                         </div>
-                        <div style={timeTextStyle}>
-                            {remainingSeconds > 0
-                                ? `~${formatTime(remainingSeconds)} remaining`
-                                : 'Almost done...'
-                            }
+                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                            {remainingSeconds > 0 ? `~${formatTime(remainingSeconds)} remaining` : 'Almost done...'}
                         </div>
                     </div>
                 )}
 
-                {/* Error Message */}
+                {/* Error Box */}
                 {status === 'error' && errorMessage && (
-                    <div style={errorMessageStyle}>
+                    <div style={{
+                        fontSize: '12px',
+                        color: 'var(--color-error)',
+                        marginTop: '6px',
+                        lineHeight: 1.4,
+                        whiteSpace: 'pre-wrap'
+                    }}>
                         {errorMessage}
                     </div>
                 )}
 
-                {/* Action Buttons */}
+                {/* Actions */}
                 {status === 'error' && (
-                    <div style={buttonContainerStyle}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                         {onRetry && (
-                            <button onClick={onRetry} style={retryButtonStyle}>
-                                <RefreshCw size={14} />
-                                Retry
-                            </button>
+                            <Button size="sm" variant="primary" onClick={onRetry}>
+                                <RefreshCw size={14} /> Retry
+                            </Button>
                         )}
                         {onCancel && (
-                            <button onClick={onCancel} style={cancelButtonStyle}>
-                                <XCircle size={14} />
-                                Cancel
-                            </button>
+                            <Button size="sm" variant="secondary" onClick={onCancel}>
+                                <XCircle size={14} /> Cancel
+                            </Button>
                         )}
                     </div>
                 )}
             </div>
         </div>
     );
-};
-
-// --- Styles ---
-
-const containerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: '12px',
-    padding: '12px 16px',
-    background: 'var(--bg-tertiary)',
-    borderRadius: '8px',
-    marginTop: '12px',
-};
-
-const iconContainerStyle: React.CSSProperties = {
-    color: 'var(--accent-primary)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-};
-
-const contentStyle: React.CSSProperties = {
-    flex: 1,
-    minWidth: 0,
-};
-
-const statusTextStyle: React.CSSProperties = {
-    fontSize: '13px',
-    fontWeight: 500,
-    color: 'var(--text-primary)',
-};
-
-const infoTextStyle: React.CSSProperties = {
-    color: 'var(--text-tertiary)',
-    fontWeight: 400,
-};
-
-const progressContainerStyle: React.CSSProperties = {
-    marginTop: '8px',
-};
-
-const progressBarStyle: React.CSSProperties = {
-    height: '6px',
-    background: 'var(--bg-secondary)',
-    borderRadius: '3px',
-    overflow: 'hidden',
-};
-
-const progressFillStyle: React.CSSProperties = {
-    height: '100%',
-    background: 'var(--accent-primary)',
-    borderRadius: '3px',
-    transition: 'width 0.3s ease-out',
-};
-
-const timeTextStyle: React.CSSProperties = {
-    fontSize: '11px',
-    color: 'var(--text-tertiary)',
-    marginTop: '4px',
-};
-
-const errorMessageStyle: React.CSSProperties = {
-    fontSize: '12px',
-    color: '#d32f2f', // Red-700 for visibility
-    fontWeight: 500,
-    marginTop: '6px',
-    lineHeight: 1.4,
-    wordBreak: 'break-word',
-    whiteSpace: 'pre-wrap',
-};
-
-const buttonContainerStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '8px',
-    marginTop: '10px',
-};
-
-const retryButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '6px 12px',
-    fontSize: '12px',
-    fontWeight: 500,
-    background: 'var(--accent-primary)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-};
-
-const cancelButtonStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    padding: '6px 12px',
-    fontSize: '12px',
-    fontWeight: 500,
-    background: 'transparent',
-    color: 'var(--text-secondary)',
-    border: '1px solid var(--border-subtle)',
-    borderRadius: '4px',
-    cursor: 'pointer',
 };
 
 export default CloneProgress;
