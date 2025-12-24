@@ -49,6 +49,17 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 		}
 	}
 
+	// 1.5. Capture Old Paths for Pruning Stale Workspaces
+	sm.mu.Lock()
+	oldPaths := make(map[string]bool)
+	for _, p := range sm.SharedRemotePaths {
+		oldPaths[p] = true
+	}
+	// Also can we get URLs? The keys are also URLs.
+	// But clone uses the PATH as the URL for local clones (see clone.go).
+	// So matching against path is correct.
+	sm.mu.Unlock()
+
 	// 2. Clear InMemory Maps - Needs LOCK
 	sm.mu.Lock()
 	sm.SharedRemotes = make(map[string]*gogit.Repository)
@@ -56,6 +67,7 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 	sm.mu.Unlock() // Release lock before cloning
 
 	// ensure target dir exists
+
 	if err := os.MkdirAll(repoPath, 0755); err != nil {
 		return fmt.Errorf("failed to create remote dir: %w", err)
 	}
@@ -87,6 +99,10 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 	// Store under URL (so git clone <url> works)
 	sm.SharedRemotes[url] = repo
 	sm.SharedRemotePaths[url] = repoPath
+
+	// 5. Prune Stale Workspaces
+	// We do this AFTER adding the new one, but logic relies on oldPaths captured BEFORE clear.
+	go sm.pruneStaleWorkspaces(oldPaths)
 
 	return nil
 }
@@ -231,4 +247,52 @@ func (sm *SessionManager) MergePullRequest(id int, remoteName string) error {
 	// Simple Fast Forward?
 
 	return nil
+}
+
+// pruneStaleWorkspaces removes local repos that point to deleted shared remotes
+func (sm *SessionManager) pruneStaleWorkspaces(stalePaths map[string]bool) {
+	if len(stalePaths) == 0 {
+		return
+	}
+
+	sm.mu.RLock()
+	sessions := make([]*Session, 0, len(sm.sessions))
+	for _, s := range sm.sessions {
+		sessions = append(sessions, s)
+	}
+	sm.mu.RUnlock()
+
+	for _, s := range sessions {
+		s.Lock()
+		var reposToRemove []string
+
+		for name, repo := range s.Repos {
+			remotes, err := repo.Remotes()
+			if err != nil {
+				continue
+			}
+			for _, r := range remotes {
+				for _, url := range r.Config().URLs {
+					if stalePaths[url] {
+						reposToRemove = append(reposToRemove, name)
+						break
+					}
+				}
+			}
+		}
+
+		for _, name := range reposToRemove {
+			log.Printf("Pruning stale workspace: %s (Session %s)", name, s.ID)
+			delete(s.Repos, name)
+			// Remove from filesystem
+			_ = s.RemoveAll(name)
+
+			// Reset CurrentDir if inside deleted repo
+			// Check if CurrentDir starts with /name
+			if s.CurrentDir == "/"+name || (len(s.CurrentDir) > len(name)+2 && s.CurrentDir[:len(name)+2] == "/"+name+"/") {
+				s.CurrentDir = "/"
+			}
+		}
+		s.Unlock()
+	}
 }
