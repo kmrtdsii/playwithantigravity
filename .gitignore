@@ -26,3 +26,7 @@ dist-ssr
 
 # Nix/direnv
 .direnv
+
+# Go binaries
+main
+server
