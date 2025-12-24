@@ -39,14 +39,13 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
         }
     };
 
-    const handleDeleteProject = (projectName: string, e: React.MouseEvent) => {
+    const handleDeleteProject = async (projectName: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm(`Are you sure you want to delete project '${projectName}'? This cannot be undone.`)) {
             if (activeProject === projectName) {
-                runCommand('cd /', { silent: true });
+                await runCommand('cd /', { silent: true });
             }
-            runCommand(`rm -rf /${projectName}`);
-
+            await runCommand(`rm -rf /${projectName}`, { silent: true });
         }
     };
 
