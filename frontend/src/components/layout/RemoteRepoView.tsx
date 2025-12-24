@@ -50,9 +50,16 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     // Auto Discovery
     useAutoDiscovery({ setupUrl, setSetupUrl, cloneStatus, performClone });
 
-    // Initial Load
+    // Initial Load - Auto-clone default remote on first render
     useEffect(() => {
         refreshPullRequests();
+
+        // Auto-load the default remote repository graph on startup
+        // Only if not already loaded and we have a default URL
+        if (!serverState && setupUrl && cloneStatus === 'idle') {
+            console.log('Auto-loading default remote:', setupUrl);
+            performClone(setupUrl);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
