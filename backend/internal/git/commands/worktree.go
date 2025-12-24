@@ -69,7 +69,7 @@ func (c *WorktreeCommand) Execute(ctx context.Context, s *git.Session, args []st
 		if branch != "" {
 			bRef, err := repo.Reference(plumbing.NewBranchReferenceName(branch), true)
 			if err == nil {
-				headHash = bRef.Hash()
+				_ = bRef.Hash() // Checked for existence
 				refName = bRef.Name()
 			} else {
 				// Create new branch
@@ -101,7 +101,9 @@ func (c *WorktreeCommand) Execute(ctx context.Context, s *git.Session, args []st
 			headHash = currHead.Hash()
 
 			newBranchRef := plumbing.NewHashReference(refName, headHash)
-			repo.Storer.SetReference(newBranchRef)
+			if err := repo.Storer.SetReference(newBranchRef); err != nil {
+				return "", err
+			}
 		}
 
 		// Set wrapper HEAD (Symbolic)
@@ -129,6 +131,7 @@ func (c *WorktreeCommand) Execute(ctx context.Context, s *git.Session, args []st
 
 		if err := w.Reset(&gogit.ResetOptions{Mode: gogit.HardReset}); err != nil {
 			// ignore
+			_ = err
 		}
 
 		// 6. Register

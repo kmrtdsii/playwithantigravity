@@ -95,28 +95,30 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 			return fmt.Sprintf("[dry-run] Would squash-merge %s into current branch (worktree would be updated but no commit created)", targetName), nil
 		}
 		// 1. Apply changes from target to worktree (Simplified: Overwrite/Add from Target)
-		tree, err := targetCommit.Tree()
-		if err != nil {
-			return "", err
+		tree, treeErr := targetCommit.Tree()
+		if treeErr != nil {
+			return "", treeErr
 		}
 
 		err = tree.Files().ForEach(func(f *object.File) error {
 			// Write content
-			content, err := f.Contents()
-			if err != nil {
-				return err
+			content, contentErr := f.Contents()
+			if contentErr != nil {
+				return contentErr
 			}
 
 			// Identify path
 			path := f.Name
 
 			// Write to FS
-			fsFile, err := w.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-			if err != nil {
-				return err
+			fsFile, openErr := w.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+			if openErr != nil {
+				return openErr
 			}
 			defer fsFile.Close()
-			fsFile.Write([]byte(content))
+			if _, writeErr := fsFile.Write([]byte(content)); writeErr != nil {
+				return writeErr
+			}
 
 			// Stage
 			_, err = w.Add(path)

@@ -12,9 +12,10 @@ go test ./...
 echo "   > Running Linters (golangci-lint)..."
 # Check if golangci-lint is installed, otherwise skip or warn
 if command -v golangci-lint &> /dev/null; then
-    golangci-lint run
+    golangci-lint run ./...
 else
-    echo "   [WARN] golangci-lint not found. Skipping lint check."
+    echo "   [INFO] golangci-lint not found in PATH, running via 'go run' (v1.62.2)..."
+    go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run ./...
 fi
 cd ..
 

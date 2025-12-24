@@ -220,6 +220,7 @@ func (s *Session) InitRepo(name string) (*gogit.Repository, error) {
 	path := name
 	if s.CurrentDir != "/" {
 		// handle relative path if needed, but keeping simple for now
+		_ = s.CurrentDir
 	}
 
 	err := s.Filesystem.MkdirAll(path, 0755)

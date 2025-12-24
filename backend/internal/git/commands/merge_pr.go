@@ -105,8 +105,8 @@ func (c *MergePRCommand) Execute(ctx context.Context, s *git.Session, args []str
 	}
 
 	obj := repo.Storer.NewEncodedObject()
-	if err := mergeCommit.Encode(obj); err != nil {
-		return "", err
+	if encodeErr := mergeCommit.Encode(obj); encodeErr != nil {
+		return "", encodeErr
 	}
 	newHash, err := repo.Storer.SetEncodedObject(obj)
 	if err != nil {

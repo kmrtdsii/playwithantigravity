@@ -82,6 +82,7 @@ func BuildGraphState(repo *gogit.Repository) *GraphState {
 		// 4. Git Status (Might be empty for bare repos, but harmless)
 		if err := populateGitStatus(repo, state); err != nil {
 			// Bare repos often fail Worktree(), ignore
+			log.Printf("populateGitStatus ignored error: %v", err)
 		}
 
 		// 5. Remotes
@@ -144,8 +145,8 @@ func populateBranchesAndTags(repo *gogit.Repository, state *GraphState) error {
 			} else if r.Name().IsTag() {
 				hash := r.Hash().String()
 				// Check if it's an annotated tag
-				tagObj, err := repo.TagObject(r.Hash())
-				if err == nil {
+				tagObj, tagErr := repo.TagObject(r.Hash())
+				if tagErr == nil {
 					hash = tagObj.Target.String()
 				}
 				state.Tags[r.Name().Short()] = hash

@@ -79,11 +79,13 @@ func (c *SimulateCommitCommand) Execute(ctx context.Context, s *git.Session, arg
 	if err != nil {
 		return "", err
 	}
-	file.Write([]byte("Simulated content"))
+	if _, writeErr := file.Write([]byte("Simulated content")); writeErr != nil {
+		return "", writeErr
+	}
 	file.Close()
 
-	if _, err := w.Add(filename); err != nil {
-		return "", err
+	if _, addErr := w.Add(filename); addErr != nil {
+		return "", addErr
 	}
 
 	if authorName == "" {

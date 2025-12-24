@@ -62,9 +62,9 @@ func (sm *SessionManager) TouchFile(sessionID, filename string) error {
 	_, err := session.Filesystem.Stat(filename)
 	if err != nil {
 		// File likely doesn't exist, create it (empty)
-		f, err := session.Filesystem.Create(filename)
-		if err != nil {
-			return err
+		f, createErr := session.Filesystem.Create(filename)
+		if createErr != nil {
+			return createErr
 		}
 		f.Close()
 		return nil

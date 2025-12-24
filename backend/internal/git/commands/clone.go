@@ -139,8 +139,8 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	// 2. Create Local Working Copy
 	log.Printf("Clone: Remote resolved. Path: %s. Starting Local Creation...", remotePath)
 
-	if err := s.Filesystem.MkdirAll(repoName, 0755); err != nil {
-		return "", fmt.Errorf("failed to create directory: %w", err)
+	if errMkdir := s.Filesystem.MkdirAll(repoName, 0755); errMkdir != nil {
+		return "", fmt.Errorf("failed to create directory: %w", errMkdir)
 	}
 
 	repoFS, err := s.Filesystem.Chroot(repoName)
@@ -150,8 +150,8 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	// PERFORMANCE: Use Filesystem Storage for Local Repo (.git)
 	// Create the .git directory
-	if err := repoFS.MkdirAll(".git", 0755); err != nil {
-		return "", fmt.Errorf("failed to create .git directory: %w", err)
+	if errDotGit := repoFS.MkdirAll(".git", 0755); errDotGit != nil {
+		return "", fmt.Errorf("failed to create .git directory: %w", errDotGit)
 	}
 	dotGitFS, err := repoFS.Chroot(".git")
 	if err != nil {
@@ -182,10 +182,10 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 			// Map refs/heads/foo -> refs/remotes/origin/foo
 			newRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", name.Short()))
 			newRef := plumbing.NewHashReference(newRefName, ref.Hash())
-			localRepo.Storer.SetReference(newRef)
+			_ = localRepo.Storer.SetReference(newRef)
 		} else if name.IsTag() {
 			// Copy tags as is
-			localRepo.Storer.SetReference(ref)
+			_ = localRepo.Storer.SetReference(ref)
 		}
 		return nil
 	})
@@ -226,9 +226,9 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 				// And checkout
 				ref, _ := localRepo.Reference(remoteRefName, true)
 				newBranchRef := plumbing.NewHashReference(branchRef, ref.Hash())
-				localRepo.Storer.SetReference(newBranchRef)
+				_ = localRepo.Storer.SetReference(newBranchRef)
 
-				w.Checkout(&gogit.CheckoutOptions{
+				_ = w.Checkout(&gogit.CheckoutOptions{
 					Branch: branchRef,
 					Create: false, // Created manually above
 					Force:  true,

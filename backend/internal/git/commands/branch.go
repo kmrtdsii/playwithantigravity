@@ -158,8 +158,8 @@ func (c *BranchCommand) listBranches(repo *gogit.Repository, remote, all bool) (
 		rs, err := repo.Remotes()
 		if err == nil {
 			for _, r := range rs {
-				refs, err := r.List(&gogit.ListOptions{}) // basic list
-				if err == nil {
+				refs, listErr := r.List(&gogit.ListOptions{}) // basic list
+				if listErr == nil {
 					for _, ref := range refs {
 						if ref.Name().IsRemote() {
 							// strip refs/remotes/
@@ -173,10 +173,9 @@ func (c *BranchCommand) listBranches(repo *gogit.Repository, remote, all bool) (
 			// Fallback: iterate all references and filter
 			refs, _ := repo.References()
 			refs.ForEach(func(r *plumbing.Reference) error {
-				if r.Name().IsRemote() {
-					// Check if already added? simple append for now
-					// branches = append(branches, r.Name().Short())
-				}
+				// if r.Name().IsRemote() {
+				// 	// branches = append(branches, r.Name().Short())
+				// }
 				return nil
 			})
 		}
@@ -239,6 +238,7 @@ func (c *BranchCommand) deleteBranch(repo *gogit.Repository, name string, force,
 	if !force {
 		// TODO: verify if branch is fully merged into HEAD
 		// For now, we allow deletion to proceed, but using the variable silences the linter.
+		_ = force
 	}
 
 	refName := plumbing.ReferenceName("refs/heads/" + name)

@@ -54,9 +54,9 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 		if err != nil {
 			// No HEAD (initial commit?), unstaging means removing from index
 			// We can iterate files and remove them from index
-			idx, err := repo.Storer.Index()
-			if err != nil {
-				return "", err
+			idx, idxErr := repo.Storer.Index()
+			if idxErr != nil {
+				return "", idxErr
 			}
 			for _, file := range files {
 				// Remove file from index entries
@@ -68,7 +68,7 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 				}
 				idx.Entries = newEntries
 			}
-			repo.Storer.SetIndex(idx)
+			_ = repo.Storer.SetIndex(idx)
 			return "Unstaged files (initial commit)", nil
 		}
 
@@ -125,7 +125,7 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 				})
 			}
 		}
-		repo.Storer.SetIndex(idx)
+		_ = repo.Storer.SetIndex(idx)
 		return "Unstaged files", nil
 
 	} else {

@@ -43,8 +43,8 @@ func TestGitBranchDelete(t *testing.T) {
 	}
 
 	// 5. Delete branch
-	if _, err := ExecuteGitCommand(sessionID, []string{"branch", "-d", branchName}); err != nil {
-		t.Fatalf("Failed to delete branch: %v", err)
+	if _, delErr := ExecuteGitCommand(sessionID, []string{"branch", "-d", branchName}); delErr != nil {
+		t.Fatalf("Failed to delete branch: %v", delErr)
 	}
 
 	// 6. Verify branch is gone
@@ -57,13 +57,16 @@ func TestGitBranchDelete(t *testing.T) {
 	}
 
 	// 7. Test deleting non-existent branch
-	if _, err := ExecuteGitCommand(sessionID, []string{"branch", "-d", "non-existent"}); err == nil {
+	// 7. Test deleting non-existent branch
+	if _, errDel := ExecuteGitCommand(sessionID, []string{"branch", "-d", "non-existent"}); errDel == nil {
 		t.Error("Expected error when deleting non-existent branch, got nil")
 	}
 
 	// 8. Test invalid flag (prevent creation of branch named "-r")
 	// "branch -r" is valid (lists remotes). It should NOT create a branch named "-r".
-	if _, err := ExecuteGitCommand(sessionID, []string{"branch", "-r"}); err != nil {
+	// 8. Test invalid flag (prevent creation of branch named "-r")
+	// "branch -r" is valid (lists remotes). It should NOT create a branch named "-r".
+	if _, errFlag := ExecuteGitCommand(sessionID, []string{"branch", "-r"}); errFlag != nil {
 		t.Errorf("Expected success for valid flag -r, got %v", err)
 	}
 	output, err = ExecuteGitCommand(sessionID, []string{"branch"})

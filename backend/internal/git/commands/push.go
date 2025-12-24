@@ -130,8 +130,8 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	if refspec != "" {
 		// Try to resolve refspec (Branch or Tag)
 		// 1. Try exact match
-		ref, err := repo.Reference(plumbing.ReferenceName(refspec), true)
-		if err == nil {
+		ref, refErr := repo.Reference(plumbing.ReferenceName(refspec), true)
+		if refErr == nil {
 			refToPush = ref
 		} else {
 			// 2. Try refs/heads/
@@ -150,9 +150,9 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 		}
 	} else {
 		// Default: Push HEAD
-		headRef, err := repo.Head()
-		if err != nil {
-			return "", fmt.Errorf("failed to get HEAD: %w", err)
+		headRef, headErr := repo.Head()
+		if headErr != nil {
+			return "", fmt.Errorf("failed to get HEAD: %w", headErr)
 		}
 		if !headRef.Name().IsBranch() {
 			return "", fmt.Errorf("HEAD is not on a branch (detached?)")
@@ -162,19 +162,19 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 
 	// Check Fast-Forward (only for branches)
 	if refToPush.Name().IsBranch() && !isForce {
-		targetRef, err := targetRepo.Reference(refToPush.Name(), true)
-		if err == nil {
-			isFF, err := git.IsFastForward(repo, targetRef.Hash(), refToPush.Hash())
-			if err != nil {
-				return "", err
+		targetRef, targetErr := targetRepo.Reference(refToPush.Name(), true)
+		if targetErr == nil {
+			isFF, gitErr := git.IsFastForward(repo, targetRef.Hash(), refToPush.Hash())
+			if gitErr != nil {
+				return "", gitErr
 			}
 			if !isFF {
 				return "", fmt.Errorf("non-fast-forward update rejected (use --force to override)")
 			}
 		}
 	} else if refToPush.Name().IsTag() {
-		_, err := targetRepo.Reference(refToPush.Name(), true)
-		if err == nil && !isForce {
+		_, tagRefErr := targetRepo.Reference(refToPush.Name(), true)
+		if tagRefErr == nil && !isForce {
 			return "", fmt.Errorf("tag '%s' already exists (use --force to override)", refToPush.Name().Short())
 		}
 	}
@@ -201,18 +201,18 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 			}
 		}
 		// Decode tag to find target commit
-		tagObj, err := object.DecodeTag(repo.Storer, obj)
-		if err != nil {
-			return "", err
+		tagObj, decodeErr := object.DecodeTag(repo.Storer, obj)
+		if decodeErr != nil {
+			return "", decodeErr
 		}
 
 		// Recursively copy the commit it points to
-		if err := git.CopyCommitRecursive(repo, targetRepo, tagObj.Target); err != nil {
-			return "", err
+		if copyErr := git.CopyCommitRecursive(repo, targetRepo, tagObj.Target); copyErr != nil {
+			return "", copyErr
 		}
 	} else if obj.Type() == plumbing.CommitObject {
-		if err := git.CopyCommitRecursive(repo, targetRepo, hashToSync); err != nil {
-			return "", err
+		if copyErr := git.CopyCommitRecursive(repo, targetRepo, hashToSync); copyErr != nil {
+			return "", copyErr
 		}
 	} else {
 		return "", fmt.Errorf("unsupported object type to push: %s", obj.Type())

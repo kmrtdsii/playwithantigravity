@@ -55,11 +55,11 @@ func (s *Server) handleExecCommand(w http.ResponseWriter, r *http.Request) {
 	session, ok := s.SessionManager.GetSession(req.SessionID)
 	if !ok {
 		log.Printf("Session %s not found (likely backend restart). Recreating...", req.SessionID)
-		var err error
-		session, err = s.SessionManager.CreateSession(req.SessionID)
-		if err != nil {
+		var createErr error
+		session, createErr = s.SessionManager.CreateSession(req.SessionID)
+		if createErr != nil {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]string{"error": "failed to restore session: " + err.Error()})
+			json.NewEncoder(w).Encode(map[string]string{"error": "failed to restore session: " + createErr.Error()})
 			return
 		}
 	}

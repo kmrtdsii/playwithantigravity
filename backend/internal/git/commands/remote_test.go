@@ -45,6 +45,9 @@ func TestRemoteCommand(t *testing.T) {
 		}
 
 		res, err := cmd.Execute(context.Background(), s, []string{"remote"})
+		if err != nil {
+			t.Fatalf("Remote list failed: %v", err)
+		}
 		if strings.Contains(res, "origin") {
 			t.Error("Origin should be removed")
 		}

@@ -65,8 +65,8 @@ func (sm *SessionManager) IngestRemote(ctx context.Context, name, url string) er
 
 	// ensure target dir exists
 
-	if err := os.MkdirAll(repoPath, 0755); err != nil {
-		return fmt.Errorf("failed to create remote dir: %w", err)
+	if errMkdir := os.MkdirAll(repoPath, 0755); errMkdir != nil {
+		return fmt.Errorf("failed to create remote dir: %w", errMkdir)
 	}
 
 	// 3. Open or Clone

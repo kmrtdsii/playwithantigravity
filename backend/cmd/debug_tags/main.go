@@ -48,8 +48,6 @@ func main() {
 		tagObj, err := repo.TagObject(r.Hash())
 		if err == nil {
 			fmt.Printf("  -> Annotated! Target: %s\n", tagObj.Target.String())
-		} else {
-			// fmt.Printf("  -> Not annotated or error: %v\n", err)
 		}
 		return nil
 	})
