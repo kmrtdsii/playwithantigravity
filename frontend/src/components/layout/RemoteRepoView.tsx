@@ -8,6 +8,10 @@ import { filterReachableCommits } from '../../utils/graphUtils';
 import { useRemoteClone } from '../../hooks/useRemoteClone';
 import { useAutoDiscovery } from '../../hooks/useAutoDiscovery';
 
+// Default remote URL for the GitGym application
+// This repository is automatically available for cloning
+const DEFAULT_REMOTE_URL = 'https://github.com/git-fixtures/basic.git';
+
 interface RemoteRepoViewProps {
     topHeight: number;
     onResizeStart: () => void;
@@ -38,8 +42,9 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         cancelClone
     } = useRemoteClone();
 
-    // Local UI State
-    const [setupUrl, setSetupUrl] = useState('');
+    // Local UI State - Initialize with default URL
+    const [setupUrl, setSetupUrl] = useState(DEFAULT_REMOTE_URL);
+    const [originalUrl, setOriginalUrl] = useState(DEFAULT_REMOTE_URL); // Store URL before editing
     const [isEditMode, setIsEditMode] = useState(false);
 
     // Auto Discovery
@@ -70,12 +75,14 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     };
 
     const handleEditRemote = () => {
-        const currentUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || '';
+        const currentUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || DEFAULT_REMOTE_URL;
+        setOriginalUrl(currentUrl); // Save current URL before editing
         setSetupUrl(currentUrl);
         setIsEditMode(true);
     };
 
     const handleCancelEdit = () => {
+        setSetupUrl(originalUrl); // Restore the URL to pre-edit value
         setIsEditMode(false);
         setCloneStatus('idle');
     };
