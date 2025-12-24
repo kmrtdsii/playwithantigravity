@@ -1,6 +1,8 @@
 package state
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,48 +24,42 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 	if baseDir == "" {
 		baseDir = ".gitgym-data/remotes"
 	}
-	if name == "" {
-		name = "origin"
-	}
-	repoPath := filepath.Join(baseDir, name)
+
+	// Requirement: Single persistent remote. Clean up others.
+	// We use URL hash for directory name so clients pointing to old URL paths fail.
+	hash := sha256.Sum256([]byte(url))
+	dirName := hex.EncodeToString(hash[:])
+	repoPath := filepath.Join(baseDir, dirName)
 	if absPath, err := filepath.Abs(repoPath); err == nil {
 		repoPath = absPath
 	}
 
-	// Helper to cleanup and prepare for re-clone
-	resetRepo := false
-	if _, err := os.Stat(repoPath); err == nil {
-		// Repo exists. Check if URL matches.
-		existingRepo, err := gogit.PlainOpen(repoPath)
-		if err == nil {
-			rem, err := existingRepo.Remote("origin")
-			if err == nil && len(rem.Config().URLs) > 0 {
-				existingURL := rem.Config().URLs[0]
-				if existingURL != url {
-					// URL changed. Nuke it.
-					fmt.Printf("Remote URL changed (%s -> %s). Re-cloning...\n", existingURL, url)
-					resetRepo = true
-				}
-			} else {
-				// No origin or corrupted? Nuke it.
-				resetRepo = true
+	// 1. Enforce Single Residency: Delete everything in baseDir that isn't our target
+	// Create baseDir if not exists
+	if err := os.MkdirAll(baseDir, 0755); err != nil {
+		return fmt.Errorf("failed to create base dir: %w", err)
+	}
+
+	entries, err := os.ReadDir(baseDir)
+	if err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() && entry.Name() != dirName {
+				// Remove old remote
+				os.RemoveAll(filepath.Join(baseDir, entry.Name()))
 			}
-		} else {
-			// Corrupted? Nuke it.
-			resetRepo = true
 		}
 	}
 
-	if resetRepo {
-		os.RemoveAll(repoPath)
-	}
+	// 2. Clear InMemory Maps (since we only support one remote now)
+	sm.SharedRemotes = make(map[string]*gogit.Repository)
+	sm.SharedRemotePaths = make(map[string]string)
 
-	// Ensure directory exists
+	// ensure target dir exists
 	if err := os.MkdirAll(repoPath, 0755); err != nil {
 		return fmt.Errorf("failed to create remote dir: %w", err)
 	}
 
-	// Open or Clone
+	// 3. Open or Clone
 	repo, err := gogit.PlainOpen(repoPath)
 	if err != nil {
 		// Not found or just cleaned, clone it (Bare)
@@ -85,6 +81,11 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 				URLs: []string{url},
 			})
 		}
+	} else {
+		// Repo exists (was matching URL hash). Check if valid?
+		// We trust hash collision is low enough and we cleared others.
+		// Optionally check origin URL inside to be double sure?
+		// For now simple hash mapping is sufficient for "switching" scenarios.
 	}
 
 	// Store under Name
