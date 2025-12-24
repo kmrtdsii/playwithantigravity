@@ -59,22 +59,17 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 	}
 
 	// 3. Open or Clone
-	repo, err := gogit.PlainOpen(repoPath)
+	// ALWAYS force a fresh clone for now to ensure we get a Mirror (all refs).
+	// In the future, we could open and Fetch, but for "Ingest/Update" action, full sync is safer.
+	os.RemoveAll(repoPath)
+
+	repo, err := gogit.PlainClone(repoPath, true, &gogit.CloneOptions{
+		URL:      url,
+		Progress: os.Stdout,
+		Mirror:   true,
+	})
 	if err != nil {
-		// Not found or just cleaned, clone it (Bare)
-		fmt.Printf("Cloning %s to %s (bare)...\n", url, repoPath)
-		repo, err = gogit.PlainClone(repoPath, true, &gogit.CloneOptions{
-			URL:      url,
-			Progress: os.Stdout,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to clone remote: %w", err)
-		}
-	} else {
-		// Repo exists (was matching URL hash). Check if valid?
-		// We trust hash collision is low enough and we cleared others.
-		// Optionally check origin URL inside to be double sure?
-		// For now simple hash mapping is sufficient for "switching" scenarios.
+		return fmt.Errorf("failed to clone remote: %w", err)
 	}
 
 	// Store under Name

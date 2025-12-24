@@ -137,10 +137,21 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		return nil
 	})
 
-	// Copy References
+	// Copy References with Mapping (Standard Git Behavior)
+	// refs/heads/* -> refs/remotes/origin/*
+	// refs/tags/*  -> refs/tags/*
 	refs, _ := remoteRepo.References()
 	refs.ForEach(func(ref *plumbing.Reference) error {
-		localRepo.Storer.SetReference(ref)
+		name := ref.Name()
+		if name.IsBranch() {
+			// Map refs/heads/foo -> refs/remotes/origin/foo
+			newRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", name.Short()))
+			newRef := plumbing.NewHashReference(newRefName, ref.Hash())
+			localRepo.Storer.SetReference(newRef)
+		} else if name.IsTag() {
+			// Copy tags as is
+			localRepo.Storer.SetReference(ref)
+		}
 		return nil
 	})
 
@@ -171,10 +182,18 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		// Try main first, then master
 		for _, branch := range []string{"main", "master"} {
 			branchRef := plumbing.NewBranchReferenceName(branch)
-			if _, err := localRepo.Reference(branchRef, true); err == nil {
+			// Check if we have the remote counterpart: refs/remotes/origin/branch
+			remoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", branch))
+			if _, err := localRepo.Reference(remoteRefName, true); err == nil {
+				// Create local branch 'branch' pointing to the same hash
+				// And checkout
+				ref, _ := localRepo.Reference(remoteRefName, true)
+				newBranchRef := plumbing.NewHashReference(branchRef, ref.Hash())
+				localRepo.Storer.SetReference(newBranchRef)
+
 				w.Checkout(&gogit.CheckoutOptions{
 					Branch: branchRef,
-					Create: false,
+					Create: false, // Created manually above
 					Force:  true,
 				})
 				break
