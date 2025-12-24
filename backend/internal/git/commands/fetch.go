@@ -79,6 +79,10 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	if !ok && s.Manager != nil {
 		// Check Shared
 		srcRepo, ok = s.Manager.SharedRemotes[lookupKey]
+		// Fallback: Check using full URL (in case lookupKey stripped leading slash but map has it)
+		if !ok {
+			srcRepo, ok = s.Manager.SharedRemotes[url]
+		}
 	}
 
 	if !ok {
