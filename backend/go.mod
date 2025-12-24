@@ -1,6 +1,6 @@
 module github.com/kurobon/gitgym/backend
 
-go 1.25.4
+go 1.25.5
 
 require (
 	github.com/go-git/go-billy/v5 v5.7.0
