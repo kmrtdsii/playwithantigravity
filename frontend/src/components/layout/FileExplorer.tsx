@@ -34,43 +34,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
     }, [state.branches]);
 
     // Build Entry Tree from flat file list (Working Tree)
-    const fileTree = useMemo(() => {
-        if (isRoot) return [];
-
-        const root: FileNode = { name: 'ROOT', path: '', isDir: true, children: [] };
-        const allFiles = state.files || [];
-        allFiles.forEach(filePath => {
-            const parts = filePath.split('/');
-            let currentLevel = root.children!;
-            parts.forEach((part, index) => {
-                if (!part) return;
-                const isLast = index === parts.length - 1;
-                const currentPath = parts.slice(0, index + 1).join('/');
-
-                let existingNode = currentLevel.find(n => n.name === part);
-                if (!existingNode) {
-                    const newNode: FileNode = {
-                        name: part,
-                        path: currentPath,
-                        isDir: !isLast || filePath.endsWith('/'),
-                        children: (!isLast || filePath.endsWith('/')) ? [] : undefined,
-                        status: (isLast && !filePath.endsWith('/')) ? state.fileStatuses[filePath] : undefined
-                    };
-                    currentLevel.push(newNode);
-                    currentLevel.sort((a, b) => {
-                        if (a.isDir && !b.isDir) return -1;
-                        if (!a.isDir && b.isDir) return 1;
-                        return a.name.localeCompare(b.name);
-                    });
-                    existingNode = newNode;
-                }
-                if (existingNode.isDir) {
-                    currentLevel = existingNode.children!;
-                }
-            });
-        });
-        return root.children || [];
-    }, [state.files, state.fileStatuses, isRoot]);
+    // const fileTree = ... // Removed
 
     const toggleFolder = (path: string, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -118,43 +82,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
         return 'var(--text-primary)';
     };
 
-    const renderTree = (nodes: FileNode[], depth: number = 0) => {
-        return nodes.map(node => {
-            const isExpanded = expandedFolders.has(node.path);
-            const paddingLeft = depth * 16 + 12;
-
-            if (node.isDir) {
-                return (
-                    <div key={node.path}>
-                        <div
-                            className="explorer-row"
-                            onClick={(e) => handleDirClick(node, e)}
-                            style={{ paddingLeft }}
-                        >
-                            <span className="icon">{isExpanded ? '📂' : '📁'}</span>
-                            <span className="name">{node.name}</span>
-                        </div>
-                        {isExpanded && node.children && (
-                            <div>{renderTree(node.children, depth + 1)}</div>
-                        )}
-                    </div>
-                );
-            } else {
-                return (
-                    <div
-                        key={node.path}
-                        className="explorer-row"
-                        onClick={() => onSelect({ type: 'file', id: node.path })}
-                        style={{ paddingLeft }}
-                    >
-                        <span className="icon">📄</span>
-                        <span className="name" style={{ color: getStatusColor(node.status) }}>{node.name}</span>
-                        {node.status && <span className="status-badge">{node.status}</span>}
-                    </div>
-                );
-            }
-        });
-    };
+    // const renderTree = (nodes: FileNode[], depth: number = 0) => { ... } // Removed
 
     const projects = state.projects || [];
 
@@ -247,8 +175,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
                                                     </div>
                                                 )}
 
-                                                {/* File Tree */}
-                                                {renderTree(fileTree)}
+                                                {/* File Tree Removed */}
                                             </div>
                                         )}
                                     </div>
