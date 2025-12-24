@@ -4,7 +4,6 @@ import GitGraphViz from '../visualization/GitGraphViz';
 import type { GitState } from '../../types/gitTypes';
 import { RemoteHeader, RemoteBranchList, PullRequestSection, CloneProgress, containerStyle } from './remote';
 import EmptyState from './remote/EmptyState';
-import { filterReachableCommits } from '../../utils/graphUtils';
 import { useRemoteClone } from '../../hooks/useRemoteClone';
 import { useAutoDiscovery } from '../../hooks/useAutoDiscovery';
 
@@ -128,10 +127,11 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
             untracked: [],
         };
 
-        // Filter commits to only those reachable from refs
+        // For remote repository, show ALL commits (no filtering)
+        // This includes all branches, tags, and any orphan commits
         return {
             ...syntheticState,
-            commits: filterReachableCommits(serverState.commits, syntheticState)
+            commits: serverState.commits  // All commits from server
         };
     }, [serverState]);
 
