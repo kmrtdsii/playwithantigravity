@@ -191,13 +191,15 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	})
 
 	// Determine appropriate URL for origin
-	originURL := remotePath
+	// Use the original URL to prevent exposing internal paths in error messages
+	originURL := url
 	// If it's not a URL schema and not absolute, assume it's relative to root
 	if !strings.Contains(originURL, "://") && !strings.HasPrefix(originURL, "/") {
 		originURL = "/" + originURL
 	}
 
-	// Set Origin to point to our simulated remote path
+	// Set Origin to point to our simulated remote path (mapped via SharedRemotes)
+	// We use the friendly URL; Fetch/Push commands will resolve it.
 	_, err = localRepo.CreateRemote(&config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{originURL},

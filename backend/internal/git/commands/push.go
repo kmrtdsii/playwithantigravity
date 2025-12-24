@@ -97,8 +97,11 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	if !ok && s.Manager != nil {
 		// Check Shared Remotes
 		targetRepo, ok = s.Manager.SharedRemotes[lookupKey]
-		// Map lookup might fail if URL is absolute path but map has original HTTP URL
-		// or if URL logic differs.
+
+		// Fallback: Check using full URL (in case lookupKey stripped leading slash but map has it)
+		if !ok {
+			targetRepo, ok = s.Manager.SharedRemotes[url]
+		}
 	}
 
 	if !ok {
@@ -110,8 +113,6 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 			ok = true
 		} else {
 			// Try without leading slash if it was stripped?
-			// lookupKey has stripped prefix. url is original.
-			// Let's try lookupKey just in case relative path logic
 			targetRepo, errOpen = gogit.PlainOpen(lookupKey)
 			if errOpen == nil {
 				ok = true
@@ -172,8 +173,6 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 			}
 		}
 	} else if refToPush.Name().IsTag() {
-		// For tags, check if it exists and differs (conflict) unless force?
-		// Git usually rejects existing tag overwrite unless force.
 		_, err := targetRepo.Reference(refToPush.Name(), true)
 		if err == nil && !isForce {
 			return "", fmt.Errorf("tag '%s' already exists (use --force to override)", refToPush.Name().Short())
@@ -185,13 +184,6 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	}
 
 	// SIMULATE PUSH: Copy Objects + Update Ref
-	// If it's a tag, we might need to copy the Tag Object itself + the Commit it points to.
-	// copyCommitRecursive calls copyTreeRecursive.
-	// If it's an annotated tag, the Ref points to a Tag Object -> Commit.
-
-	// We need generic Object Copy logic that follows dependencies.
-	// Current copyCommitRecursive starts at a Commit Hash.
-
 	hashToSync := refToPush.Hash()
 
 	// Check object type
@@ -202,7 +194,6 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 
 	if obj.Type() == plumbing.TagObject {
 		// It's an annotated tag.
-		// Copy tag object
 		if !git.HasObject(targetRepo, hashToSync) {
 			_, err = targetRepo.Storer.SetEncodedObject(obj)
 			if err != nil {
@@ -224,7 +215,6 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 			return "", err
 		}
 	} else {
-		// Blob or Tree? Unlikely for a ref push but possible.
 		return "", fmt.Errorf("unsupported object type to push: %s", obj.Type())
 	}
 
@@ -235,13 +225,11 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	}
 
 	// Update Local Remote-Tracking Reference (ONLY for branches)
-	// e.g. refs/remotes/origin/main
 	if refToPush.Name().IsBranch() {
 		localRemoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, refToPush.Name().Short()))
 		newLocalRemoteRef := plumbing.NewHashReference(localRemoteRefName, refToPush.Hash())
-		_ = repo.Storer.SetReference(newLocalRemoteRef) // Ignore error if fails?
+		_ = repo.Storer.SetReference(newLocalRemoteRef)
 	}
-	// For tags, we don't usually create "remote-tracking tags" in refs/remotes. Tags are shared.
 
 	return fmt.Sprintf("To %s\n   %s -> %s", url, hashToSync.String()[:7], refToPush.Name().Short()), nil
 }
