@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
@@ -252,86 +251,12 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		return "", fmt.Errorf("failed to reset to newbase: %v", err)
 	}
 
-	// 7. Replay Commits (Cherry-pick)
+	// 7. Replay Commits (using shared helper)
 	replayedCount := 0
 	for _, c := range commitsToReplay {
-		// Calculate patch from Parent -> Commit
-		var pTree *object.Tree
-		if c.NumParents() == 0 {
-			// Root commit.
-			// For root commit, we compare against empty tree?
-			// or just apply its tree as is?
-			// If we are rebasing root commit ONTO something, we treat it as adding all its files.
-			// Diff(Empty, Root)
-			// go-git doesn't have explicit empty tree easily accessible?
-			// We can get file patches by comparing nil parent?
-			// Tree.Patch(other)
-			// This is empty struct, does it work? No.
-			// We might need to manually handle root commit "patch".
-			// Or just "checkout" files?
-			// But we need to MERGE with current state (onto state).
-			// Rebase is effectively: apply changes introduced by C.
-			// Changes introduced by Root C = all files in C.
-			// So we write all files in C.
-			// This might overwrite existing files in 'onto'. Conflict?
-			// Simplified: overwrite.
-
-			// Okay for now, handle Root commit logic separately inside loop
-		} else {
-			parent, _ := c.Parent(0)
-			pTree, _ = parent.Tree()
-		}
-
-		cTree, _ := c.Tree()
-
-		var patch *object.Patch
-		if pTree == nil {
-			// Root commit diff
-			// Use simple logic: Treat all files as additions
-			// We can construct a patch that adds all files?
-			// Or better: manual file writing.
-			// Let's rely on manual file writing for root commit to be safe.
-			files, _ := c.Files()
-			files.ForEach(func(f *object.File) error {
-				wFile, _ := w.Filesystem.OpenFile(f.Name, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-				// copy
-				content, _ := f.Contents()
-				wFile.Write([]byte(content))
-				wFile.Close()
-				w.Add(f.Name)
-				return nil
-			})
-		} else {
-			var err error // shadow
-			patch, err = pTree.Patch(cTree)
-			if err != nil {
-				return "", fmt.Errorf("failed to compute patch for %s: %v", c.Hash.String(), err)
-			}
-
-			// Apply patch
-			for _, fp := range patch.FilePatches() {
-				from, to := fp.Files()
-				if to == nil {
-					if from != nil {
-						w.Filesystem.Remove(from.Path())
-					}
-					continue
-				}
-				path := to.Path()
-				file, err := c.File(path)
-				if err != nil {
-					continue
-				}
-				content, err := file.Contents()
-				if err != nil {
-					continue
-				}
-
-				f, _ := w.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-				f.Write([]byte(content))
-				f.Close()
-				w.Add(path)
-			}
+		// Apply changes from this commit using shared helper
+		if err := git.ApplyCommitChanges(w, c); err != nil {
+			return "", fmt.Errorf("failed to apply commit %s: %v", c.Hash.String()[:7], err)
 		}
 
 		// Ensure timestamp distinctness
@@ -359,40 +284,9 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	return fmt.Sprintf("Successfully rebased and updated %s.\nReplayed %d commits.", headRef.Name().Short(), replayedCount), nil
 }
 
+// resolveRevision delegates to the shared git.ResolveRevision helper
 func (c *RebaseCommand) resolveRevision(repo *gogit.Repository, rev string) (*plumbing.Hash, error) {
-	// 1. Try standard resolution
-	h, err := repo.ResolveRevision(plumbing.Revision(rev))
-	if err == nil {
-		return h, nil
-	}
-
-	// 2. Try short hash
-	if len(rev) >= 4 && len(rev) < 40 {
-		// iterate all commits? expensive but okay for memfs/small repos
-		// or iterate refs? refs logic is not enough for commits not pointed by refs.
-		// go-git doesn't have efficient prefix search exposed easily for Objects?
-		// We can just iterate Objects?
-		cIter, err := repo.CommitObjects()
-		if err == nil {
-			var match *plumbing.Hash
-			found := false
-			cIter.ForEach(func(c *object.Commit) error {
-				if len(c.Hash.String()) >= len(rev) && c.Hash.String()[:len(rev)] == rev {
-					if found {
-						return fmt.Errorf("ambiguous short hash")
-					}
-					match = &c.Hash
-					found = true
-				}
-				return nil
-			})
-			if found {
-				return match, nil
-			}
-		}
-	}
-
-	return nil, err
+	return git.ResolveRevision(repo, rev)
 }
 
 func (c *RebaseCommand) Help() string {
