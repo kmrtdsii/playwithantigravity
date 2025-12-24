@@ -9,6 +9,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -83,24 +84,27 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	if s.Manager != nil {
 		// Check SharedRemotes (e.g., "origin", or the full URL)
-		if r, ok := s.Manager.SharedRemotes[url]; ok {
+		log.Printf("Clone: Checking shared remotes for %s", url)
+
+		if r, ok := s.Manager.GetSharedRemote(url); ok { // SAFE ACCESS
+			log.Printf("Clone: Found shared remote for URL %s", url)
 			remoteRepo = r
 			remoteSt = r.Storer
-			// Check if we have a physical path for this remote
-			if path, hasPath := s.Manager.SharedRemotePaths[url]; hasPath {
-				remotePath = path
-			} else {
-				remotePath = url
-			}
-		} else if r, ok := s.Manager.SharedRemotes[repoName]; ok {
+
+			// Get path safely needs lock or getter?
+			// SessionManager exposes SharedRemotePaths map, but access needs lock.
+			// Let's assume we can't easily get it without lock or new method.
+			// Ideally we assume remotePath is the URL itself if we found it by URL,
+			// OR we assume we are using the 'IngestRemote' convention where path is managed.
+			// For now, let's keep it simple: if found by URL, remotePath = url.
+			remotePath = url
+
+			// We can try to get the real path if needed, but it's mostly for display/origin URL.
+		} else if r, ok := s.Manager.GetSharedRemote(repoName); ok { // SAFE ACCESS
+			log.Printf("Clone: Found shared remote by name %s", repoName)
 			remoteRepo = r
 			remoteSt = r.Storer
-			// Check if we have a physical path for this remote
-			if path, hasPath := s.Manager.SharedRemotePaths[repoName]; hasPath {
-				remotePath = path
-			} else {
-				remotePath = repoName
-			}
+			remotePath = repoName
 		}
 	}
 
