@@ -10,13 +10,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/cache"
 	"github.com/go-git/go-git/v5/storage"
-	"github.com/go-git/go-git/v5/storage/memory"
+	"github.com/go-git/go-git/v5/storage/filesystem"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -25,6 +27,9 @@ func init() {
 }
 
 type CloneCommand struct{}
+
+// SafeRepoNameRegex enforces alphanumeric names to prevent traversal
+var SafeRepoNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
 func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
@@ -62,6 +67,14 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 	repoName := parts[len(parts)-1]
 	repoName = strings.TrimSuffix(repoName, ".git")
+
+	// SECURITY: Input Validation
+	if !SafeRepoNameRegex.MatchString(repoName) {
+		return "", fmt.Errorf("invalid repository name: contains unsafe characters")
+	}
+	if repoName == "." || repoName == ".." {
+		return "", fmt.Errorf("invalid repository name")
+	}
 
 	if _, exists := s.Repos[repoName]; exists {
 		return "", fmt.Errorf("repository '%s' already exists", repoName)
@@ -102,8 +115,14 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 			return "", fmt.Errorf("failed to create remotes directory: %w", err)
 		}
 
-		remoteSt = memory.NewStorage()
-		var err error
+		// PERFORMANCE: Use Filesystem Storage for Remote
+		remoteDot, err := s.Filesystem.Chroot(remotePath)
+		if err != nil {
+			return "", fmt.Errorf("failed to chroot for remote: %w", err)
+		}
+
+		remoteSt = filesystem.NewStorage(remoteDot, cache.NewObjectLRUDefault())
+
 		remoteRepo, err = gogit.Clone(remoteSt, nil, &gogit.CloneOptions{
 			URL:      url,
 			Progress: os.Stdout,
@@ -124,7 +143,17 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		return "", fmt.Errorf("failed to chroot: %w", err)
 	}
 
-	localSt := memory.NewStorage()
+	// PERFORMANCE: Use Filesystem Storage for Local Repo (.git)
+	// Create the .git directory
+	if err := repoFS.MkdirAll(".git", 0755); err != nil {
+		return "", fmt.Errorf("failed to create .git directory: %w", err)
+	}
+	dotGitFS, err := repoFS.Chroot(".git")
+	if err != nil {
+		return "", fmt.Errorf("failed to chroot .git: %w", err)
+	}
+
+	localSt := filesystem.NewStorage(dotGitFS, cache.NewObjectLRUDefault())
 	localRepo, err := gogit.Init(localSt, repoFS)
 	if err != nil {
 		return "", fmt.Errorf("failed to init local repo: %w", err)

@@ -37,5 +37,7 @@ func (s *Server) routes() {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.Mux.ServeHTTP(w, r)
+	// Apply global middleware: CORS -> Logger -> Recoverer -> Mux
+	handler := Chain(s.Mux, CORS, Logger, Recoverer)
+	handler.ServeHTTP(w, r)
 }
