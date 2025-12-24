@@ -27,5 +27,7 @@ To implement a new Git feature (e.g., `git merge` support):
 -   **State**: Always rely on backend-provided state. Do not perform optimistic updates that might diverge from `go-git`'s reality.
 
 ## 3. Verification Strategy
+Detailed testing patterns are defined in [Testing Strategy](./testing-strategy.md).
+
 -   **Backend Unit Tests**: Required for every new command logic.
 -   **E2E Tests**: Use Playwright (`npm run test:e2e`) if the user flow is affected.
