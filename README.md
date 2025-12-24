@@ -5,7 +5,7 @@ GitGym is an interactive, visual sandbox for learning and experimenting with Git
 > [!TIP]
 > **For AI Agents (Gemini/Claude)**: Please refer to [.ai/context.md](.ai/context.md) for architectural guidelines and project context. This codebase is "GenAI Native", optimized for agentic reasoning and modification.
 
-![GitGym Interface](frontend/public/vite.svg)
+![GitGym Interface](frontend/public/gitgym-hero.png)
 
 ## 🚀 Features
 
