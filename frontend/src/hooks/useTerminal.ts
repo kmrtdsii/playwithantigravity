@@ -234,8 +234,11 @@ export const useTerminal = (
                     if (cmd) {
                         let fullCmd = cmd;
                         if (!cmd.startsWith('git ')) {
-                            if (cmd === 'git') {
-                                // just 'git' is fine
+                            const firstWord = cmd.split(' ')[0];
+                            const shellCommands = ['ls', 'cd', 'pwd', 'touch', 'rm'];
+
+                            if (cmd === 'git' || shellCommands.includes(firstWord)) {
+                                // Pass through as-is
                             } else {
                                 fullCmd = `git ${cmd}`;
                                 writeAndRecord(`\x1b[90m(Auto-prefixed: ${fullCmd})\x1b[0m`, true);
