@@ -48,16 +48,20 @@ export const CommitRow: React.FC<CommitRowProps> = ({
         className="commit-row"
     >
         {/* Commit ID */}
-        <span style={{
-            color: isSelected ? 'var(--accent-primary, #3b82f6)' : 'var(--text-tertiary)',
-            fontSize: '10px',
-            width: '60px',
-            textAlign: 'left',
-            flexShrink: 0,
-            fontWeight: isSelected ? 'bold' : 'normal',
-            marginRight: '8px',
-            fontFamily: 'var(--font-mono)',
-        }}>
+        <span
+            onClick={(e) => e.stopPropagation()}
+            style={{
+                color: isSelected ? 'var(--accent-primary, #3b82f6)' : 'var(--text-tertiary)',
+                fontSize: '10px',
+                width: '60px',
+                textAlign: 'left',
+                flexShrink: 0,
+                fontWeight: isSelected ? 'bold' : 'normal',
+                marginRight: '8px',
+                fontFamily: 'var(--font-mono)',
+                userSelect: 'text',
+                cursor: 'text'
+            }}>
             {node.id.substring(0, 7)}
         </span>
 
@@ -72,6 +76,7 @@ export const CommitRow: React.FC<CommitRowProps> = ({
 
         {/* Message */}
         <span
+            onClick={(e) => e.stopPropagation()}
             title={node.message}
             style={{
                 color: node.isGhost ? 'var(--text-tertiary)' : 'var(--text-secondary)',
@@ -80,6 +85,8 @@ export const CommitRow: React.FC<CommitRowProps> = ({
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 minWidth: 0,
+                userSelect: 'text',
+                cursor: 'text'
             }}
         >
             {node.isGhost && '[SIMULATION] '}
