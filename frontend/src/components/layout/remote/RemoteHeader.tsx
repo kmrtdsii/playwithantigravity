@@ -55,6 +55,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         onChange={(e) => onSetupUrlChange(e.target.value)}
                         style={inputStyle}
                         autoFocus
+                        onFocus={(e) => e.target.select()}
                     />
                     <button type="button" onClick={onCancelEdit} style={cancelButtonStyle}>
                         Cancel
