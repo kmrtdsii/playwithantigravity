@@ -68,7 +68,7 @@ func populateCommits(repo *gogit.Repository, state *GraphState, showAll bool) {
 
 		// BFS
 		for len(queue) > 0 {
-			if len(collectedCommits) >= 1000 {
+			if len(collectedCommits) >= 20000 {
 				break
 			}
 			current := queue[0]

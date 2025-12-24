@@ -103,7 +103,7 @@ export const computeLayout = (
     }
 
     // --- REACHABILITY ANALYSIS ---
-    const reachable = computeReachability(commitMap, branches, HEAD, potentialCommits, remoteBranches);
+    const reachable = computeReachability(commitMap, branches, HEAD, potentialCommits, remoteBranches, tags);
 
     // --- LANE ASSIGNMENT ---
     const nodes: VizNode[] = [];
@@ -279,7 +279,8 @@ function computeReachability(
     branches: Record<string, string>,
     HEAD: GitState['HEAD'],
     potentialCommits: Commit[],
-    remoteBranches: Record<string, string>
+    remoteBranches: Record<string, string>,
+    tags: Record<string, string>
 ): Set<string> {
     const queue: string[] = [];
 
@@ -290,6 +291,11 @@ function computeReachability(
 
     // Seed from remote branches
     Object.values(remoteBranches).forEach(hash => {
+        if (hash && commitMap.has(hash)) queue.push(hash);
+    });
+
+    // Seed from tags
+    Object.values(tags).forEach(hash => {
         if (hash && commitMap.has(hash)) queue.push(hash);
     });
 
