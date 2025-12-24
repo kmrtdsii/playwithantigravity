@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit, GitState } from '../../types/gitTypes';
 import { computeLayout } from './computeLayout';
@@ -95,19 +96,25 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                         />
                     ))}
 
-                    {nodes.map(node => (
-                        <circle
-                            key={node.id}
-                            cx={node.x}
-                            cy={node.y}
-                            r={CIRCLE_RADIUS}
-                            fill={node.isGhost ? "transparent" : node.color}
-                            stroke={node.color}
-                            strokeWidth={node.isGhost ? "2" : "1"}
-                            strokeDasharray={node.isGhost ? "3,3" : "0"}
-                            opacity={node.opacity}
-                        />
-                    ))}
+                    <AnimatePresence>
+                        {nodes.map(node => (
+                            <motion.circle
+                                key={node.id}
+                                cx={node.x}
+                                cy={node.y}
+                                r={CIRCLE_RADIUS}
+                                fill={node.isGhost ? "transparent" : node.color}
+                                stroke={node.color}
+                                strokeWidth={node.isGhost ? "2" : "1"}
+                                strokeDasharray={node.isGhost ? "3,3" : "0"}
+                                opacity={node.opacity}
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: node.opacity }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                            />
+                        ))}
+                    </AnimatePresence>
 
                     {/* HEAD Halo */}
                     {nodes.map(node =>

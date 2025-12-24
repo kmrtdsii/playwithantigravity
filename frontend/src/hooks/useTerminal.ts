@@ -165,7 +165,7 @@ export const useTerminal = (
         prevDeveloperRef.current = activeDeveloper;
         setTimeout(() => fitAddonRef.current?.fit(), 50);
 
-    }, [activeDeveloper, sessionId]);
+    }, [activeDeveloper, sessionId, clearTranscript, getTranscript, writeAndRecord, fitAddonRef, xtermRef]);
 
     // --- SYNC EXTERNAL COMMANDS ---
     useEffect(() => {
@@ -190,7 +190,7 @@ export const useTerminal = (
             // Always update ref
             lastOutputLengthRef.current = currentLength;
         }
-    }, [state.output, state.HEAD, state.currentPath]);
+    }, [state.output, state.HEAD, state.currentPath, writeAndRecord, xtermRef]);
 
     // --- SETUP XTERM ---
     useEffect(() => {
@@ -389,7 +389,7 @@ export const useTerminal = (
             resizeObserver.disconnect();
             term.dispose();
         };
-    }, []);
+    }, [appendToTranscript, clearTranscript, fitAddonRef, runCommand, state, theme, terminalRef, writeAndRecord, xtermRef]);
 
     // Theme Update
     useEffect(() => {
@@ -409,5 +409,5 @@ export const useTerminal = (
                 selectionBackground: 'rgba(35, 134, 54, 0.3)',
             };
         }
-    }, [theme]);
+    }, [theme, xtermRef]);
 };
