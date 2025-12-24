@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -122,34 +121,9 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	if remoteRepo == nil {
-		// Fallback: Create Simulated Remote (Legacy behavior)
-		// SECURITY: Prevent traversal in path construction
-		repoNameClean := filepath.Clean(repoName)
-		if strings.Contains(repoNameClean, "..") {
-			return "", fmt.Errorf("security violation: invalid remote path")
-		}
-
-		remotePath = fmt.Sprintf("remotes/%s.git", repoNameClean)
-		if err := s.Filesystem.MkdirAll("remotes", 0755); err != nil {
-			return "", fmt.Errorf("failed to create remotes directory: %w", err)
-		}
-
-		// PERFORMANCE: Use Filesystem Storage for Remote
-		remoteDot, err := s.Filesystem.Chroot(remotePath)
-		if err != nil {
-			return "", fmt.Errorf("failed to chroot for remote: %w", err)
-		}
-
-		remoteSt = filesystem.NewStorage(remoteDot, cache.NewObjectLRUDefault())
-
-		remoteRepo, err = gogit.Clone(remoteSt, nil, &gogit.CloneOptions{
-			URL:      url,
-			Progress: os.Stdout,
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to create simulated remote: %w", err)
-		}
-		s.Repos[remotePath] = remoteRepo
+		// RESTRICTION: Disable arbitrary network cloning to prevent hangs.
+		// Users must only use pre-configured SharedRemotes.
+		return "", fmt.Errorf("repository '%s' not found in shared remotes. Network cloning is disabled to prevent timeout issues. Please use a valid shared remote URL.", url)
 	}
 
 	// 2. Create Local Working Copy
