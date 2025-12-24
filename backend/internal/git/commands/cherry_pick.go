@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -126,57 +125,9 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 
 	pickedCount := 0
 	for _, c := range commitsToPick {
-		// Apply changes
-		// Calculate patch from Parent -> C
-		var pTree *object.Tree
-		if c.NumParents() > 0 {
-			parent, _ := c.Parent(0)
-			pTree, _ = parent.Tree()
-		}
-
-		cTree, _ := c.Tree()
-
-		var patch *object.Patch
-		if pTree == nil {
-			// Root commit... handle files
-			files, _ := c.Files()
-			files.ForEach(func(f *object.File) error {
-				wFile, _ := w.Filesystem.OpenFile(f.Name, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-				content, _ := f.Contents()
-				wFile.Write([]byte(content))
-				wFile.Close()
-				w.Add(f.Name)
-				return nil
-			})
-		} else {
-			var err error
-			patch, err = pTree.Patch(cTree)
-			if err != nil {
-				return "", fmt.Errorf("failed to patch: %v", err)
-			}
-			for _, fp := range patch.FilePatches() {
-				from, to := fp.Files()
-				if to == nil {
-					if from != nil {
-						w.Filesystem.Remove(from.Path())
-					}
-					continue
-				}
-				path := to.Path()
-				file, err := c.File(path)
-				if err != nil {
-					continue
-				}
-				content, err := file.Contents()
-				if err != nil {
-					continue
-				}
-
-				f, _ := w.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-				f.Write([]byte(content))
-				f.Close()
-				w.Add(path)
-			}
+		// Apply changes using shared helper
+		if err := git.ApplyCommitChanges(w, c); err != nil {
+			return "", fmt.Errorf("failed to apply commit %s: %v", c.Hash.String()[:7], err)
 		}
 
 		time.Sleep(10 * time.Millisecond) // Ensure unique timestamp
@@ -188,8 +139,7 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 				Email: c.Author.Email,
 				When:  time.Now(), // Committer time is now
 			},
-			AllowEmptyCommits: true, // cherry-pick usually allows empty if it becomes empty? No, usually stops.
-			// But for simulation, allow.
+			AllowEmptyCommits: true,
 		})
 		if err != nil {
 			return "", fmt.Errorf("failed to commit: %v", err)
@@ -200,33 +150,9 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 	return fmt.Sprintf("Cherry-pick successful. Picked %d commits to %s.", pickedCount, headRef.Name().Short()), nil
 }
 
-// Duplicate of RebaseCommand.resolveRevision for now
+// resolveRevision delegates to the shared git.ResolveRevision helper
 func (c *CherryPickCommand) resolveRevision(repo *gogit.Repository, rev string) (*plumbing.Hash, error) {
-	h, err := repo.ResolveRevision(plumbing.Revision(rev))
-	if err == nil {
-		return h, nil
-	}
-	if len(rev) >= 4 && len(rev) < 40 {
-		cIter, err := repo.CommitObjects()
-		if err == nil {
-			var match *plumbing.Hash
-			found := false
-			cIter.ForEach(func(c *object.Commit) error {
-				if len(c.Hash.String()) >= len(rev) && c.Hash.String()[:len(rev)] == rev {
-					if found {
-						return fmt.Errorf("ambiguous short hash")
-					}
-					match = &c.Hash
-					found = true
-				}
-				return nil
-			})
-			if found {
-				return match, nil
-			}
-		}
-	}
-	return nil, err
+	return git.ResolveRevision(repo, rev)
 }
 
 func (c *CherryPickCommand) Help() string {
