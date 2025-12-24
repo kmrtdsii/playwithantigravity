@@ -77,6 +77,8 @@ func ParseCommand(input string) (string, []string) {
 		// commit -m ... -> git commit -m ...
 		// ensure args[0] is "commit"
 		return "commit", append([]string{"commit"}, parts[1:]...)
+	case "--version":
+		return "version", []string{"version"}
 	}
 
 	// Default handling
