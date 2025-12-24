@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
@@ -30,7 +31,16 @@ func (s *Server) handleExecCommand(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Logging
-	log.Printf("Command received: user=%s cmd=%s", req.SessionID, req.Command)
+	// log.Printf("Command received: user=%s cmd=%s", req.SessionID, req.Command)
+
+	// DEBUG: Log to file upstream
+	logFile := "/tmp/gitgym_clone_debug.log"
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err == nil {
+		defer f.Close()
+		log.SetOutput(f)
+		log.Printf("Handler: Received command: '%s' from session '%s'", req.Command, req.SessionID)
+	}
 
 	// 1. Parse Command & Resolve Aliases
 	cmdName, args := git.ParseCommand(req.Command)

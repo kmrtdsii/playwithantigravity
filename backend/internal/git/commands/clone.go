@@ -34,6 +34,19 @@ type CloneCommand struct{}
 var SafeRepoNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
 func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
+	// DEBUG: Log to file
+	logFile := "/tmp/gitgym_clone_debug.log"
+	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("Clone: Failed to open log file %s: %v", logFile, err)
+	} else {
+		defer f.Close()
+		log.SetOutput(f)
+		log.Printf("----------------------------------------------------------------")
+		log.Printf("Clone: Logging initialized to %s", logFile)
+	}
+	log.Printf("Clone: Starting execution args=%v", args)
+
 	s.Lock()
 	defer s.Unlock()
 
@@ -140,6 +153,8 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	// 2. Create Local Working Copy
+	log.Printf("Clone: Remote resolved. Path: %s. Starting Local Creation...", remotePath)
+
 	if err := s.Filesystem.MkdirAll(repoName, 0755); err != nil {
 		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
@@ -160,17 +175,18 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	localSt := filesystem.NewStorage(dotGitFS, cache.NewObjectLRUDefault())
-	localRepo, err := gogit.Init(localSt, repoFS)
+
+	// OPTIMIZATION: Use HybridStorer to avoid copying objects
+	// This delegates object reads to the remoteSt if not found locally.
+	hybridSt := git.NewHybridStorer(localSt, remoteSt)
+
+	localRepo, err := gogit.Init(hybridSt, repoFS)
 	if err != nil {
 		return "", fmt.Errorf("failed to init local repo: %w", err)
 	}
 
-	// Copy Objects from remote to local
-	iter, _ := remoteSt.IterEncodedObjects(plumbing.AnyObject)
-	iter.ForEach(func(obj plumbing.EncodedObject) error {
-		localSt.SetEncodedObject(obj)
-		return nil
-	})
+	// Copy Objects STEP REMOVED - HybridStorer handles it dynamically
+	log.Printf("Clone: Using HybridStorer (Zero-Copy). Local initialized.")
 
 	// Copy References with Mapping (Standard Git Behavior)
 	// refs/heads/* -> refs/remotes/origin/*
@@ -236,6 +252,7 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		}
 	}
 
+	log.Printf("Clone: Success. Cloned into %s", repoName)
 	return fmt.Sprintf("Cloned into '%s'... (Using shared remote %s)", repoName, remotePath), nil
 }
 

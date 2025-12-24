@@ -189,6 +189,29 @@ func (c *CheckoutCommand) checkoutRefOrPath(repo *gogit.Repository, w *gogit.Wor
 		}
 	}
 
+	// 1.5. Check if it's a remote branch (Auto-track)
+	remoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", target))
+	if remoteRef, err := repo.Reference(remoteRefName, true); err == nil && !detach {
+		// Found matching remote branch!
+		// Create local branch 'target' pointing to same hash
+		newBranchRef := plumbing.ReferenceName("refs/heads/" + target)
+		newRef := plumbing.NewHashReference(newBranchRef, remoteRef.Hash())
+
+		if err := repo.Storer.SetReference(newRef); err != nil {
+			return "", fmt.Errorf("failed to create tracking branch: %w", err)
+		}
+
+		// Checkout the new local branch
+		err := w.Checkout(&gogit.CheckoutOptions{
+			Branch: newBranchRef,
+			Force:  force,
+		})
+		if err == nil {
+			s.RecordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", target))
+			return fmt.Sprintf("Switched to a new branch '%s'\nBranch '%s' set up to track remote branch '%s' from 'origin'.", target, target, target), nil
+		}
+	}
+
 	// 2. Try as hash/tag (Detached HEAD)
 	hash, err := repo.ResolveRevision(plumbing.Revision(target))
 	if err == nil {

@@ -77,6 +77,10 @@ export const useTerminal = (
     const clearTranscriptRef = useRef(clearTranscript);
     const stateRef = useRef(state);
 
+    // Command Syncing Refs
+    const isLocalCommandRef = useRef(false);
+    const lastOutputLengthRef = useRef(0);
+
     useEffect(() => {
         runCommandRef.current = runCommand;
         stateRef.current = state;
@@ -105,7 +109,10 @@ export const useTerminal = (
 
         xtermRef.current.write('\x1bc'); // Full Reset
 
+        // Sync ref with current state length to avoid re-printing history handled by replay
+        // We defer to Replay logic, and just set the index.
         const transcript = getTranscriptRef.current ? getTranscriptRef.current() : [];
+        lastOutputLengthRef.current = transcript.length > 0 ? transcript.length : 0;
 
         if (transcript.length > 0) {
             transcript.forEach(line => {
@@ -134,6 +141,31 @@ export const useTerminal = (
         setTimeout(() => fitAddonRef.current?.fit(), 50);
 
     }, [activeDeveloper, sessionId]);
+
+    // --- SYNC EXTERNAL COMMANDS ---
+    useEffect(() => {
+        const currentLength = state.output.length;
+        const prevLength = lastOutputLengthRef.current;
+
+        if (currentLength > prevLength) {
+            // New output detected!
+            if (!isLocalCommandRef.current && xtermRef.current) {
+                const newLines = state.output.slice(prevLength);
+
+                xtermRef.current.write('\r\n'); // Move to new line
+
+                newLines.forEach(line => {
+                    xtermRef.current?.writeln(line);
+                });
+
+                // Re-render prompt with NEW state
+                const prompt = getPrompt(state);
+                xtermRef.current.write(prompt);
+            }
+            // Always update ref
+            lastOutputLengthRef.current = currentLength;
+        }
+    }, [state.output, state.HEAD, state.currentPath]);
 
     // --- SETUP XTERM ---
     useEffect(() => {
@@ -192,7 +224,7 @@ export const useTerminal = (
 
                 setTimeout(async () => {
                     if (cmd === 'clear') {
-                        term.write('\x1bc');
+                        term.write('\x1bc'); // Full reset
                         if (clearTranscriptRef.current) clearTranscriptRef.current();
                         const prompt = getPrompt(stateRef.current);
                         writeAndRecord(prompt, false);
@@ -209,6 +241,8 @@ export const useTerminal = (
                                 writeAndRecord(`\x1b[90m(Auto-prefixed: ${fullCmd})\x1b[0m`, true);
                             }
                         }
+
+                        isLocalCommandRef.current = true;
 
                         if (runCommandRef.current) {
                             try {
@@ -229,6 +263,7 @@ export const useTerminal = (
                     setTimeout(() => {
                         const prompt = getPrompt(stateRef.current);
                         writeAndRecord(prompt, false);
+                        isLocalCommandRef.current = false;
                     }, 50);
 
                 }, 0);

@@ -31,11 +31,11 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	state.PotentialCommits = session.PotentialCommits
 	state.CurrentPath = session.CurrentDir
 
-	sm.mu.Lock()
+	sm.mu.RLock()
 	for name := range sm.SharedRemotes {
 		state.SharedRemotes = append(state.SharedRemotes, name)
 	}
-	sm.mu.Unlock()
+	sm.mu.RUnlock()
 	sort.Strings(state.SharedRemotes)
 
 	// 6. File System (Explorer) - Session specific
@@ -72,7 +72,9 @@ func BuildGraphState(repo *gogit.Repository) *GraphState {
 		}
 
 		// 3. Walk Commits
-		populateCommits(repo, state, true) // ShowAll true by default for Remotes usually? Or mimic session?
+		// Use BFS from Refs (showAll=false) to ensure HybridStorer works
+		// (Iterating objects fails because Local is empty)
+		populateCommits(repo, state, false)
 		// Let's assume for Shared Remote we want to show everything we have.
 		// Actually, populateCommits logic for ancestors might be better.
 		// But for "Server View", showing the reachable history from branches is correct.
