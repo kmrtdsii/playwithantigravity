@@ -97,6 +97,10 @@ func (sm *SessionManager) IngestRemote(ctx context.Context, name, url string) er
 	sm.SharedRemotes[url] = repo
 	sm.SharedRemotePaths[url] = repoPath
 
+	// Store under Internal Path (so fetches using internal path work)
+	sm.SharedRemotes[repoPath] = repo
+	sm.SharedRemotePaths[repoPath] = repoPath
+
 	// 5. Prune Stale Workspaces
 	// We do this AFTER adding the new one, but logic relies on oldPaths captured BEFORE clear.
 	go sm.pruneStaleWorkspaces(oldPaths)
