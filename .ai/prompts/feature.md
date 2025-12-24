@@ -1,27 +1,22 @@
-# Feature Implementation Guide
+# Feature Implementation Checklist
 
-Use this prompt/checklist when implemented a new feature.
+Use this checklist to ensure a structured approach to feature development.
 
 ## 1. Requirement Analysis
-- [ ] Understand the User Goal.
-- [ ] Identify touched components (Frontend UI, Backend API, Database/Git State).
-- [ ] **Check Existing Specs**: Does this conflict with `docs/specs/*.md`?
+- [ ] **Goal**: Understand the user's intent clearly.
+- [ ] **Docs First**: Check `docs/` for existing specifications or constraints.
+- [ ] **Impact Analysis**: Identify which layers (Frontend, Backend, DB/State) are touched.
 
 ## 2. Architecture & Design
-- **Backend**:
-    - If adding a Git command: Create `internal/git/commands/<cmd>.go`. Implement `git.Command`.
-    - Register in `internal/git/engine.go`.
-- **Frontend**:
-    - Add types in `types/gitTypes.ts`.
-    - Update `gitService.ts`.
-    - Update `GitAPIContext.tsx` if global state handling changes.
+- [ ] **Consult Project Guides**: Refer to `docs/development/implementation-guide.md` (or equivalent) for specific file paths and patterns.
+- [ ] **Consistency**: Ensure the new design aligns with existing patterns (e.g., Command Pattern, Flux Architecture).
 
 ## 3. Implementation Plan
 Create `implementation_plan.md` artifact detailing:
-- [ ] Backend Changes
-- [ ] Frontend Changes
-- [ ] Verification Strategy
+- [ ] **Proposed Changes**: List detailed file paths and logical changes.
+- [ ] **Verification Strategy**: How will we prove it works? (Unit tests, E2E, manual steps).
 
 ## 4. Verification
-- [ ] Add Backend Unit Test (`_test.go`).
-- [ ] Update E2E Spec if user flow changes.
+- [ ] **Unit Tests**: Implement tests for core logic.
+- [ ] **Regression**: Ensure existing functionality is not broken.
+- [ ] **Documentation**: Update `docs/` if the feature introduces new architecture.
