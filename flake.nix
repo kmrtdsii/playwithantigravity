@@ -39,9 +39,7 @@
 
           # 2. Environment Setup
           shellHook = ''
-            # Force Nix Node version to take precedence
-            export IN_NIX_SHELL=1
-            
+                      
             echo "--- GitGym Dev Environment ---"
             echo "Go: $(go version)"
             echo "Node: $(node -v) (Expected: v22.x)"
