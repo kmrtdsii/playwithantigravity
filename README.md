@@ -18,6 +18,13 @@ GitGym is an interactive, visual sandbox for learning and experimenting with Git
   - `git log`, `diff`
   - `git tag`, `reset`, `clean`
   - `git merge`, `rebase` (basic support)
+  - `git clone`, `fetch`, `pull`, `push` (Simulated Remote)
+
+- **Remote Simulation**: 
+    - **Multi-Developer Support**: Simulate "Alice" and "Bob" working on the same repo.
+    - **Ghost Mode**: Visualize "Potential Commits" before they are applied.
+    - **Ingest Remote**: Clone and mirror any public GitHub repository (Mirror Mode).
+    - **Show All**: Toggle to view all unreachable/dangling commits.
 
 ## 📚 Documentation
 
@@ -40,6 +47,7 @@ GitGym is built with a modern, modular stack designed for maintainability and pe
 - **Language**: Go 1.25+
 - **Core**: `go-git`
 - **Pattern**: Command Pattern encapsulated commands
+- **Simulation**: In-memory object copying for `push`/`fetch`, no real network traffic for internal simulation.
 - **API**: RESTful
 
 ## 🛠 Getting Started
