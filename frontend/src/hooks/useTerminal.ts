@@ -223,6 +223,7 @@ export const useTerminal = (
                 }
 
                 setTimeout(async () => {
+                    // Handle 'clear' command
                     if (cmd === 'clear') {
                         term.write('\x1bc'); // Full reset
                         if (clearTranscriptRef.current) clearTranscriptRef.current();
@@ -231,35 +232,43 @@ export const useTerminal = (
                         return;
                     }
 
-                    if (cmd) {
-                        let fullCmd = cmd;
-                        if (!cmd.startsWith('git ')) {
-                            const firstWord = cmd.split(' ')[0];
-                            const shellCommands = ['ls', 'cd', 'pwd', 'touch', 'rm'];
+                    let fullCmd = cmd;
+                    let showAutoPrefixMsg = false;
 
-                            if (cmd === 'git' || shellCommands.includes(firstWord)) {
-                                // Pass through as-is
-                            } else {
-                                fullCmd = `git ${cmd}`;
-                                writeAndRecord(`\x1b[90m(Auto-prefixed: ${fullCmd})\x1b[0m`, true);
-                            }
+                    const firstWord = cmd.split(' ')[0];
+                    const shellCommands = ['ls', 'cd', 'pwd', 'touch', 'rm'];
+
+                    // Determine if we need auto-prefix
+                    if (!cmd.startsWith('git')) {
+                        if (shellCommands.includes(firstWord)) {
+                            // Shell commands: Pass through as-is, NO auto-prefix message
+                            fullCmd = cmd;
+                        } else {
+                            // Unknown commands: Auto-prefix with git and SHOW message
+                            fullCmd = `git ${cmd}`;
+                            showAutoPrefixMsg = true;
                         }
+                    }
 
-                        isLocalCommandRef.current = true;
+                    // Display auto-prefix message if needed
+                    if (showAutoPrefixMsg) {
+                        writeAndRecord(`\x1b[90m(Auto-prefixed: ${fullCmd})\x1b[0m`, true);
+                    }
 
-                        if (runCommandRef.current) {
-                            try {
-                                const outputLines = await runCommandRef.current(fullCmd);
-                                outputLines.forEach(line => {
-                                    let formatted = line;
-                                    if (line.includes('[dry-run]') || line.includes('[simulation]')) {
-                                        formatted = `\x1b[38;5;214m${line}\x1b[0m`;
-                                    }
-                                    writeAndRecord(formatted, true);
-                                });
-                            } catch (e) {
-                                writeAndRecord(`Error: ${e}`, true);
-                            }
+                    isLocalCommandRef.current = true;
+
+                    if (runCommandRef.current) {
+                        try {
+                            const outputLines = await runCommandRef.current(fullCmd);
+                            outputLines.forEach(line => {
+                                let formatted = line;
+                                if (line.includes('[dry-run]') || line.includes('[simulation]')) {
+                                    formatted = `\x1b[38;5;214m${line}\x1b[0m`;
+                                }
+                                writeAndRecord(formatted, true);
+                            });
+                        } catch (e) {
+                            writeAndRecord(`Error: ${e}`, true);
                         }
                     }
 
