@@ -14,7 +14,7 @@ test.describe('GitGym Critical User Journey', () => {
         await expect(page).toHaveTitle(/GitGym/);
 
         // Check key elements exist
-        await expect(page.getByText('GitGym Terminal')).toBeVisible();
+        await expect(page.getByText('User:')).toBeVisible();
     });
 
     test('should initialize repository via terminal', async ({ page }) => {

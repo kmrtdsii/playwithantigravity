@@ -8,7 +8,7 @@ interface FileExplorerProps {
 }
 
 
-const FileExplorer: React.FC<FileExplorerProps> = ({ onSelect }) => {
+const FileExplorer: React.FC<FileExplorerProps> = () => {
     const { state, runCommand } = useGit();
     const [showBranches, setShowBranches] = useState(true);
     // Active Project Detection
