@@ -2,13 +2,14 @@ package state
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
-	"github.com/go-git/go-billy/v5/memfs"
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
-	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 // IngestRemote creates a new shared remote repository from a URL (simulated clone)
@@ -16,28 +17,84 @@ func (sm *SessionManager) IngestRemote(name, url string) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	// In a real scenario, we would Clone from the URL.
-	// For simulation, we'll creates an empty repo or clone if the URL works?
-	// Given network restrictions or simulation goals, let's try to clone if it's a real URL,
-	// otherwise just init an empty one with that name.
+	// Define local path for persistence
+	baseDir := sm.DataDir
+	if baseDir == "" {
+		baseDir = ".gitgym-data/remotes"
+	}
+	if name == "" {
+		name = "origin"
+	}
+	repoPath := filepath.Join(baseDir, name)
+	if absPath, err := filepath.Abs(repoPath); err == nil {
+		repoPath = absPath
+	}
 
-	// Use memory storage
-	storage := memory.NewStorage()
-	fs := memfs.New()
-
-	// Try cloning
-	repo, err := gogit.Clone(storage, fs, &gogit.CloneOptions{
-		URL: url,
-	})
-	if err != nil {
-		// Fallback for simulation: Init empty
-		repo, err = gogit.Init(storage, fs)
-		if err != nil {
-			return err
+	// Helper to cleanup and prepare for re-clone
+	resetRepo := false
+	if _, err := os.Stat(repoPath); err == nil {
+		// Repo exists. Check if URL matches.
+		existingRepo, err := gogit.PlainOpen(repoPath)
+		if err == nil {
+			rem, err := existingRepo.Remote("origin")
+			if err == nil && len(rem.Config().URLs) > 0 {
+				existingURL := rem.Config().URLs[0]
+				if existingURL != url {
+					// URL changed. Nuke it.
+					fmt.Printf("Remote URL changed (%s -> %s). Re-cloning...\n", existingURL, url)
+					resetRepo = true
+				}
+			} else {
+				// No origin or corrupted? Nuke it.
+				resetRepo = true
+			}
+		} else {
+			// Corrupted? Nuke it.
+			resetRepo = true
 		}
 	}
 
+	if resetRepo {
+		os.RemoveAll(repoPath)
+	}
+
+	// Ensure directory exists
+	if err := os.MkdirAll(repoPath, 0755); err != nil {
+		return fmt.Errorf("failed to create remote dir: %w", err)
+	}
+
+	// Open or Clone
+	repo, err := gogit.PlainOpen(repoPath)
+	if err != nil {
+		// Not found or just cleaned, clone it (Bare)
+		fmt.Printf("Cloning %s to %s (bare)...\n", url, repoPath)
+		repo, err = gogit.PlainClone(repoPath, true, &gogit.CloneOptions{
+			URL:      url,
+			Progress: os.Stdout,
+		})
+		if err != nil {
+			// Fallback: Init empty
+			fmt.Printf("Clone failed (%v), initializing empty bare repo...\n", err)
+			repo, err = gogit.PlainInit(repoPath, true)
+			if err != nil {
+				return fmt.Errorf("failed to init bare repo: %w", err)
+			}
+			// Add the origin remote so we know the URL later
+			repo.CreateRemote(&config.RemoteConfig{
+				Name: "origin",
+				URLs: []string{url},
+			})
+		}
+	}
+
+	// Store under Name
 	sm.SharedRemotes[name] = repo
+	sm.SharedRemotePaths[name] = repoPath
+
+	// Store under URL (so git clone <url> works)
+	sm.SharedRemotes[url] = repo
+	sm.SharedRemotePaths[url] = repoPath
+
 	return nil
 }
 

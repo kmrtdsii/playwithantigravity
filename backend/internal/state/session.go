@@ -25,10 +25,12 @@ type Session struct {
 
 // SessionManager handles concurrent access to sessions
 type SessionManager struct {
-	sessions      map[string]*Session
-	SharedRemotes map[string]*gogit.Repository // Share repositories across all sessions
-	PullRequests  []*PullRequest
-	mu            sync.RWMutex
+	sessions          map[string]*Session
+	SharedRemotes     map[string]*gogit.Repository // Share repositories across all sessions
+	SharedRemotePaths map[string]string            // Maps remote name to local filesystem path
+	PullRequests      []*PullRequest
+	DataDir           string
+	mu                sync.RWMutex
 }
 
 // ReflogEntry records a command executed in the session
@@ -66,9 +68,11 @@ type PullRequest struct {
 // NewSessionManager creates a new session manager
 func NewSessionManager() *SessionManager {
 	return &SessionManager{
-		sessions:      make(map[string]*Session),
-		SharedRemotes: make(map[string]*gogit.Repository),
-		PullRequests:  []*PullRequest{},
+		sessions:          make(map[string]*Session),
+		SharedRemotes:     make(map[string]*gogit.Repository),
+		SharedRemotePaths: make(map[string]string),
+		PullRequests:      []*PullRequest{},
+		DataDir:           ".gitgym-data/remotes",
 	}
 }
 

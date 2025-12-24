@@ -97,6 +97,26 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	if !ok && s.Manager != nil {
 		// Check Shared Remotes
 		targetRepo, ok = s.Manager.SharedRemotes[lookupKey]
+		// Map lookup might fail if URL is absolute path but map has original HTTP URL
+		// or if URL logic differs.
+	}
+
+	if !ok {
+		// FALLBACK: Check if it is a local filesystem path (persistent remote)
+		// We trust the URL from the config.
+		var errOpen error
+		targetRepo, errOpen = gogit.PlainOpen(url)
+		if errOpen == nil {
+			ok = true
+		} else {
+			// Try without leading slash if it was stripped?
+			// lookupKey has stripped prefix. url is original.
+			// Let's try lookupKey just in case relative path logic
+			targetRepo, errOpen = gogit.PlainOpen(lookupKey)
+			if errOpen == nil {
+				ok = true
+			}
+		}
 	}
 
 	if !ok {

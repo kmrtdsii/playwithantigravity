@@ -77,11 +77,21 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		if r, ok := s.Manager.SharedRemotes[url]; ok {
 			remoteRepo = r
 			remoteSt = r.Storer
-			remotePath = url
+			// Check if we have a physical path for this remote
+			if path, hasPath := s.Manager.SharedRemotePaths[url]; hasPath {
+				remotePath = path
+			} else {
+				remotePath = url
+			}
 		} else if r, ok := s.Manager.SharedRemotes[repoName]; ok {
 			remoteRepo = r
 			remoteSt = r.Storer
-			remotePath = repoName
+			// Check if we have a physical path for this remote
+			if path, hasPath := s.Manager.SharedRemotePaths[repoName]; hasPath {
+				remotePath = path
+			} else {
+				remotePath = repoName
+			}
 		}
 	}
 
@@ -134,10 +144,17 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		return nil
 	})
 
+	// Determine appropriate URL for origin
+	originURL := remotePath
+	// If it's not a URL schema and not absolute, assume it's relative to root
+	if !strings.Contains(originURL, "://") && !strings.HasPrefix(originURL, "/") {
+		originURL = "/" + originURL
+	}
+
 	// Set Origin to point to our simulated remote path
 	_, err = localRepo.CreateRemote(&config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{"/" + remotePath},
+		URLs: []string{originURL},
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to configure origin: %w", err)
