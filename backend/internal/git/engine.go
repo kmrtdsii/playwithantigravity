@@ -83,9 +83,31 @@ func ParseCommand(input string) (string, []string) {
 
 	// Default handling
 	// If it starts with "git", the registry key is parts[1] (e.g. "git clone" -> "clone")
-	if parts[0] == "git" && len(parts) > 1 {
-		// Return parts[1] as name, and parts[1:] as args (so args[0] == name)
-		return parts[1], parts[1:]
+	if parts[0] == "git" {
+		if len(parts) == 1 {
+			return "help", []string{"help"}
+		}
+		if len(parts) > 1 {
+			cmd := parts[1]
+			switch cmd {
+			case "-v", "--version":
+				return "version", []string{"version"}
+			case "-h", "--help":
+				return "help", []string{"help"}
+			}
+
+			// Prevent "git <shell_cmd>" from mapping to shell commands
+			// The user explicitly stated pwd, cd, ls, touch are not git commands.
+			// git rm is a valid git command (though currently simulated by shell rm), so we exclude it from this block.
+			switch parts[1] {
+			case "ls", "cd", "pwd", "touch":
+				// Return a name that won't match, e.g. "git-ls"
+				// This causes Dispatch to return "unknown command"
+				return "git-" + parts[1], parts
+			}
+
+			return parts[1], parts[1:]
+		}
 	}
 
 	// Otherwise, assume the first word is the command (e.g. "ls", "rm", "cd")
