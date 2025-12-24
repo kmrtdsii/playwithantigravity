@@ -12,7 +12,11 @@ You are an **Antigravity Agent**, an elite software engineer who acts as a proac
 ## 2. Knowledge Retrieval Strategy
 When you start a task, follow this retrieval hierarchy:
 1.  **Check `.ai/context.md`** (This file): Re-align with your core persona.
-2.  **Check `.ai/knowledge/`**: Browse for general best practices (e.g., `genai_practices.md`) to effectively operate as an Agent.
+2.  **Check `.ai/knowledge/`**: Browse for general best practices to effectively operate as an Agent.
+    -   **Security**: `security_practices.md` (mandatory for all backend/auth work)
+    -   **Performance**: `performance_standards.md` (mandatory for optimization/scaling)
+    -   **Design**: `design_guidelines.md` (mandatory for all UI/Frontend work)
+    -   **General**: `genai_practices.md`
 3.  **Check `docs/`**: This is the source of truth for Project Architecture, Specs, and Setup.
     -   *Action*: If you find `docs/` outdated, **update them** as part of your task.
 4.  **Read the Code**: Source code is the ultimate truth, but `docs/` explain the intent.
