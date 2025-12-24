@@ -10,6 +10,7 @@ import (
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 )
 
@@ -217,23 +218,81 @@ func (sm *SessionManager) MergePullRequest(id int, remoteName string) error {
 		return fmt.Errorf("pull request is not open")
 	}
 
-	if _, ok := sm.SharedRemotes[remoteName]; !ok {
-		return fmt.Errorf("remote %s not found", remoteName)
+	repo := sm.SharedRemotes[remoteName]
+
+	// Resolve references
+	baseRefName := plumbing.ReferenceName("refs/heads/" + pr.BaseRef)
+	headRefName := plumbing.ReferenceName("refs/heads/" + pr.HeadRef)
+
+	baseRef, err := repo.Reference(baseRefName, true)
+	if err != nil {
+		return fmt.Errorf("base branch %s not found: %w", pr.BaseRef, err)
 	}
-	// Simulate merge execution...
-	// We need to merge pr.HeadRef into pr.BaseRef in repo.
+	headRef, err := repo.Reference(headRefName, true)
+	if err != nil {
+		return fmt.Errorf("head branch %s not found: %w", pr.HeadRef, err)
+	}
 
-	// Simple simulation: just update state
+	// For simulation simplicity, we will create a MERGE COMMIT
+	// This ensures graph visibility better than Fast-Forward often.
+	// But we can check if it's strictly reachable.
+
+	// Create Merge Commit
+	// We need object API
+
+	// Manual Merge Commit Logic for Bare Repo
+	// 1. Get HEAD Commit (from Base)
+	baseCommit, err := repo.CommitObject(baseRef.Hash())
+	if err != nil {
+		return err
+	}
+	// 2. Get Merge Commit (from Head)
+	headCommit, err := repo.CommitObject(headRef.Hash())
+	if err != nil {
+		return err
+	}
+
+	// 3. Create Tree (Use HEAD's tree for now - assuming "Theirs" wins or simple merge?)
+	// Real merge is complex.
+	// For this simulation: "Merge PR" usually implies we take the changes from HEAD and put into BASE.
+	// We can set the tree to headCommit.TreeHash => This effectively makes the state match the feature branch.
+	// This is effectively "Theirs" strategy or Fast Forward state but with a Merge Commit.
+
+	mergeCommit := &object.Commit{
+		Author: object.Signature{
+			Name:  "Merge Bot",
+			Email: "bot@gitgym.com",
+			When:  time.Now(),
+		},
+		Committer: object.Signature{
+			Name:  "Merge Bot",
+			Email: "bot@gitgym.com",
+			When:  time.Now(),
+		},
+		Message:  fmt.Sprintf("Merge pull request #%d from %s\n\n%s", id, pr.HeadRef, pr.Title),
+		TreeHash: headCommit.TreeHash, // Taking the tree from the feature branch
+		ParentHashes: []plumbing.Hash{
+			baseCommit.Hash,
+			headCommit.Hash,
+		},
+	}
+
+	obj := sm.SharedRemotes[remoteName].Storer.NewEncodedObject()
+	if err := mergeCommit.Encode(obj); err != nil {
+		return err
+	}
+	newHash, err := sm.SharedRemotes[remoteName].Storer.SetEncodedObject(obj)
+	if err != nil {
+		return err
+	}
+
+	// Update Base Ref to point to new commit
+	newRef := plumbing.NewHashReference(baseRefName, newHash)
+	if err := repo.Storer.SetReference(newRef); err != nil {
+		return err
+	}
+
 	pr.State = "MERGED"
-
-	// Ideally we perform git merge
-	// But for MVP session restoration, just status update is enough.
-
-	// Let's try to update repo refs if possible
-	// refs/heads/BaseRef
-	// refs/heads/HeadRef
-	// Simple Fast Forward?
-
 	return nil
 }
 
