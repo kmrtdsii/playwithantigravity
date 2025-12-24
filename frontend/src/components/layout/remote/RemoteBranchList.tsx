@@ -28,7 +28,8 @@ const RemoteBranchList: React.FC<RemoteBranchListProps> = ({ remoteBranches }) =
                                 background: 'var(--bg-secondary)',
                                 borderRadius: '6px',
                                 fontSize: '0.8rem',
-                                border: '1px solid var(--border-subtle)'
+                                border: '1px solid var(--border-subtle)',
+                                color: 'var(--text-primary)'
                             }}
                         >
                             <span style={{ fontFamily: 'monospace' }}>{name}</span>
