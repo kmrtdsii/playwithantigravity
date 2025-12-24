@@ -2,7 +2,10 @@ package server
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+
+	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
 func (s *Server) handleGetPullRequests(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +52,24 @@ func (s *Server) handleMergePullRequest(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := s.SessionManager.MergePullRequest(req.ID, req.RemoteName); err != nil {
+
+	// Resolve Session (Use Default "user-session-1" for now as explained)
+	sessionID := "user-session-1"
+	session, ok := s.SessionManager.GetSession(sessionID)
+	if !ok {
+		var err error
+		session, err = s.SessionManager.CreateSession(sessionID)
+		if err != nil {
+			http.Error(w, "failed to create session: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Dispatch "merge-pr"
+	// Output is ignored for now, checking error
+	_, err := git.Dispatch(r.Context(), session, "merge-pr", []string{"merge-pr", fmt.Sprintf("%d", req.ID), req.RemoteName})
+
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

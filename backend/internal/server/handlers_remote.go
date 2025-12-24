@@ -70,7 +70,27 @@ func (s *Server) handleSimulateRemoteCommit(w http.ResponseWriter, r *http.Reque
 		req.Message = "Simulated commit from team member"
 	}
 
-	if err := s.SessionManager.SimulateCommit(req.Name, req.Message, req.Author, req.Email); err != nil {
+	// Resolve Session
+	sessionID := "user-session-1"
+	session, ok := s.SessionManager.GetSession(sessionID)
+	if !ok {
+		var err error
+		session, err = s.SessionManager.CreateSession(sessionID)
+		if err != nil {
+			http.Error(w, "failed to create session: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	// Dispatch simulate-commit
+	args := []string{"simulate-commit", req.Name, req.Message}
+	if req.Author != "" && req.Email != "" {
+		args = append(args, req.Author, req.Email)
+	}
+
+	_, err := git.Dispatch(r.Context(), session, "simulate-commit", args)
+
+	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to simulate commit: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -92,7 +112,8 @@ func (s *Server) handleIngestRemote(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := s.SessionManager.IngestRemote(req.Name, req.URL); err != nil {
+	// Propagate Context
+	if err := s.SessionManager.IngestRemote(r.Context(), req.Name, req.URL); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

@@ -103,20 +103,30 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 			remoteRepo = r
 			remoteSt = r.Storer
 
-			// Get path safely needs lock or getter?
-			// SessionManager exposes SharedRemotePaths map, but access needs lock.
-			// Let's assume we can't easily get it without lock or new method.
-			// Ideally we assume remotePath is the URL itself if we found it by URL,
-			// OR we assume we are using the 'IngestRemote' convention where path is managed.
-			// For now, let's keep it simple: if found by URL, remotePath = url.
-			remotePath = url
+			// Look up the internal path to ensure we point to the bare repo, NOT the external URL
+			s.Manager.RLock()
+			path, found := s.Manager.SharedRemotePaths[url]
+			s.Manager.RUnlock()
 
-			// We can try to get the real path if needed, but it's mostly for display/origin URL.
+			if found {
+				remotePath = path
+			} else {
+				remotePath = url // Fallback, though this implies leakage risk if it's a real URL
+			}
 		} else if r, ok := s.Manager.GetSharedRemote(repoName); ok { // SAFE ACCESS
 			log.Printf("Clone: Found shared remote by name %s", repoName)
 			remoteRepo = r
 			remoteSt = r.Storer
-			remotePath = repoName
+
+			s.Manager.RLock()
+			path, found := s.Manager.SharedRemotePaths[repoName]
+			s.Manager.RUnlock()
+
+			if found {
+				remotePath = path
+			} else {
+				remotePath = repoName
+			}
 		}
 	}
 

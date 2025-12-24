@@ -46,7 +46,7 @@ func TestPersistentRemoteCycle(t *testing.T) {
 
 	// 4. IngestRemote (Simulate Frontend "Update Remote URL")
 	// The App downloads "real-github-repo" into "data/origin" (bare)
-	err = sm.IngestRemote("origin", sourceRepoPath)
+	err = sm.IngestRemote(context.Background(), "origin", sourceRepoPath)
 	if err != nil {
 		t.Fatalf("IngestRemote failed: %v", err)
 	}
