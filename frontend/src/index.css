@@ -37,6 +37,9 @@
 
   --bg-toolbar: #1e1e1e;
   --bg-button-inactive: rgba(255, 255, 255, 0.05);
+
+  --color-error: #f85149;
+  --color-success: #238636;
 }
 
 /* Light Mode Overrides */
@@ -61,6 +64,9 @@ body.light-mode {
   --terminal-bg: #ffffff;
   --bg-toolbar: #ffffff;
   --bg-button-inactive: rgba(0, 0, 0, 0.05);
+
+  --color-error: #cf222e;
+  --color-success: #1a7f37;
 }
 
 a {

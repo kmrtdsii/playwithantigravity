@@ -192,6 +192,7 @@ const timeTextStyle: React.CSSProperties = {
 const errorMessageStyle: React.CSSProperties = {
     fontSize: '12px',
     color: 'var(--color-error)',
+    fontWeight: 500,
     marginTop: '6px',
     lineHeight: 1.4,
 };
