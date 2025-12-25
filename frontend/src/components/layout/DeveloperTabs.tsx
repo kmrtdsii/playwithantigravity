@@ -6,6 +6,7 @@ interface DeveloperTabsProps {
     activeDeveloper: string;
     onSwitchDeveloper: (name: string) => void;
     onAddDeveloper: () => void;
+    onRemoveDeveloper?: (name: string) => void;
 }
 
 /**
@@ -17,6 +18,7 @@ const DeveloperTabs: React.FC<DeveloperTabsProps> = ({
     activeDeveloper,
     onSwitchDeveloper,
     onAddDeveloper,
+    onRemoveDeveloper,
 }) => {
     const tabListRef = React.useRef<HTMLDivElement>(null);
 
@@ -58,23 +60,49 @@ const DeveloperTabs: React.FC<DeveloperTabsProps> = ({
             >
                 {developers.map((dev, index) => {
                     const isActive = dev === activeDeveloper;
+                    const isRemovable = dev !== 'Alice' && dev !== 'Bob';
+
                     return (
-                        <button
-                            key={dev}
-                            role="tab"
-                            aria-selected={isActive}
-                            aria-controls={`panel-${dev}`}
-                            id={`tab-${dev}`}
-                            tabIndex={isActive ? 0 : -1}
-                            onClick={() => onSwitchDeveloper(dev)}
-                            onKeyDown={(e) => handleKeyDown(e, index)}
-                            className={`user-tab ${isActive ? 'active' : ''}`}
-                        >
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <Monitor size={14} />
-                                {dev}
-                            </span>
-                        </button>
+                        <div key={dev} style={{ display: 'flex' }} className={`user-tab-wrapper ${isActive ? 'active' : ''}`}>
+                            <button
+                                role="tab"
+                                aria-selected={isActive}
+                                aria-controls={`panel-${dev}`}
+                                id={`tab-${dev}`}
+                                tabIndex={isActive ? 0 : -1}
+                                onClick={() => onSwitchDeveloper(dev)}
+                                onKeyDown={(e) => handleKeyDown(e, index)}
+                                className={`user-tab ${isActive ? 'active' : ''}`}
+                            >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Monitor size={14} />
+                                    {dev}
+                                </span>
+                            </button>
+                            {isRemovable && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRemoveDeveloper && onRemoveDeveloper(dev);
+                                    }}
+                                    className="tab-close-btn"
+                                    aria-label={`Remove ${dev}`}
+                                    title={`Remove ${dev}`}
+                                    style={{
+                                        border: 'none',
+                                        background: 'transparent',
+                                        color: 'var(--text-tertiary)',
+                                        cursor: 'pointer',
+                                        padding: '0 6px',
+                                        fontSize: '12px',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            )}
+                        </div>
                     );
                 })}
             </div>

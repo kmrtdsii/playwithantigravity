@@ -21,11 +21,13 @@ interface GitContextType {
     activeDeveloper: string;
     switchDeveloper: (name: string) => Promise<void>;
     addDeveloper: (name: string) => Promise<void>;
+    removeDeveloper: (name: string) => Promise<void>;
     pullRequests: PullRequest[];
     refreshPullRequests: () => Promise<void>;
     ingestRemote: (name: string, url: string) => Promise<void>;
     createPullRequest: (title: string, desc: string, source: string, target: string) => Promise<void>;
     mergePullRequest: (id: number) => Promise<void>;
+    deletePullRequest: (id: number) => Promise<void>;
     resetRemote: (name?: string) => Promise<void>;
     refreshState: () => Promise<void>;
     serverState: GitState | null;
@@ -258,6 +260,29 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     }, [developers, activeDeveloper]);
 
+    const removeDeveloper = useCallback(async (name: string) => {
+        // Prevent removing Alice or Bob
+        if (name === 'Alice' || name === 'Bob') return;
+
+        setDevelopers(prev => {
+            const newList = prev.filter(d => d !== name);
+            return newList;
+        });
+
+        // If removing active developer, switch to Alice
+        if (activeDeveloper === name) {
+            await switchDeveloper('Alice');
+        }
+
+        // Cleanup session if possible (optional, maybe no backend API for explicit close yet)
+        const sid = developerSessions[name];
+        if (sid) {
+            const newSessions = { ...developerSessions };
+            delete newSessions[name];
+            setDeveloperSessions(newSessions);
+        }
+    }, [activeDeveloper, developerSessions, switchDeveloper]);
+
     const refreshPullRequests = useCallback(async () => {
         try {
             const prs = await gitService.fetchPullRequests();
@@ -291,6 +316,12 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Refresh local state too, just in case (though merge is remote-side)
         if (sessionId) await fetchState(sessionId);
     }, [sessionId, refreshPullRequests, fetchServerState, fetchState]);
+
+    const deletePullRequest = useCallback(async (id: number) => {
+        await gitService.deletePullRequest(id);
+        await refreshPullRequests();
+        await fetchServerState('origin');
+    }, [refreshPullRequests, fetchServerState]);
 
     const resetRemote = useCallback(async (name: string = 'origin') => {
         await gitService.resetRemote(name);
@@ -352,11 +383,13 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeDeveloper,
         switchDeveloper,
         addDeveloper,
+        removeDeveloper,
         pullRequests,
         refreshPullRequests,
         ingestRemote,
         createPullRequest,
         mergePullRequest,
+        deletePullRequest,
         resetRemote,
         refreshState: refreshStateWrapper,
         serverState,
@@ -376,11 +409,13 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeDeveloper,
         switchDeveloper,
         addDeveloper,
+        removeDeveloper,
         pullRequests,
         refreshPullRequests,
         ingestRemote,
         createPullRequest,
         mergePullRequest,
+        deletePullRequest,
         resetRemote,
         refreshStateWrapper,
         serverState,

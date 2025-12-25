@@ -32,6 +32,7 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("/api/remote/pull-requests", s.handleGetPullRequests)
 	s.Mux.HandleFunc("/api/remote/pull-requests/create", s.handleCreatePullRequest)
 	s.Mux.HandleFunc("/api/remote/pull-requests/merge", s.handleMergePullRequest)
+	s.Mux.HandleFunc("/api/remote/pull-requests/delete", s.handleDeletePullRequest)
 	s.Mux.HandleFunc("/api/remote/reset", s.handleResetRemote)
 	s.Mux.HandleFunc("/api/remote/info", s.handleGetRemoteInfo)
 }

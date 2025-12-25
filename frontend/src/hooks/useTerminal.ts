@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState, type RefObject } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useGit } from '../context/GitAPIContext';
@@ -17,6 +18,7 @@ export const useTerminal = (
     xtermRef: RefObject<Terminal | null>,
     fitAddonRef: RefObject<FitAddon | null>
 ) => {
+    const { t } = useTranslation('common');
     const {
         runCommand,
         state,
@@ -91,11 +93,11 @@ export const useTerminal = (
             });
         } else {
             const welcomeLines = [
-                '\x1b[1;36mWelcome to GitGym!\x1b[0m 🚀',
-                'To get started, please clone a repository using:',
+                `\x1b[1;36m${t('terminal.welcome')}\x1b[0m`,
+                t('terminal.instructions'),
                 '  \x1b[33mgit clone <url>\x1b[0m',
                 '',
-                "Type \x1b[32m'git help'\x1b[0m to see available commands.",
+                `\x1b[32m${t('terminal.help')}\x1b[0m`,
                 ''
             ];
 

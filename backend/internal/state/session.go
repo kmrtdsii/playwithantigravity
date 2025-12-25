@@ -29,6 +29,7 @@ type SessionManager struct {
 	SharedRemotes     map[string]*gogit.Repository // Share repositories across all sessions
 	SharedRemotePaths map[string]string            // Maps remote name to local filesystem path
 	PullRequests      []*PullRequest
+	NextPRID          int
 	DataDir           string
 	mu                sync.RWMutex
 }
@@ -74,6 +75,7 @@ func NewSessionManager() *SessionManager {
 		SharedRemotes:     make(map[string]*gogit.Repository),
 		SharedRemotePaths: make(map[string]string),
 		PullRequests:      []*PullRequest{},
+		NextPRID:          1,
 		DataDir:           ".gitgym-data/remotes",
 	}
 }

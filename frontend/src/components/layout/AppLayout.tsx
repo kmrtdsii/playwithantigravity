@@ -24,7 +24,7 @@ const AppLayout = () => {
 
     const {
         state, showAllCommits, toggleShowAllCommits,
-        developers, activeDeveloper, switchDeveloper, addDeveloper
+        developers, activeDeveloper, switchDeveloper, addDeveloper, removeDeveloper
     } = useGit();
 
     const { theme, toggleTheme } = useTheme();
@@ -85,6 +85,7 @@ const AppLayout = () => {
                     activeDeveloper={activeDeveloper}
                     onSwitchDeveloper={switchDeveloper}
                     onAddDeveloper={() => setIsAddDevModalOpen(true)}
+                    onRemoveDeveloper={removeDeveloper}
                 />
 
                 {/* ROW 2: View Toggles (Graph, Branches...) & Global Controls */}

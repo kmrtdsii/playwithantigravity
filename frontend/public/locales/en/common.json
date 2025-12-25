@@ -19,5 +19,58 @@
         "hash": "Hash",
         "message": "Message",
         "date": "Date"
+    },
+    "workspace": {
+        "title": "WORKSPACES",
+        "deleteTitle": "Delete Project",
+        "deleteConfirm": "Are you sure you want to delete project <1>{{name}}</1>? This action cannot be undone.",
+        "branches": "BRANCHES",
+        "noProjects": "No projects found. Clone a repo!",
+        "currentBranch": "Current branch",
+        "checkout": "Checkout {{name}}"
+    },
+    "remote": {
+        "configure": "Configure",
+        "update": "UPDATE",
+        "updating": "UPDATING...",
+        "cancel": "Cancel",
+        "noConfigured": "No Remote Configured",
+        "cloneUrlLabel": "Clone using the web URL.",
+        "branches": "REMOTE BRANCHES",
+        "pullRequests": "PULL REQUESTS",
+        "newPR": "New Pull Request",
+        "compare": {
+            "title": "New Pull Request",
+            "desc": "Select branches to compare and merge changes.",
+            "base": "Base",
+            "compare": "Source",
+            "titlePlaceholder": "Title",
+            "ableToMerge": "✓ Mergeable",
+            "ableToMergeDesc": "No conflicts. These branches can be merged automatically.",
+            "defaultTitle": "Merge {{source}} into {{target}}",
+            "create": "Create Pull Request"
+        },
+        "list": {
+            "empty": "No active PRs",
+            "openedBy": "opened by {{name}}",
+            "merge": "Merge Pull Request",
+            "merging": "Merging...",
+            "delete": "Delete",
+            "deleting": "Deleting...",
+            "deleteConfirm": "Are you sure you want to delete this PR?"
+        }
+    },
+    "developer": {
+        "addTitle": "Add New Developer",
+        "namePlaceholder": "Enter developer name (e.g., Alice)",
+        "cancel": "Cancel",
+        "add": "Add Developer"
+    },
+    "terminal": {
+        "user": "User",
+        "branch": "Branch",
+        "welcome": "Welcome to GitGym! 🚀",
+        "instructions": "To get started, please clone a repository using:",
+        "help": "Type 'git help' to see available commands."
     }
 }

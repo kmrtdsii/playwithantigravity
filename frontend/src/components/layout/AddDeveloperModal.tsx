@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '../common';
 
 interface AddDeveloperModalProps {
@@ -8,6 +9,7 @@ interface AddDeveloperModalProps {
 }
 
 const AddDeveloperModal: React.FC<AddDeveloperModalProps> = ({ isOpen, onClose, onAddDeveloper }) => {
+    const { t } = useTranslation('common');
     const [newDevName, setNewDevName] = useState('');
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -23,7 +25,7 @@ const AddDeveloperModal: React.FC<AddDeveloperModalProps> = ({ isOpen, onClose, 
         <Modal
             isOpen={isOpen}
             onClose={onClose}
-            title="Add New Developer"
+            title={t('developer.addTitle')}
         >
             <form
                 onSubmit={handleSubmit}
@@ -33,7 +35,7 @@ const AddDeveloperModal: React.FC<AddDeveloperModalProps> = ({ isOpen, onClose, 
                     name="name"
                     value={newDevName}
                     onChange={(e) => setNewDevName(e.target.value)}
-                    placeholder="Enter developer name (e.g., Alice)"
+                    placeholder={t('developer.namePlaceholder')}
                     autoFocus
                     style={{
                         padding: '8px 12px',
@@ -57,7 +59,7 @@ const AddDeveloperModal: React.FC<AddDeveloperModalProps> = ({ isOpen, onClose, 
                             cursor: 'pointer'
                         }}
                     >
-                        Cancel
+                        {t('developer.cancel')}
                     </button>
                     <button
                         type="submit"
@@ -71,7 +73,7 @@ const AddDeveloperModal: React.FC<AddDeveloperModalProps> = ({ isOpen, onClose, 
                             fontWeight: 500
                         }}
                     >
-                        Add Developer
+                        {t('developer.add')}
                     </button>
                 </div>
             </form>

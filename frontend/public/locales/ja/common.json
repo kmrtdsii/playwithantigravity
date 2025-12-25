@@ -19,5 +19,58 @@
         "hash": "ハッシュ",
         "message": "メッセージ",
         "date": "日付"
+    },
+    "workspace": {
+        "title": "ワークスペース",
+        "deleteTitle": "プロジェクトの削除",
+        "deleteConfirm": "プロジェクト <1>{{name}}</1> を削除してもよろしいですか？ この操作は元に戻せません。",
+        "branches": "ブランチ",
+        "noProjects": "プロジェクトが見つかりません。リポジトリをクローンしてください！",
+        "currentBranch": "現在のブランチ",
+        "checkout": "{{name}} をチェックアウト"
+    },
+    "remote": {
+        "configure": "設定",
+        "update": "更新",
+        "updating": "更新中...",
+        "cancel": "キャンセル",
+        "noConfigured": "リモート未設定",
+        "cloneUrlLabel": "Web URLを使用してクローン",
+        "branches": "リモートブランチ",
+        "pullRequests": "プルリクエスト",
+        "newPR": "新規プルリクエスト",
+        "compare": {
+            "title": "新規プルリクエスト",
+            "desc": "マージするブランチを選択して、変更を確認します。",
+            "base": "マージ先 (Base)",
+            "compare": "マージ元 (Source)",
+            "titlePlaceholder": "タイトル",
+            "ableToMerge": "✓ マージ可能",
+            "ableToMergeDesc": "コンフリクトはありません。自動的にマージできます。",
+            "defaultTitle": "{{source}} を {{target}} にマージ",
+            "create": "プルリクエストを作成"
+        },
+        "list": {
+            "empty": "アクティブなプルリクエストはありません",
+            "openedBy": "{{name}} により作成",
+            "merge": "プルリクエストをマージ",
+            "merging": "マージ中...",
+            "delete": "削除",
+            "deleting": "削除中...",
+            "deleteConfirm": "このPRを削除してもよろしいですか？"
+        }
+    },
+    "developer": {
+        "addTitle": "新規ユーザ追加",
+        "namePlaceholder": "ユーザ名を入力してください (例: Alice)",
+        "cancel": "キャンセル",
+        "add": "ユーザを追加"
+    },
+    "terminal": {
+        "user": "ユーザ",
+        "branch": "ブランチ",
+        "welcome": "GitGymへようこそ！ 🚀",
+        "instructions": "始めるには、以下のコマンドでリポジトリをクローンしてください:",
+        "help": "'git help' と入力すると利用可能なコマンドが表示されます。"
     }
 }

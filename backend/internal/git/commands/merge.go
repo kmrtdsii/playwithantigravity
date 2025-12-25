@@ -71,19 +71,16 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	// 2. Resolve Target
-	// Try resolving as branch first
-	targetRef, err := repo.Reference(plumbing.ReferenceName("refs/heads/"+targetName), true)
-	var targetHash plumbing.Hash
-	if err == nil {
-		targetHash = targetRef.Hash()
-	} else {
-		// Try as hash
-		targetHash = plumbing.NewHash(targetName)
+	// Use shared ResolveRevision to handle branches, tags, remote refs, and short hashes
+	targetHashPtr, err := git.ResolveRevision(repo, targetName)
+	if err != nil {
+		return "", fmt.Errorf("merge: %s - not something we can merge", targetName)
 	}
+	targetHash := *targetHashPtr
 
 	targetCommit, err := repo.CommitObject(targetHash)
 	if err != nil {
-		return "", fmt.Errorf("merge: %s - not something we can merge", targetName)
+		return "", fmt.Errorf("merge: %s - not something we can merge (commit not found)", targetName)
 	}
 
 	// Update ORIG_HEAD before any merge operation

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { useGit } from '../../context/GitAPIContext';
 import { GitBranch, Check } from 'lucide-react';
 import type { SelectedObject } from '../../types/layoutTypes';
@@ -11,6 +12,7 @@ interface FileExplorerProps {
 
 
 const FileExplorer: React.FC<FileExplorerProps> = () => {
+    const { t } = useTranslation('common');
     const { state, runCommand } = useGit();
     const [showBranches, setShowBranches] = useState(true);
 
@@ -84,13 +86,13 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                     letterSpacing: '0.05em',
                     flexShrink: 0
                 }}>
-                    WORKSPACES
+                    {t('workspace.title')}
                 </div>
 
                 <div className="tree-content" style={{ flex: 1, overflowY: 'auto' }}>
                     {projects.length === 0 ? (
                         <div style={{ padding: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-                            No projects found. Clone a repo!
+                            {t('workspace.noProjects')}
                         </div>
                     ) : (
                         <div>
@@ -114,7 +116,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                                                 className="delete-btn"
                                                 onClick={(e) => handleDeleteClick(project, e)}
                                                 style={{ marginLeft: 'auto', cursor: 'pointer', opacity: 0.5 }}
-                                                title="Delete Project"
+                                                title={t('workspace.deleteTitle')}
                                             >
                                                 🗑️
                                             </span>
@@ -132,7 +134,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                                                             style={{ padding: '4px 24px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}
                                                         >
                                                             <GitBranch size={12} style={{ marginRight: '6px', opacity: 0.8 }} />
-                                                            <span>BRANCHES</span>
+                                                            <span>{t('workspace.branches')}</span>
                                                             <span style={{ marginLeft: 'auto', fontSize: '10px', opacity: 0.6 }}>{showBranches ? '▼' : '▶'}</span>
                                                         </div>
                                                         {showBranches && (
@@ -174,19 +176,17 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
             <Modal
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
-                title="Delete Project"
+                title={t('workspace.deleteTitle')}
             >
                 <div>
-                    Are you sure you want to delete project <strong>{projectToDelete}</strong>?
-                    <br />
-                    This action cannot be undone.
+                    <Trans t={t} i18nKey="workspace.deleteConfirm" values={{ name: projectToDelete }} components={{ 1: <strong></strong> }} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
                     <Button variant="ghost" onClick={() => setIsDeleteModalOpen(false)}>
-                        Cancel
+                        {t('remote.cancel')}
                     </Button>
                     <Button variant="danger" onClick={confirmDelete}>
-                        Delete
+                        {t('workspace.deleteTitle').split(' ')[0]}
                     </Button>
                 </div>
             </Modal>

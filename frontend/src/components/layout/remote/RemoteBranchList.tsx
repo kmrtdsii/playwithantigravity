@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { sectionLabelStyle, emptyStyle } from './remoteStyles';
 
 interface RemoteBranchListProps {
@@ -9,14 +10,15 @@ interface RemoteBranchListProps {
  * Displays the list of remote branches with their commit hashes.
  */
 const RemoteBranchList: React.FC<RemoteBranchListProps> = ({ remoteBranches }) => {
+    const { t } = useTranslation('common');
     const branches = Object.entries(remoteBranches);
 
     return (
         <div style={{ padding: '0 16px 16px 16px' }}>
-            <div style={{ ...sectionLabelStyle, marginBottom: '12px' }}>REMOTE BRANCHES</div>
+            <div style={{ ...sectionLabelStyle, marginBottom: '12px' }}>{t('remote.branches')}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 {branches.length === 0 ? (
-                    <div style={emptyStyle}>No branches found</div>
+                    <div style={emptyStyle}>{t('common.noItemsFound', { type: t('remote.branches') })}</div>
                 ) : (
                     branches.map(([name, hash]) => (
                         <div

@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -10,6 +11,7 @@ const GitTerminal = () => {
     const xtermRef = useRef<Terminal | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
 
+    const { t } = useTranslation('common');
     const { activeDeveloper, state } = useGit();
 
     useTerminal(terminalRef, xtermRef, fitAddonRef);
@@ -31,12 +33,12 @@ const GitTerminal = () => {
                 flexShrink: 0
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--radius-md)' }}>
-                    <span style={{ color: 'var(--text-secondary)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xs)', letterSpacing: '0.05em' }}>User:</span>
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xs)', letterSpacing: '0.05em' }}>{t('terminal.user')}:</span>
                     <span data-testid="user-value" style={{ color: 'var(--accent-primary)', fontWeight: 'var(--font-semibold)' }}>{activeDeveloper}</span>
                 </div>
                 <div style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--radius-md)' }}>
-                    <span style={{ color: 'var(--text-secondary)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xs)', letterSpacing: '0.05em' }}>Branch:</span>
+                    <span style={{ color: 'var(--text-secondary)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xs)', letterSpacing: '0.05em' }}>{t('terminal.branch')}:</span>
                     <span data-testid="branch-value" style={{
                         color: isDetached ? 'var(--text-warning)' : 'var(--text-secondary)',
                         fontFamily: 'monospace'

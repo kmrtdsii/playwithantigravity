@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Cloud, Database, Copy, Check } from 'lucide-react';
 import { headerStyle, inputStyle, cancelButtonStyle, submitButtonStyle } from './remoteStyles';
 
@@ -29,6 +30,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
     onCancelEdit,
     onSubmit,
 }) => {
+    const { t } = useTranslation('common');
     const [isCopied, setIsCopied] = useState(false);
 
     const handleCopyUrl = async () => {
@@ -42,7 +44,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
         }
     };
 
-    const displayTitle = remoteUrl ? projectName : 'NO REMOTE CONFIGURED';
+    const displayTitle = remoteUrl ? projectName : t('remote.noConfigured');
 
     if (isEditMode) {
         return (
@@ -59,7 +61,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         data-testid="remote-url-input"
                     />
                     <button type="button" onClick={onCancelEdit} style={cancelButtonStyle} data-testid="remote-cancel-btn">
-                        Cancel
+                        {t('remote.cancel')}
                     </button>
                     <button
                         type="submit"
@@ -67,7 +69,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         style={{ ...submitButtonStyle, opacity: isSettingUp ? 0.7 : 1 }}
                         data-testid="remote-update-btn"
                     >
-                        {isSettingUp ? 'UPDATING...' : 'UPDATE'}
+                        {isSettingUp ? t('remote.updating') : t('remote.update')}
                     </button>
                 </form>
             </div>
@@ -117,7 +119,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         }}
                         data-testid="remote-configure-btn"
                     >
-                        Configure
+                        {t('remote.configure')}
                     </button>
                 )}
             </div>
@@ -130,7 +132,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         color: 'var(--text-tertiary)',
                         whiteSpace: 'nowrap'
                     }}>
-                        Clone using the web URL.
+                        {t('remote.cloneUrlLabel')}
                     </span>
                     <input
                         type="text"

@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { GitPullRequest, CheckCircle, ChevronDown, ArrowLeft, GitMerge, Trash2, User, ArrowRight, RotateCw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import Modal from '../../common/Modal';
+import { Button } from '../../common/Button';
 import type { PullRequest } from '../../../types/gitTypes';
-import { sectionLabelStyle, actionButtonStyle, prCardStyle, mergeButtonStyle, emptyStyle } from './remoteStyles';
+import { sectionLabelStyle, actionButtonStyle, emptyStyle } from './remoteStyles';
 
 interface PullRequestSectionProps {
     pullRequests: PullRequest[];
     branches: Record<string, string>;
     onCreatePR: (title: string, desc: string, source: string, target: string) => void;
     onMergePR: (id: number) => Promise<void>;
+    onDeletePR: (id: number) => Promise<void>;
 }
 
 /**
@@ -17,21 +22,46 @@ const PullRequestSection: React.FC<PullRequestSectionProps> = ({
     branches,
     onCreatePR,
     onMergePR,
+    onDeletePR,
 }) => {
+    const { t } = useTranslation('common');
     const [isCompareMode, setIsCompareMode] = useState(false);
     const [compareBase, setCompareBase] = useState('main');
     const [compareCompare, setCompareCompare] = useState('');
 
-    // Set default compare branch when branches load
+    // Delete Modal State
+    const [deleteId, setDeleteId] = useState<number | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [isDeletingPR, setIsDeletingPR] = useState(false);
+
+    // Set default compare branch when branches load or change
     useEffect(() => {
         const branchNames = Object.keys(branches);
         if (branchNames.length > 0) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
-            if (!branchNames.includes(compareBase)) setCompareBase(branchNames[0]);
-            if (!compareCompare && branchNames.length > 1) {
-                setCompareCompare(branchNames.find(b => b !== 'main') || branchNames[1]);
-            } else if (!compareCompare) {
-                setCompareCompare(branchNames[0]);
+            // 1. Validate 'compareBase'
+            let newBase = compareBase;
+            if (!branchNames.includes(compareBase)) {
+                // If current base is invalid (e.g. stale from other repo), reset to default
+                if (branchNames.includes('main')) newBase = 'main';
+                else if (branchNames.includes('master')) newBase = 'master';
+                else newBase = branchNames[0];
+                setCompareBase(newBase);
+            }
+
+            // 2. Validate 'compareCompare'
+            // Must be valid AND different from base if possible
+            if (!compareCompare || !branchNames.includes(compareCompare) || compareCompare === newBase) {
+                // Try to find a different branch than newBase
+                let candidate = branchNames.find(b => b !== newBase && b !== 'main' && b !== 'master');
+                if (!candidate) {
+                    candidate = branchNames.find(b => b !== newBase);
+                }
+                // If no other branch exists, just use the first available (even if same as base)
+                if (!candidate) {
+                    candidate = branchNames[0];
+                }
+
+                setCompareCompare(candidate);
             }
         }
     }, [branches, compareBase, compareCompare]);
@@ -46,13 +76,13 @@ const PullRequestSection: React.FC<PullRequestSectionProps> = ({
     return (
         <div style={{ padding: '16px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                <div style={sectionLabelStyle}>PULL REQUESTS</div>
+                <div style={sectionLabelStyle}>{t('remote.pullRequests')}</div>
                 {!isCompareMode && (
                     <button
                         onClick={() => setIsCompareMode(true)}
                         style={{ ...actionButtonStyle, background: '#238636' }}
                     >
-                        New Pull Request
+                        {t('remote.newPR')}
                     </button>
                 )}
             </div>
@@ -68,8 +98,49 @@ const PullRequestSection: React.FC<PullRequestSectionProps> = ({
                     onCancel={() => setIsCompareMode(false)}
                 />
             ) : (
-                <PullRequestList pullRequests={pullRequests} onMerge={onMergePR} />
+                <PullRequestList
+                    pullRequests={pullRequests}
+                    onMerge={onMergePR}
+                    onDelete={(id) => {
+                        setDeleteId(id);
+                        setIsDeleteModalOpen(true);
+                    }}
+                />
             )}
+
+            <Modal
+                isOpen={isDeleteModalOpen}
+                onClose={() => !isDeletingPR && setIsDeleteModalOpen(false)}
+                title={t('remote.list.delete')}
+            >
+                <div>
+                    {t('remote.list.deleteConfirm')}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
+                    <Button
+                        variant="ghost"
+                        onClick={() => setIsDeleteModalOpen(false)}
+                        disabled={isDeletingPR}
+                    >
+                        {t('remote.cancel')}
+                    </Button>
+                    <Button
+                        variant="danger"
+                        onClick={async () => {
+                            if (deleteId) {
+                                setIsDeletingPR(true);
+                                await onDeletePR(deleteId);
+                                setIsDeletingPR(false);
+                                setIsDeleteModalOpen(false);
+                                setDeleteId(null);
+                            }
+                        }}
+                        isLoading={isDeletingPR}
+                    >
+                        {isDeletingPR ? t('remote.list.deleting') : t('remote.list.delete')}
+                    </Button>
+                </div>
+            </Modal>
         </div>
     );
 };
@@ -86,6 +157,124 @@ interface CompareViewProps {
     onCancel: () => void;
 }
 
+// --- SUB-COMPONENTS: Custom Select (Premium Design) ---
+interface CustomSelectProps {
+    value: string;
+    onChange: (value: string) => void;
+    options: string[];
+    label: string;
+}
+
+const CustomSelect: React.FC<CustomSelectProps> = ({ value, onChange, options, label }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = React.useRef<HTMLDivElement>(null);
+
+    // Close on click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+            <div
+                onClick={() => setIsOpen(!isOpen)}
+                aria-label={label}
+                role="button"
+                tabIndex={0}
+                style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    paddingRight: '32px', // Space for chevron
+                    background: 'var(--bg-primary)',
+                    border: isOpen ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    height: '36px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    boxShadow: isOpen ? '0 0 0 2px rgba(var(--accent-rgb), 0.1)' : 'none',
+                    transition: 'all 0.2s ease',
+                    userSelect: 'none'
+                }}
+            >
+                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {value}
+                </div>
+                <ChevronDown
+                    size={14}
+                    style={{
+                        position: 'absolute',
+                        right: 12,
+                        top: 11,
+                        color: 'var(--text-tertiary)',
+                        transform: isOpen ? 'rotate(180deg)' : 'none',
+                        transition: 'transform 0.2s ease'
+                    }}
+                />
+            </div>
+
+            {isOpen && (
+                <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    marginTop: '4px',
+                    background: 'var(--bg-secondary)', // Slightly lighter than primary for dropdown
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '8px',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+                    zIndex: 100,
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    padding: '4px'
+                }}>
+                    {options.map(option => (
+                        <div
+                            key={option}
+                            onClick={() => {
+                                onChange(option);
+                                setIsOpen(false);
+                            }}
+                            style={{
+                                padding: '8px 12px',
+                                fontSize: '13px',
+                                color: option === value ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                background: option === value ? 'var(--bg-active)' : 'transparent',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                fontWeight: option === value ? 500 : 400
+                            }}
+                            onMouseEnter={(e) => {
+                                if (option !== value) e.currentTarget.style.background = 'var(--bg-hover)';
+                            }}
+                            onMouseLeave={(e) => {
+                                if (option !== value) e.currentTarget.style.background = 'transparent';
+                            }}
+                        >
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{option}</span>
+                            {option === value && <CheckCircle size={12} className="text-accent" />}
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
+
+// --- RENDER: Create PR Form (Design 2025) ---
 const CompareView: React.FC<CompareViewProps> = ({
     branches,
     compareBase,
@@ -95,168 +284,237 @@ const CompareView: React.FC<CompareViewProps> = ({
     onSubmit,
     onCancel,
 }) => {
+    const { t } = useTranslation('common');
     const branchNames = Object.keys(branches);
-    const [title, setTitle] = useState(`Merge ${compareCompare} into ${compareBase}`);
+    const [title, setTitle] = useState(t('remote.compare.defaultTitle', { source: compareCompare, target: compareBase }));
 
     // Update default title when branches change
     useEffect(() => {
-        setTitle(`Merge ${compareCompare} into ${compareBase}`);
-    }, [compareBase, compareCompare]);
+        setTitle(t('remote.compare.defaultTitle', { source: compareCompare, target: compareBase }));
+    }, [compareBase, compareCompare, t]);
 
     return (
         <div style={{
             background: 'var(--bg-secondary)',
-            borderRadius: '6px',
+            borderRadius: '12px',
             border: '1px solid var(--border-subtle)',
-            marginBottom: '16px',
-            overflow: 'hidden'
+            padding: '20px', // Reduced padding closer to "Standard" size content
+            marginTop: '16px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)'
         }}>
+            {/* Header */}
+            <div style={{ marginBottom: '16px' }}>
+                <h3 style={{
+                    margin: 0,
+                    fontSize: '16px', // Slightly smaller for better fit
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <GitPullRequest size={18} className="text-accent" />
+                    {t('remote.compare.title')}
+                </h3>
+                <p style={{
+                    margin: '4px 0 0 0',
+                    fontSize: '12px',
+                    color: 'var(--text-tertiary)'
+                }}>
+                    {t('remote.compare.desc')}
+                </p>
+            </div>
+
+            {/* Branch Selection (Visual Flow) */}
             <div style={{
-                padding: '12px',
-                borderBottom: '1px solid var(--border-subtle)',
-                background: 'var(--bg-primary)'
+                background: 'var(--bg-tertiary)',
+                padding: '16px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-subtle)',
+                marginBottom: '16px'
             }}>
-                <div style={{ fontSize: '1.2rem', fontWeight: 600, marginBottom: '4px' }}>
-                    Comparing changes
-                </div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    Choose two branches to see what's changed or to start a new pull request.
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    flexWrap: 'wrap' // Allow wrapping on very small screens
+                }}>
+                    {/* Base */}
+                    <div style={{ flex: '1 1 200px' }}> {/* Minimum width 200px */}
+                        <label style={{
+                            display: 'block',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: 'var(--text-tertiary)',
+                            marginBottom: '6px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                        }}>
+                            {t('remote.compare.base')}
+                        </label>
+                        <CustomSelect
+                            value={compareBase}
+                            onChange={onBaseChange}
+                            options={branchNames}
+                            label={t('remote.compare.base')}
+                        />
+                    </div>
+
+                    {/* Arrow Icon */}
+                    <div style={{
+                        color: 'var(--text-tertiary)',
+                        paddingTop: '18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <ArrowLeft size={18} strokeWidth={2.5} />
+                    </div>
+
+                    {/* Compare */}
+                    <div style={{ flex: '1 1 200px' }}>
+                        <label style={{
+                            display: 'block',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: 'var(--text-tertiary)',
+                            marginBottom: '6px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em'
+                        }}>
+                            {t('remote.compare.compare')}
+                        </label>
+                        <CustomSelect
+                            value={compareCompare}
+                            onChange={onCompareChange}
+                            options={branchNames}
+                            label={t('remote.compare.compare')}
+                        />
+                    </div>
                 </div>
             </div>
 
-            <div style={{
-                padding: '12px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'var(--bg-secondary)',
-                borderBottom: '1px solid var(--border-subtle)'
-            }}>
-                <BranchSelector label="base" value={compareBase} onChange={onBaseChange} branches={branchNames} />
-                <span style={{ color: 'var(--text-tertiary)' }}>←</span>
-                <BranchSelector label="compare" value={compareCompare} onChange={onCompareChange} branches={branchNames} />
-            </div>
-
-            <div style={{
-                padding: '12px',
-                borderBottom: '1px solid var(--border-subtle)',
-                background: 'var(--bg-primary)'
-            }}>
+            {/* Title Input */}
+            <div style={{ marginBottom: '20px' }}>
                 <input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Pull Request Title"
+                    placeholder={t('remote.compare.titlePlaceholder')}
                     style={{
                         width: '100%',
-                        padding: '8px',
-                        borderRadius: '4px',
+                        padding: '10px 14px',
+                        background: 'var(--bg-primary)',
                         border: '1px solid var(--border-subtle)',
-                        background: 'var(--bg-secondary)',
+                        borderRadius: '6px',
                         color: 'var(--text-primary)',
-                        fontSize: '0.9rem'
+                        fontSize: '14px',
+                        outline: 'none',
+                        transition: 'border-color 0.15s'
                     }}
+                    onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+                    onBlur={(e) => e.target.style.borderColor = 'var(--border-subtle)'}
                 />
             </div>
 
+            {/* Status & Actions - Responsive Footer */}
             <div style={{
-                padding: '12px',
-                background: '#e6ffec',
-                color: '#1a7f37',
-                fontSize: '0.85rem',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
-                borderBottom: '1px solid var(--border-subtle)'
+                justifyContent: 'space-between',
+                flexWrap: 'wrap', // Allow wrapping
+                gap: '16px'
             }}>
-                <span>✓</span>
-                <strong>Able to merge.</strong>
-                <span>These branches can be automatically merged.</span>
-            </div>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    color: 'var(--text-success)',
+                    fontSize: '13px',
+                    whiteSpace: 'nowrap' // Keep status on one line if possible, otherwise it wraps as a block
+                }}>
+                    <CheckCircle size={16} />
+                    <span style={{ fontWeight: 500 }}>{t('remote.compare.ableToMerge')}</span>
+                    <span style={{ color: 'var(--text-tertiary)', fontSize: '12px', display: 'inline-block' }}>— {t('remote.compare.ableToMergeDesc')}</span>
+                </div>
 
-            <div style={{ padding: '12px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                <button
-                    onClick={onCancel}
-                    style={{
-                        padding: '6px 12px',
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--text-secondary)',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Cancel
-                </button>
-                <button
-                    onClick={() => {
-                        if (title.trim()) onSubmit(title);
-                    }}
-                    disabled={!title.trim()}
-                    style={{
-                        ...actionButtonStyle,
-                        background: title.trim() ? '#238636' : 'var(--bg-button-disabled)',
-                        fontSize: '0.9rem',
-                        padding: '6px 16px',
-                        opacity: title.trim() ? 1 : 0.6,
-                        cursor: title.trim() ? 'pointer' : 'not-allowed'
-                    }}
-                >
-                    Create pull request
-                </button>
+                <div style={{ display: 'flex', gap: '10px', marginLeft: 'auto' }}> {/* marginLeft auto pushes to right when wrapping */}
+                    <button
+                        onClick={onCancel}
+                        style={{
+                            padding: '8px 16px',
+                            background: 'transparent',
+                            border: '1px solid transparent',
+                            color: 'var(--text-secondary)',
+                            fontWeight: 500,
+                            fontSize: '13px',
+                            cursor: 'pointer',
+                            borderRadius: '6px'
+                        }}
+                    >
+                        {t('remote.cancel')}
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (title.trim()) onSubmit(title);
+                        }}
+                        disabled={!title.trim()}
+                        style={{
+                            padding: '8px 20px',
+                            background: title.trim() ? '#238636' : 'var(--bg-button-inactive)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            cursor: title.trim() ? 'pointer' : 'not-allowed',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: title.trim() ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        <GitPullRequest size={14} />
+                        {t('remote.compare.create')}
+                    </button>
+                </div>
             </div>
         </div>
     );
 };
 
-interface BranchSelectorProps {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-    branches: string[];
-}
-
-const BranchSelector: React.FC<BranchSelectorProps> = ({ label, value, onChange, branches }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem' }}>
-        <span style={{ color: 'var(--text-tertiary)' }}>{label}:</span>
-        <select
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            style={{
-                background: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '6px',
-                padding: '4px 8px'
-            }}
-        >
-            {branches.map(b => <option key={b} value={b}>{b}</option>)}
-        </select>
-    </div>
-);
 
 interface PullRequestListProps {
     pullRequests: PullRequest[];
     onMerge: (id: number) => Promise<void>;
+    onDelete: (id: number) => void;
 }
 
-const PullRequestList: React.FC<PullRequestListProps> = ({ pullRequests, onMerge }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {pullRequests.length === 0 ? (
-            <div style={emptyStyle}>No active PRs</div>
-        ) : (
-            pullRequests.map(pr => (
-                <PullRequestCard key={pr.id} pr={pr} onMerge={() => onMerge(pr.id)} />
-            ))
-        )}
-    </div>
-);
+const PullRequestList: React.FC<PullRequestListProps> = ({ pullRequests, onMerge, onDelete }) => {
+    const { t } = useTranslation('common');
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {pullRequests.length === 0 ? (
+                <div style={emptyStyle}>{t('remote.list.empty')}</div>
+            ) : (
+                pullRequests.map(pr => (
+                    <PullRequestCard key={pr.id} pr={pr} onMerge={() => onMerge(pr.id)} onDelete={() => onDelete(pr.id)} />
+                ))
+            )}
+        </div>
+    );
+};
 
 interface PullRequestCardProps {
     pr: PullRequest;
     onMerge: () => Promise<void>;
+    onDelete: () => void;
 }
 
-const PullRequestCard: React.FC<PullRequestCardProps> = ({ pr, onMerge }) => {
+const PullRequestCard: React.FC<PullRequestCardProps> = ({ pr, onMerge, onDelete }) => {
+    const { t } = useTranslation('common');
     const [isMerging, setIsMerging] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
 
     const handleMergeClick = async () => {
         setIsMerging(true);
@@ -271,44 +529,159 @@ const PullRequestCard: React.FC<PullRequestCardProps> = ({ pr, onMerge }) => {
     };
 
     return (
-        <div style={prCardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>
-                    #{pr.id} {pr.title}
-                </div>
-                <span style={{
-                    fontSize: '0.7rem',
-                    padding: '2px 6px',
-                    background: pr.status === 'OPEN' ? '#238636' : '#8957e5',
-                    color: 'white',
-                    borderRadius: '10px'
+        <div
+            style={{
+                background: 'var(--bg-secondary)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-subtle)',
+                padding: '16px',
+                transition: 'all 0.2s ease',
+                boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                transform: isHovered ? 'translateY(-1px)' : 'none',
+                position: 'relative'
+            }}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            {/* Header: Status & Title */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '12px' }}>
+                <div style={{
+                    marginTop: '2px',
+                    color: pr.status === 'OPEN' ? '#238636' : '#8957e5'
                 }}>
-                    {pr.status}
-                </span>
+                    <GitPullRequest size={18} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        marginBottom: '4px',
+                        lineHeight: '1.4'
+                    }}>
+                        {pr.title}
+                        <span style={{
+                            fontWeight: 400,
+                            color: 'var(--text-tertiary)',
+                            marginLeft: '8px',
+                            fontSize: '14px'
+                        }}>
+                            #{pr.id}
+                        </span>
+                    </div>
+                </div>
+                <div>
+                    <span style={{
+                        fontSize: '11px',
+                        padding: '2px 8px',
+                        background: pr.status === 'OPEN' ? '#238636' : '#8957e5',
+                        color: 'white',
+                        borderRadius: '12px',
+                        fontWeight: 600,
+                        letterSpacing: '0.02em'
+                    }}>
+                        {pr.status}
+                    </span>
+                </div>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                {pr.sourceBranch} ➜ {pr.targetBranch}
+
+            {/* Meta Info */}
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '16px',
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+                marginBottom: '16px',
+                paddingBottom: '16px',
+                borderBottom: '1px solid var(--border-subtle)'
+            }}>
+                {/* Branches */}
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'var(--bg-tertiary)',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontFamily: 'monospace'
+                }}>
+                    <span style={{ color: 'var(--accent-primary)' }}>{pr.sourceBranch}</span>
+                    <ArrowRight size={12} style={{ color: 'var(--text-tertiary)' }} />
+                    <span style={{ fontWeight: 600 }}>{pr.targetBranch}</span>
+                </div>
+
+                {/* User */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <User size={12} style={{ color: 'var(--text-tertiary)' }} />
+                    <span>{t('remote.list.openedBy', { name: pr.creator })}</span>
+                </div>
             </div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
-                opened by {pr.creator}
-            </div>
-            {pr.status === 'OPEN' && (
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                 <button
-                    onClick={handleMergeClick}
+                    onClick={() => onDelete()}
+                    disabled={isMerging}
                     style={{
-                        ...mergeButtonStyle,
-                        opacity: isMerging ? 0.6 : 1,
-                        cursor: isMerging ? 'not-allowed' : 'pointer',
+                        padding: '8px 12px',
+                        background: 'transparent',
+                        color: 'var(--text-tertiary)',
+                        border: '1px solid transparent', // Invisible border for alignment
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
+                        gap: '6px',
+                        transition: 'all 0.15s'
                     }}
-                    disabled={isMerging}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.color = '#cf222e';
+                        e.currentTarget.style.background = 'rgba(207, 34, 46, 0.05)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.color = 'var(--text-tertiary)';
+                        e.currentTarget.style.background = 'transparent';
+                    }}
                 >
-                    {isMerging ? 'Merging...' : 'Merge Pull Request'}
+                    <Trash2 size={14} />
+                    {t('remote.list.delete')}
                 </button>
-            )}
+
+                {pr.status === 'OPEN' && (
+                    <button
+                        onClick={handleMergeClick}
+                        disabled={isMerging}
+                        style={{
+                            padding: '8px 20px',
+                            background: isMerging ? 'var(--bg-button-inactive)' : '#8957e5', // Purple for merge
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: isMerging ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            boxShadow: isMerging ? 'none' : '0 2px 4px rgba(137, 87, 229, 0.2)',
+                            transition: 'all 0.15s'
+                        }}
+                        onMouseEnter={(e) => !isMerging && (e.currentTarget.style.background = '#7a4bc4')} // Darker purple
+                        onMouseLeave={(e) => !isMerging && (e.currentTarget.style.background = '#8957e5')}
+                    >
+                        {isMerging ? (
+                            <RotateCw size={14} className="spin" />
+                        ) : (
+                            <GitMerge size={14} />
+                        )}
+                        {isMerging ? t('remote.list.merging') : t('remote.list.merge')}
+                    </button>
+                )}
+            </div>
         </div>
     );
 };

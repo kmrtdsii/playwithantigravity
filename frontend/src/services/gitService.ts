@@ -141,6 +141,18 @@ export const gitService = {
         }
     },
 
+    async deletePullRequest(id: number): Promise<void> {
+        const res = await fetch('/api/remote/pull-requests/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText || 'Failed to delete pull request');
+        }
+    },
+
     async resetRemote(name: string = 'origin'): Promise<void> {
         const res = await fetch('/api/remote/reset', {
             method: 'POST',
