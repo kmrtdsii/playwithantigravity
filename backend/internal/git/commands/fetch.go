@@ -78,7 +78,7 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	var allResults []string
 
 	for _, rem := range remotes {
-		res, err := c.fetchRemote(ctx, s, repo, rem, isDryRun)
+		res, err := c.fetchRemote(s, repo, rem, isDryRun)
 		if err != nil {
 			// In git fetch --all, one failure usually doesn't stop others, but returns non-zero.
 			// We will just log error in results and continue?
@@ -98,7 +98,7 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	return strings.Join(allResults, "\n"), nil
 }
 
-func (c *FetchCommand) fetchRemote(ctx context.Context, s *git.Session, repo *gogit.Repository, rem *gogit.Remote, isDryRun bool) (string, error) {
+func (c *FetchCommand) fetchRemote(s *git.Session, repo *gogit.Repository, rem *gogit.Remote, isDryRun bool) (string, error) {
 	cfg := rem.Config()
 	remoteName := cfg.Name
 	if len(cfg.URLs) == 0 {
