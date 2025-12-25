@@ -43,7 +43,7 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	// Parse flags manually to handle mixed order if needed
 	for i := 0; i < len(cmdArgs); i++ {
-		arg := cmdArgs[i]
+		arg := strings.TrimSpace(cmdArgs[i])
 		switch arg {
 		case "--help", "-h":
 			helpMode = true

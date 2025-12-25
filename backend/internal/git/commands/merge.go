@@ -199,6 +199,11 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 			Email: "user@example.com",
 			When:  time.Now(),
 		},
+		Committer: &object.Signature{
+			Name:  "User",
+			Email: "user@example.com",
+			When:  time.Now(),
+		},
 	})
 	if err != nil {
 		return "", err
