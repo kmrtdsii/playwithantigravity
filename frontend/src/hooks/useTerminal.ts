@@ -23,7 +23,7 @@ export const useTerminal = (
         activeDeveloper,
         sessionId,
         appendToTranscript,
-        getTranscript,
+        terminalTranscripts,
         clearTranscript
     } = useGit();
 
@@ -39,7 +39,6 @@ export const useTerminal = (
     // Refs to avoid stale closures in callbacks
     const runCommandRef = useRef(runCommand);
     const appendToTranscriptRef = useRef(appendToTranscript);
-    const getTranscriptRef = useRef(getTranscript);
     const clearTranscriptRef = useRef(clearTranscript);
     const stateRef = useRef(state);
 
@@ -54,9 +53,8 @@ export const useTerminal = (
         runCommandRef.current = runCommand;
         stateRef.current = state;
         appendToTranscriptRef.current = appendToTranscript;
-        getTranscriptRef.current = getTranscript;
         clearTranscriptRef.current = clearTranscript;
-    }, [runCommand, state, appendToTranscript, getTranscript, clearTranscript]);
+    }, [runCommand, state, appendToTranscript, clearTranscript]);
 
     const writeAndRecord = useCallback((text: string, hasNewline: boolean = true) => {
         if (!xtermRef.current) return;
@@ -79,7 +77,7 @@ export const useTerminal = (
         xtermRef.current.write('\x1bc'); // Full Reset
 
         // Sync ref with current state level to avoid re-printing history via Sync effect.
-        const transcript = getTranscriptRef.current ? getTranscriptRef.current() : [];
+        const transcript = terminalTranscripts[sessionId] || [];
         const stateLen = stateRef.current.output.length;
         lastOutputLengthRef.current = Math.max(transcript.length, stateLen);
 
@@ -129,7 +127,7 @@ export const useTerminal = (
         prevDeveloperRef.current = activeDeveloper;
         setTimeout(() => fitAddonRef.current?.fit(), 50);
 
-    }, [activeDeveloper, sessionId, clearTranscript, getTranscript, writeAndRecord, fitAddonRef, xtermRef, isReady]);
+    }, [activeDeveloper, sessionId, clearTranscript, terminalTranscripts, writeAndRecord, fitAddonRef, xtermRef, isReady]);
 
     const [promptTrigger, setPromptTrigger] = useState(0);
 

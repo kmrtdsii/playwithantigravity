@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 
 export interface TranscriptLine {
     text: string;
@@ -8,13 +8,6 @@ export interface TranscriptLine {
 export const useTerminalTranscript = (sessionId: string) => {
     // Terminal Transcript Store
     const [terminalTranscripts, setTerminalTranscripts] = useState<Record<string, TranscriptLine[]>>({});
-
-    // Ref to access latest transcripts in callbacks without stale closures
-    const terminalTranscriptsRef = useRef<Record<string, TranscriptLine[]>>({});
-
-    useEffect(() => {
-        terminalTranscriptsRef.current = terminalTranscripts;
-    }, [terminalTranscripts]);
 
     const appendToTranscript = useCallback((text: string, hasNewline: boolean = true) => {
         if (!sessionId) return;
@@ -30,11 +23,6 @@ export const useTerminalTranscript = (sessionId: string) => {
         });
     }, [sessionId]);
 
-    const getTranscript = useCallback((): TranscriptLine[] => {
-        // Use ref to access latest state immediately
-        return terminalTranscriptsRef.current[sessionId] || [];
-    }, [sessionId]);
-
     const clearTranscript = useCallback(() => {
         if (!sessionId) return;
         setTerminalTranscripts(prev => ({
@@ -44,8 +32,8 @@ export const useTerminalTranscript = (sessionId: string) => {
     }, [sessionId]);
 
     return {
+        terminalTranscripts, // Return state directly
         appendToTranscript,
-        getTranscript,
         clearTranscript
     };
 };

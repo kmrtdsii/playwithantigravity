@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useGit } from '../context/GitAPIContext';
-import type { CloneStatus } from '../components/layout/remote/CloneProgress'; // Adjust path
+import type { CloneStatus } from '../components/layout/remote/CloneProgress';
 import { gitService } from '../services/gitService';
 
 export interface RepoInfo {

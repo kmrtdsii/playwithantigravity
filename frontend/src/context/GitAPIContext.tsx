@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { GitState, PullRequest } from '../types/gitTypes';
 import { gitService } from '../services/gitService';
 import { filterReachableCommits } from '../utils/graphUtils';
@@ -10,7 +10,7 @@ interface GitContextType {
     runCommand: (cmd: string, options?: { silent?: boolean }) => Promise<string[]>; // Return output for terminal to display
     // Terminal Recording API
     appendToTranscript: (text: string, hasNewline?: boolean) => void;
-    getTranscript: () => TranscriptLine[];
+    terminalTranscripts: Record<string, TranscriptLine[]>;
     clearTranscript: () => void;
     showAllCommits: boolean;
     toggleShowAllCommits: () => void;
@@ -66,53 +66,11 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [activeDeveloper, setActiveDeveloper] = useState<string>('');
     const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
 
-    const addDeveloper = async (name: string) => {
-        try {
-            if (developers.includes(name)) return; // Prevent duplicates
-            const data = await gitService.initSession();
-            setDevelopers(prev => [...prev, name]);
-            setDeveloperSessions(prev => ({ ...prev, [name]: data.sessionId }));
-            if (!activeDeveloper) {
-                setActiveDeveloper(name);
-                setSessionId(data.sessionId);
-                // We define fetchState below, so we can't call it here directly if we strictly follow order?
-                // Actually function hoisting works for `const` functions ONLY IF defined before usage.
-                // Circular dependency: addDeveloper -> fetchState -> setState.
-                // fetchState is defined BELOW.
-                // We need to move fetchState UP as well or define these using function keyword (hoisted).
-                // Or use `useEffect` to trigger fetch when session changes.
-                // But let's just use the `sessionId` setter and let the existing `useEffect` (line 300) handle fetch?
-                // Line 300: `useEffect(() => { if (sessionId) fetchState(sessionId) }, [showAllCommits])`.
-                // It depends on `showAllCommits`. It does NOT trigger on `sessionId` change currently.
-                // We should update line 300 to depend on `sessionId` too?
-                // But let's assume moving `addDeveloper` is tricky if it calls `fetchState`.
-            }
-        } catch (e) {
-            console.error("Failed to add developer", e);
-        }
-    };
-
-    // Init session on mount - Create Alice and Bob
-    useEffect(() => {
-        const init = async () => {
-            // Only init if not already done
-            if (developers.length > 0) return;
-
-            // 1. Create Alice
-            await addDeveloper('Alice');
-
-            // 2. Create Bob
-            await addDeveloper('Bob');
-        };
-        init();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
     const [sessionOutputs, setSessionOutputs] = useState<Record<string, string[]>>({});
     const [sessionCmdCounts, setSessionCmdCounts] = useState<Record<string, number>>({});
 
     // Use extracted hook for transcript management
-    const { appendToTranscript, getTranscript, clearTranscript } = useTerminalTranscript(sessionId);
+    const { terminalTranscripts, appendToTranscript, clearTranscript } = useTerminalTranscript(sessionId);
 
     // FIX: Use refs to avoid stale closure issues in async callbacks
     // These refs always hold the latest value
@@ -128,7 +86,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sessionCmdCountsRef.current = sessionCmdCounts;
     }, [sessionCmdCounts]);
 
-    const fetchState = async (sid: string) => {
+    // --- Core Functions (Memoized) ---
+
+    // 1. fetchState: Independent logic, depends on showAllCommits
+    const fetchState = useCallback(async (sid: string) => {
         try {
             const newState = await gitService.fetchState(sid, showAllCommits);
             // When fetching state, we must ensure we are updating the "active" view state
@@ -158,9 +119,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (e) {
             console.error(e);
         }
-    };
+    }, [showAllCommits]);
 
-    const fetchServerState = async (name: string) => {
+    // 2. fetchServerState: Independent
+    const fetchServerState = useCallback(async (name: string) => {
         try {
             const sState = await gitService.getRemoteState(name);
             setServerState(sState);
@@ -168,9 +130,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             console.error("Failed to fetch server state", e);
             setServerState(null);
         }
-    };
+    }, []);
 
-    const runCommand = async (cmd: string, options?: { silent?: boolean }): Promise<string[]> => {
+    // 3. runCommand: Depends on fetchState, fetchServerState
+    const runCommand = useCallback(async (cmd: string, options?: { silent?: boolean }): Promise<string[]> => {
         if (!sessionId) {
             console.error("No session ID");
             return [];
@@ -256,46 +219,60 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setState(prev => ({ ...prev, output: [...prev.output, errorLine], commandCount: prev.commandCount + 1 }));
             return [errorLine];
         }
-    };
+    }, [sessionId, fetchState, fetchServerState, serverState]);
 
-    const toggleShowAllCommits = () => {
+    // 4. Other Actions
+    const toggleShowAllCommits = useCallback(() => {
         setShowAllCommits(prev => !prev);
-    };
+    }, []);
 
-    const stageFile = async (file: string) => {
+    const stageFile = useCallback(async (file: string) => {
         await runCommand(`add ${file}`);
-    };
+    }, [runCommand]);
 
-    const unstageFile = async (file: string) => {
+    const unstageFile = useCallback(async (file: string) => {
         await runCommand(`restore --staged ${file}`);
-    };
+    }, [runCommand]);
 
-    // addDeveloper moved up
-
-    const switchDeveloper = async (name: string) => {
+    const switchDeveloper = useCallback(async (name: string) => {
         const sid = developerSessions[name];
         if (sid) {
             setActiveDeveloper(name);
             setSessionId(sid);
             await fetchState(sid);
         }
-    };
+    }, [developerSessions, fetchState]);
 
-    const refreshPullRequests = async () => {
+    const addDeveloper = useCallback(async (name: string) => {
+        try {
+            if (developers.includes(name)) return; // Prevent duplicates
+            const data = await gitService.initSession();
+            setDevelopers(prev => [...prev, name]);
+            setDeveloperSessions(prev => ({ ...prev, [name]: data.sessionId }));
+            if (!activeDeveloper) {
+                setActiveDeveloper(name);
+                setSessionId(data.sessionId);
+            }
+        } catch (e) {
+            console.error("Failed to add developer", e);
+        }
+    }, [developers, activeDeveloper]);
+
+    const refreshPullRequests = useCallback(async () => {
         try {
             const prs = await gitService.fetchPullRequests();
             setPullRequests(prs);
         } catch (e) {
             console.error("Failed to fetch PRs", e);
         }
-    };
+    }, []);
 
-    const ingestRemote = async (name: string, url: string) => {
+    const ingestRemote = useCallback(async (name: string, url: string) => {
         await gitService.ingestRemote(name, url);
         await fetchState(sessionId);
-    };
+    }, [sessionId, fetchState]);
 
-    const createPullRequest = async (title: string, desc: string, source: string, target: string) => {
+    const createPullRequest = useCallback(async (title: string, desc: string, source: string, target: string) => {
         await gitService.createPullRequest({
             title,
             description: desc,
@@ -304,35 +281,68 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             creator: activeDeveloper
         });
         await refreshPullRequests();
-    };
+    }, [activeDeveloper, refreshPullRequests]);
 
-    const mergePullRequest = async (id: number) => {
+    const mergePullRequest = useCallback(async (id: number) => {
         await gitService.mergePullRequest(id);
         await refreshPullRequests();
         // Refresh server state to show update in Left Pane
         await fetchServerState('origin');
         // Refresh local state too, just in case (though merge is remote-side)
         if (sessionId) await fetchState(sessionId);
-    };
+    }, [sessionId, refreshPullRequests, fetchServerState, fetchState]);
 
-    const resetRemote = async (name: string = 'origin') => {
+    const resetRemote = useCallback(async (name: string = 'origin') => {
         await gitService.resetRemote(name);
         await fetchState(sessionId); // Refresh state after reset
-    };
+    }, [sessionId, fetchState]);
+
+    const refreshStateWrapper = useCallback(async () => {
+        if (sessionId) await fetchState(sessionId);
+    }, [sessionId, fetchState]);
+
+    // Init session on mount - Create Alice and Bob
+    useEffect(() => {
+        const init = async () => {
+            // Only init if not already done
+            // NOTE: Check against state ref or simple check?
+            // Since this runs once on mount, state is fresh.
+            // But we can't access `developers` state in this closure correctly if we don't have it in deps?
+            // Actually `addDeveloper` updates state.
+            // The check `if (developers.length > 0)` might be stale if strict mode runs twice.
+            // But `developers` is [] initially.
+            // We use a local variable or ref to ensure init only runs once effectively?
+            // Or just check if 'Alice' exists in server?
+            // We will just call it. addDeveloper has duplication check `developers.includes` but that relies on state.
+            // In React 18 strict mode, this might run twice.
+            // Let's rely on `addDeveloper`'s duplicate check, but we need `developers` in deps for addDeveloper usually.
+            // But here we want ONCE.
+
+            // 1. Create Alice
+            await addDeveloper('Alice');
+            // 2. Create Bob
+            await addDeveloper('Bob');
+        };
+        // We only want to run this ONCE.
+        if (developers.length === 0) {
+            init();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Re-fetch when toggle changes
     useEffect(() => {
         if (sessionId) {
             fetchState(sessionId);
         }
-    }, [sessionId, showAllCommits]);
+    }, [sessionId, showAllCommits, fetchState]);
 
     const contextValue = React.useMemo(() => ({
         state,
         sessionId,
         runCommand,
         appendToTranscript,
-        getTranscript,
+        terminalTranscripts,
         clearTranscript,
         showAllCommits,
         toggleShowAllCommits,
@@ -348,17 +358,20 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createPullRequest,
         mergePullRequest,
         resetRemote,
-        refreshState: async () => { if (sessionId) await fetchState(sessionId); },
+        refreshState: refreshStateWrapper,
         serverState,
         fetchServerState
     }), [
         state,
         sessionId,
-        runCommand, // Unstable but necessary
+        runCommand,
         appendToTranscript,
-        getTranscript,
+        terminalTranscripts,
         clearTranscript,
         showAllCommits,
+        toggleShowAllCommits,
+        stageFile,
+        unstageFile,
         developers,
         activeDeveloper,
         switchDeveloper,
@@ -369,6 +382,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createPullRequest,
         mergePullRequest,
         resetRemote,
+        refreshStateWrapper,
         serverState,
         fetchServerState
     ]);
