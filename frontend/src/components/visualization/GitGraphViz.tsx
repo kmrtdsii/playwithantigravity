@@ -59,7 +59,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     // Empty state
     if (!state.initialized) {
         return (
-            <div className="flex h-full items-center justify-center text-gray-500 font-mono text-sm">
+            <div data-testid="git-graph-empty" className="flex h-full items-center justify-center text-gray-500 font-mono text-sm">
                 Type <code className="mx-1 text-gray-400">git init</code> to start.
             </div>
         );

@@ -37,6 +37,7 @@ export const CommitRow: React.FC<CommitRowProps> = ({
             /* Hover/Select styles moved to CSS */
         }}
         className={`commit-row ${isSelected ? 'selected' : ''}`}
+        data-testid="commit-row"
     >
         {/* Commit ID */}
         <span
@@ -67,6 +68,7 @@ export const CommitRow: React.FC<CommitRowProps> = ({
 
         {/* Message */}
         <span
+            data-testid="commit-message"
             onClick={(e) => e.stopPropagation()}
             title={node.message}
             style={{

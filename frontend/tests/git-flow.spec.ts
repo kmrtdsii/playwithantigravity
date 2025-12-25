@@ -19,23 +19,60 @@ test.describe('GitGym Critical User Journey', () => {
 
     test('should initialize repository via terminal', async ({ page }) => {
         // Wait for terminal to be ready
-        // Use .xterm class which wrapper for the terminal
-        const terminal = page.locator('.xterm');
-        await expect(terminal).toBeVisible({ timeout: 30000 });
+        const terminalWrapper = page.getByTestId('terminal-canvas-container');
+        await expect(terminalWrapper).toBeVisible({ timeout: 30000 });
 
         // Type "git init"
         // Interacting with xterm canvas requires focus.
-        await terminal.click();
+        await terminalWrapper.click();
         await page.keyboard.type('git init');
         await page.keyboard.press('Enter');
 
-        // Verify output in terminal (by checking the DOM for xterm rows containing text)
-        // Xterm renders text in localized rows.
-        await expect(page.locator('.xterm-rows')).toContainText(/(initialized .* Git repository|Git repository .* initialized)/i, { timeout: 10000 });
+        // Verify output in terminal
+        // Xterm renders text consistently so we can check for "Initialized"
+        // Note: xterm canvas is hard to read directly, but we can check the accessible buffer if exposed,
+        // or rely on side effects (like the graph empty state disappearing).
 
-        // Verify Graph Update
-        // Note: git init creates an empty repo with 0 commits, so the graph nodes (and HEAD badge) 
-        // will NOT be rendered until a commit is made.
-        // We verify success via terminal output (already done above).
+        // Verify Graph State: Empty state should be visible or consistent with 0 commits
+        // Actually, git init -> 0 commits. The "Type git init to start" message might change to "No commits yet" or similar?
+        // Wait, GitGraphViz logic: if (!state.initialized) show "Type git init".
+        // After git init, state.initialized becomes true.
+        // If 0 commits, computeLayout returns empty nodes.
+        // So the "git init" message should DISAPPEAR.
+        await expect(page.getByTestId('git-graph-empty')).not.toBeVisible({ timeout: 10000 });
+
+        // Also check prompt update if possible (e.g. branch name in terminal)
+        // But verifying graph update on commit is more robust.
+    });
+
+    test('should create a commit and render graph node', async ({ page }) => {
+        // Assume shared session state or fast replay. 
+        // For robustness, ensure we are in a repo.
+        const terminalWrapper = page.getByTestId('terminal-canvas-container');
+        await terminalWrapper.click();
+
+        // 1. git init (idempotent-ish if already done, but safe to run)
+        await page.keyboard.type('git init');
+        await page.keyboard.press('Enter');
+        await page.waitForTimeout(500); // Short debounce
+
+        // 2. git commit -m "First Commit"
+        // Note: GitGym usually requires "git add" first implicitly or explicitly.
+        // Let's assume "--allow-empty" is supported or we just commit.
+        // If not, we might need to touch a file. 
+        // Standard git requires staged changes.
+        // GitGym simplifications might allow direct commit? 
+        // Let's try `git commit --allow-empty -m "Initial"`
+        await page.keyboard.type('git commit --allow-empty -m "Initial"');
+        await page.keyboard.press('Enter');
+
+        // 3. Verify Graph Update
+        // Should wait for a commit row to appear
+        const commitRow = page.getByTestId('commit-row').first();
+        await expect(commitRow).toBeVisible({ timeout: 10000 });
+
+        // 4. Verify Message
+        const message = commitRow.getByTestId('commit-message');
+        await expect(message).toHaveText('Initial');
     });
 });

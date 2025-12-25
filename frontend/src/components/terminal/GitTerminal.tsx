@@ -32,12 +32,12 @@ const GitTerminal = () => {
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--radius-md)' }}>
                     <span style={{ color: 'var(--text-secondary)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xs)', letterSpacing: '0.05em' }}>User:</span>
-                    <span style={{ color: 'var(--accent-primary)', fontWeight: 'var(--font-semibold)' }}>{activeDeveloper}</span>
+                    <span data-testid="user-value" style={{ color: 'var(--accent-primary)', fontWeight: 'var(--font-semibold)' }}>{activeDeveloper}</span>
                 </div>
                 <div style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--radius-md)' }}>
                     <span style={{ color: 'var(--text-secondary)', fontWeight: 'var(--font-extrabold)', fontSize: 'var(--text-xs)', letterSpacing: '0.05em' }}>Branch:</span>
-                    <span style={{
+                    <span data-testid="branch-value" style={{
                         color: isDetached ? 'var(--text-warning)' : 'var(--text-secondary)',
                         fontFamily: 'monospace'
                     }}>
@@ -49,6 +49,7 @@ const GitTerminal = () => {
             <div style={{ flex: 1, minHeight: 0, paddingLeft: 'var(--space-4)', paddingTop: 'var(--space-3)', paddingBottom: 'var(--space-3)' }}>
                 <div
                     ref={terminalRef}
+                    data-testid="terminal-canvas-container"
                     style={{ width: '100%', height: '100%' }}
                 />
             </div>
