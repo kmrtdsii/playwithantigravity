@@ -135,7 +135,10 @@ export const gitService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, remoteName })
         });
-        if (!res.ok) throw new Error('Failed to merge pull request');
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText || 'Failed to merge pull request');
+        }
     },
 
     async resetRemote(name: string = 'origin'): Promise<void> {
