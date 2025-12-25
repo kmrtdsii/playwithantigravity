@@ -9,9 +9,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	"time"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -181,6 +183,11 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 
 	mergeCommit, err := w.Commit(message, &gogit.CommitOptions{
 		Parents: []plumbing.Hash{headHash, targetHash},
+		Author: &object.Signature{
+			Name:  "User",
+			Email: "user@example.com",
+			When:  time.Now(),
+		},
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to create merge commit: %w", err)
