@@ -86,18 +86,24 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	// If no specific action flags (delete, move) are set, and we have no branch name (or we have -r/-a), it's list.
 	// Note: 'git branch pattern' lists branches matching pattern, but we'll stick to simple list for now
 	// if we have just flags -r / -a.
-	// If we have a branchName but NO delete/move flags, it's CREATE.
+	// LIST
+	// If no specific action flags (delete, move) are set, and we have no branch name (or we have -r/-a), it's list.
 	if !deleteMode && !moveMode {
 		if branchName == "" {
 			return c.listBranches(repo, remoteMode, allMode)
 		}
 		// Creation (only if no remote/all flags usually, but git branch -r <name> is invalid context usually)
 		if remoteMode || allMode {
-			// standard git branch -r <name> implies tracking setup or list filter?
-			// For simplicity: any -r/-a implies LIST
 			return c.listBranches(repo, remoteMode, allMode)
 		}
-		return c.createBranch(repo, branchName)
+
+		// Optional start-point
+		startPoint := "HEAD"
+		if newBranchName != "" { // In this context (create), the second arg is start-point
+			startPoint = newBranchName
+		}
+
+		return c.createBranch(repo, branchName, startPoint)
 	}
 
 	// DELETE
@@ -114,22 +120,16 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			return "", fmt.Errorf("branch name required")
 		}
 		if newBranchName == "" {
-			// If only one arg provided for move, git assumes it's renaming current to <arg>
-			// But standard usage 'git branch -m old new'.
-			// 'git branch -m new' renames HEAD to new.
-			// Let's support 'git branch -m <old> <new>' and 'git branch -m <new>' (rename current)
-			if newBranchName == "" {
-				// Rename current branch
-				head, err := repo.Head()
-				if err != nil {
-					return "", fmt.Errorf("cannot rename current branch: HEAD invalid")
-				}
-				if !head.Name().IsBranch() {
-					return "", fmt.Errorf("cannot rename detached HEAD")
-				}
-				newBranchName = branchName
-				branchName = head.Name().Short()
+			// Rename current branch
+			head, err := repo.Head()
+			if err != nil {
+				return "", fmt.Errorf("cannot rename current branch: HEAD invalid")
 			}
+			if !head.Name().IsBranch() {
+				return "", fmt.Errorf("cannot rename detached HEAD")
+			}
+			newBranchName = branchName
+			branchName = head.Name().Short()
 		}
 		return c.moveBranch(repo, branchName, newBranchName, forceDelete)
 	}
@@ -208,19 +208,19 @@ func (c *BranchCommand) listBranches(repo *gogit.Repository, remote, all bool) (
 	return strings.Join(branches, "\n"), nil
 }
 
-func (c *BranchCommand) createBranch(repo *gogit.Repository, name string) (string, error) {
+func (c *BranchCommand) createBranch(repo *gogit.Repository, name, startPoint string) (string, error) {
 	if strings.HasPrefix(name, "-") {
 		return "", fmt.Errorf("unknown switch configuration: %s", name)
 	}
 
-	headRef, err := repo.Head()
+	hash, err := git.ResolveRevision(repo, startPoint)
 	if err != nil {
-		return "", fmt.Errorf("cannot create branch: %v (maybe no commits yet?)", err)
+		return "", fmt.Errorf("not a valid object name: '%s'", startPoint)
 	}
 
 	// Create new reference
 	refName := plumbing.ReferenceName("refs/heads/" + name)
-	newRef := plumbing.NewHashReference(refName, headRef.Hash())
+	newRef := plumbing.NewHashReference(refName, *hash)
 
 	if err := repo.Storer.SetReference(newRef); err != nil {
 		return "", err
@@ -235,14 +235,8 @@ func (c *BranchCommand) deleteBranch(repo *gogit.Repository, name string, force,
 		return "", fmt.Errorf("deleting remote-tracking branches not fully supported yet in simulation")
 	}
 
-	if !force {
-		// TODO: verify if branch is fully merged into HEAD
-		// For now, we allow deletion to proceed, but using the variable silences the linter.
-		_ = force
-	}
-
 	refName := plumbing.ReferenceName("refs/heads/" + name)
-	_, err := repo.Reference(refName, true)
+	targetRef, err := repo.Reference(refName, true)
 	if err != nil {
 		return "", fmt.Errorf("branch '%s' not found", name)
 	}
@@ -253,9 +247,21 @@ func (c *BranchCommand) deleteBranch(repo *gogit.Repository, name string, force,
 		return "", fmt.Errorf("cannot delete branch '%s' checked out at current worktree", name)
 	}
 
-	// Check merged status if not force (skip for simulation simplicity mostly, unless requested)
-	// For now, allow delete if force or if we implement merge check.
-	// Assuming force=true implies skip check.
+	if !force {
+		// Check if fully merged into HEAD
+		// We need to check if branch (targetRef.Hash) is ancestor of HEAD (headRef.Hash)
+		// IsFastForward(repo, base, target) -> returns true if base is ancestor of target
+		// So IsFastForward(repo, targetRef.Hash, headRef.Hash)
+
+		isMerged, err := git.IsFastForward(repo, targetRef.Hash(), headRef.Hash())
+		if err != nil {
+			return "", fmt.Errorf("failed to check merge status: %w", err)
+		}
+
+		if !isMerged {
+			return "", fmt.Errorf("the branch '%s' is not fully merged.\nIf you are sure you want to delete it, run 'git branch -D %s'", name, name)
+		}
+	}
 
 	if err := repo.Storer.RemoveReference(refName); err != nil {
 		return "", err
