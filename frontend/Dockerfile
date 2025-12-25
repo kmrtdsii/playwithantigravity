@@ -1,5 +1,5 @@
 # Build Stage
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -13,17 +13,20 @@ COPY . .
 RUN npm run build
 
 # Production Stage
-FROM nginx:alpine
+FROM nginxinc/nginx-unprivileged:alpine
 
-# Remove default nginx static assets
-RUN rm -rf /usr/share/nginx/html/*
+# Remove default nginx static assets (though unprivileged image might have different path, usually safe to keep, 
+# but unprivileged uses /usr/share/nginx/html by default too)
+# Note: unprivileged user cannot rm -rf system dirs easily if not owned, 
+# but usually html dir is writable or we overwrite. 
+# Let's just COPY --chown
 
 # Copy static assets from builder stage
-COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder --chown=nginx:nginx /app/dist /usr/share/nginx/html
 
 # Copy custom nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --chown=nginx:nginx nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]

@@ -30,7 +30,6 @@
             go_1_25
             golangci-lint
             nodejs_22
-            nodejs_22
             docker
             docker-compose
             git
@@ -55,6 +54,7 @@
 
             # Ensure git man pages are accessible
             export MANPATH="${pkgs.git}/share/man:$MANPATH"
+            export PLAYWRIGHT_BROWSERS_PATH="${pkgs.playwright-driver.browsers}"
 
             # Optional Zsh completion
             export SHELL=$(which zsh)
