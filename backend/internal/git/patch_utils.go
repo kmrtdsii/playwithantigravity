@@ -9,6 +9,7 @@ package git
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
@@ -148,6 +149,7 @@ func applyPatchToWorktree(w *gogit.Worktree, commit *object.Commit, patch *objec
 //
 // Returns the resolved hash or an error if not found.
 func ResolveRevision(repo *gogit.Repository, rev string) (*plumbing.Hash, error) {
+	rev = strings.TrimSpace(rev)
 	// 1. Try standard resolution (branch, tag, full hash)
 	hash, err := repo.ResolveRevision(plumbing.Revision(rev))
 	if err == nil {
