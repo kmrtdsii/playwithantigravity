@@ -1,6 +1,6 @@
 import React from 'react';
 import type { VizNode } from './graphTypes';
-import { ROW_HEIGHT } from './graphConstants';
+import { ROW_HEIGHT, TEXT_OFFSET_X, DATE_WIDTH } from './graphConstants';
 import { CommitBadge } from './GraphBadges';
 
 interface CommitRowProps {
@@ -9,8 +9,6 @@ interface CommitRowProps {
     isSelected: boolean;
     onClick: () => void;
 }
-
-const TEXT_OFFSET_X = 140;
 
 export const CommitRow: React.FC<CommitRowProps> = ({
     node,
@@ -90,7 +88,7 @@ export const CommitRow: React.FC<CommitRowProps> = ({
         <span style={{
             color: 'var(--text-tertiary)',
             fontSize: '10px',
-            width: '140px',
+            width: `${DATE_WIDTH}px`,
             textAlign: 'right',
             flexShrink: 0,
             marginRight: '8px'
