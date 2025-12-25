@@ -18,6 +18,12 @@ export const PADDING_TOP = 24;
 /** Left padding before the first lane */
 export const GRAPH_LEFT_PADDING = 24;
 
+/** Horizontal offset for commit message text start */
+export const TEXT_OFFSET_X = 140;
+
+/** Width of the timestamp column */
+export const DATE_WIDTH = 140;
+
 /**
  * Color palette for branch lanes
  * Colors rotate based on lane index
