@@ -1,0 +1,15 @@
+# Ignore artifacts and build directories
+dist
+dist-ssr
+node_modules
+.git
+.cache
+.tmp
+
+# Ignore Backend Go files (handled by gofmt)
+backend/**/*.go
+**/*.pb.go
+
+# Ignore specific config files if needed
+flake.lock
+*.log
