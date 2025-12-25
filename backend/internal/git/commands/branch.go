@@ -21,16 +21,16 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	defer s.Unlock()
 
 	// 1. Basic Argument Parsing
-	// supported flags: -d, -D, -m, -r, -a, --help
+	// supported flags: -d, -D, -m, -r, -a, -f, --help
 	var (
-		deleteMode    bool
-		forceDelete   bool
-		moveMode      bool
-		remoteMode    bool
-		allMode       bool
-		helpMode      bool
-		branchName    string
-		newBranchName string // for move
+		deleteMode bool
+		force      bool // -D or -f depending on context
+		moveMode   bool
+		remoteMode bool
+		allMode    bool
+		helpMode   bool
+		branchName string
+		secondArg  string // newBranchName for move, startPoint for create
 	)
 
 	// Skip the first arg which is "branch"
@@ -41,8 +41,7 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		return c.listBranches(s.GetRepo(), false, false)
 	}
 
-	// Parse flags manually to handle mixed order if needed, though git usually expects flags first
-	// Simple loop implementation
+	// Parse flags manually to handle mixed order if needed
 	for i := 0; i < len(cmdArgs); i++ {
 		arg := cmdArgs[i]
 		switch arg {
@@ -52,9 +51,11 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			deleteMode = true
 		case "-D":
 			deleteMode = true
-			forceDelete = true
+			force = true
 		case "-m", "--move":
 			moveMode = true
+		case "-f", "--force":
+			force = true
 		case "-r", "--remotes":
 			remoteMode = true
 		case "-a", "--all":
@@ -65,8 +66,8 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			}
 			if branchName == "" {
 				branchName = arg
-			} else if newBranchName == "" {
-				newBranchName = arg // Second non-flag arg is target for move
+			} else if secondArg == "" {
+				secondArg = arg
 			}
 		}
 	}
@@ -83,27 +84,29 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	// 2. Dispatch based on mode
 
 	// LIST
-	// If no specific action flags (delete, move) are set, and we have no branch name (or we have -r/-a), it's list.
-	// Note: 'git branch pattern' lists branches matching pattern, but we'll stick to simple list for now
-	// if we have just flags -r / -a.
-	// LIST
-	// If no specific action flags (delete, move) are set, and we have no branch name (or we have -r/-a), it's list.
 	if !deleteMode && !moveMode {
+		// Use explicit list flag check if we had one, but strict check:
+		// git branch <name> -> creation
+		// git branch -> list
+		// git branch -r -> list
+		// git branch -a -> list
+
 		if branchName == "" {
 			return c.listBranches(repo, remoteMode, allMode)
 		}
-		// Creation (only if no remote/all flags usually, but git branch -r <name> is invalid context usually)
+		// Special case: git branch -r <name> is technically list pattern matching in git, but here likely means list?
+		// But usually creation doesn't use -r / -a.
 		if remoteMode || allMode {
 			return c.listBranches(repo, remoteMode, allMode)
 		}
 
-		// Optional start-point
+		// Creation
 		startPoint := "HEAD"
-		if newBranchName != "" { // In this context (create), the second arg is start-point
-			startPoint = newBranchName
+		if secondArg != "" {
+			startPoint = secondArg
 		}
 
-		return c.createBranch(repo, branchName, startPoint)
+		return c.createBranch(repo, branchName, startPoint, force)
 	}
 
 	// DELETE
@@ -111,7 +114,7 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		if branchName == "" {
 			return "", fmt.Errorf("branch name required")
 		}
-		return c.deleteBranch(repo, branchName, forceDelete, remoteMode)
+		return c.deleteBranch(repo, branchName, force, remoteMode)
 	}
 
 	// MOVE
@@ -119,7 +122,7 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		if branchName == "" {
 			return "", fmt.Errorf("branch name required")
 		}
-		if newBranchName == "" {
+		if secondArg == "" {
 			// Rename current branch
 			head, err := repo.Head()
 			if err != nil {
@@ -128,10 +131,10 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			if !head.Name().IsBranch() {
 				return "", fmt.Errorf("cannot rename detached HEAD")
 			}
-			newBranchName = branchName
+			secondArg = branchName
 			branchName = head.Name().Short()
 		}
-		return c.moveBranch(repo, branchName, newBranchName, forceDelete)
+		return c.moveBranch(repo, branchName, secondArg, force)
 	}
 
 	return "", nil
@@ -208,7 +211,7 @@ func (c *BranchCommand) listBranches(repo *gogit.Repository, remote, all bool) (
 	return strings.Join(branches, "\n"), nil
 }
 
-func (c *BranchCommand) createBranch(repo *gogit.Repository, name, startPoint string) (string, error) {
+func (c *BranchCommand) createBranch(repo *gogit.Repository, name, startPoint string, force bool) (string, error) {
 	if strings.HasPrefix(name, "-") {
 		return "", fmt.Errorf("unknown switch configuration: %s", name)
 	}
@@ -218,14 +221,32 @@ func (c *BranchCommand) createBranch(repo *gogit.Repository, name, startPoint st
 		return "", fmt.Errorf("not a valid object name: '%s'", startPoint)
 	}
 
-	// Create new reference
 	refName := plumbing.ReferenceName("refs/heads/" + name)
+
+	// Check if branch already exists
+	existingRef, err := repo.Storer.Reference(refName)
+	if err == nil && existingRef != nil {
+		// Existing logic
+		head, headErr := repo.Head()
+		if headErr == nil && head.Name() == refName {
+			return "", fmt.Errorf("fatal: Cannot force update the current branch.")
+		}
+
+		if !force {
+			return "", fmt.Errorf("fatal: A branch named '%s' already exists.", name)
+		}
+		// If force is true, we proceed to overwrite
+	}
+
+	// Create or Overwrite reference
 	newRef := plumbing.NewHashReference(refName, *hash)
 
 	if err := repo.Storer.SetReference(newRef); err != nil {
 		return "", err
 	}
 
+	// If overwritten, message might differ? Git usually silent or "Reset branch..."?
+	// But "Created branch" is simple for now.
 	return "Created branch " + name, nil
 }
 
