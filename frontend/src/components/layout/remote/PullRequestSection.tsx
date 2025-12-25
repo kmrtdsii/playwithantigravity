@@ -6,7 +6,7 @@ interface PullRequestSectionProps {
     pullRequests: PullRequest[];
     branches: Record<string, string>;
     onCreatePR: (title: string, desc: string, source: string, target: string) => void;
-    onMergePR: (id: number) => void;
+    onMergePR: (id: number) => Promise<void>;
 }
 
 /**
@@ -235,7 +235,7 @@ const BranchSelector: React.FC<BranchSelectorProps> = ({ label, value, onChange,
 
 interface PullRequestListProps {
     pullRequests: PullRequest[];
-    onMerge: (id: number) => void;
+    onMerge: (id: number) => Promise<void>;
 }
 
 const PullRequestList: React.FC<PullRequestListProps> = ({ pullRequests, onMerge }) => (
@@ -252,37 +252,65 @@ const PullRequestList: React.FC<PullRequestListProps> = ({ pullRequests, onMerge
 
 interface PullRequestCardProps {
     pr: PullRequest;
-    onMerge: () => void;
+    onMerge: () => Promise<void>;
 }
 
-const PullRequestCard: React.FC<PullRequestCardProps> = ({ pr, onMerge }) => (
-    <div style={prCardStyle}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>
-                #{pr.id} {pr.title}
+const PullRequestCard: React.FC<PullRequestCardProps> = ({ pr, onMerge }) => {
+    const [isMerging, setIsMerging] = useState(false);
+
+    const handleMergeClick = async () => {
+        setIsMerging(true);
+        try {
+            await onMerge();
+        } catch (error) {
+            console.error('Merge failed:', error);
+            alert(`Merge failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        } finally {
+            setIsMerging(false);
+        }
+    };
+
+    return (
+        <div style={prCardStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>
+                    #{pr.id} {pr.title}
+                </div>
+                <span style={{
+                    fontSize: '0.7rem',
+                    padding: '2px 6px',
+                    background: pr.status === 'OPEN' ? '#238636' : '#8957e5',
+                    color: 'white',
+                    borderRadius: '10px'
+                }}>
+                    {pr.status}
+                </span>
             </div>
-            <span style={{
-                fontSize: '0.7rem',
-                padding: '2px 6px',
-                background: pr.status === 'OPEN' ? '#238636' : '#8957e5',
-                color: 'white',
-                borderRadius: '10px'
-            }}>
-                {pr.status}
-            </span>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                {pr.sourceBranch} ➜ {pr.targetBranch}
+            </div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
+                opened by {pr.creator}
+            </div>
+            {pr.status === 'OPEN' && (
+                <button
+                    onClick={handleMergeClick}
+                    style={{
+                        ...mergeButtonStyle,
+                        opacity: isMerging ? 0.6 : 1,
+                        cursor: isMerging ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                    }}
+                    disabled={isMerging}
+                >
+                    {isMerging ? 'Merging...' : 'Merge Pull Request'}
+                </button>
+            )}
         </div>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            {pr.sourceBranch} ➜ {pr.targetBranch}
-        </div>
-        <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>
-            opened by {pr.creator}
-        </div>
-        {pr.status === 'OPEN' && (
-            <button onClick={onMerge} style={mergeButtonStyle}>
-                Merge Pull Request
-            </button>
-        )}
-    </div>
-);
+    );
+};
 
 export default PullRequestSection;
