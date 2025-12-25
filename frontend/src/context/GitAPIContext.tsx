@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import type { GitState, PullRequest } from '../types/gitTypes';
 import { gitService } from '../services/gitService';
-import { filterReachableCommits } from '../utils/graphUtils';
+import { filterReachableCommits } from '../utils/filterReachableCommits';
 import { useTerminalTranscript, type TranscriptLine } from '../hooks/useTerminalTranscript';
 
 interface GitContextType {

@@ -3,7 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { useGit } from '../context/GitAPIContext';
 import { useTheme } from '../context/ThemeContext';
-import { getPrompt } from '../utils/terminalUtils';
+import { getPrompt } from '../components/terminal/getPrompt';
 
 /**
  * Hook to manage the Git terminal instance and its interaction with the global Git state.

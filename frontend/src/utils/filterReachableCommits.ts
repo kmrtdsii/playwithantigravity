@@ -56,4 +56,3 @@ export function filterReachableCommits(
 
     return commits.filter((c) => reachable.has(c.id));
 }
-

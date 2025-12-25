@@ -12,12 +12,12 @@ import {
  * Creates a bezier curve path string between two points.
  * Used for edges that cross between lanes.
  */
-export const createBezierPath = (x1: number, y1: number, x2: number, y2: number): string => {
+export function createBezierPath(x1: number, y1: number, x2: number, y2: number): string {
     const dy = y2 - y1;
     const cy1 = y1 + dy * 0.5;
     const cy2 = y2 - dy * 0.5;
     return `M ${x1} ${y1} C ${x1} ${cy1}, ${x2} ${cy2}, ${x2} ${y2}`;
-};
+}
 
 /**
  * Computes the visual layout for the Git graph.
@@ -39,7 +39,7 @@ export const createBezierPath = (x1: number, y1: number, x2: number, y2: number)
  * @param HEAD - Current HEAD state
  * @returns Layout result with nodes, edges, height, and badges
  */
-export const computeLayout = (
+export function computeLayout(
     commits: Commit[],
     potentialCommits: Commit[],
     branches: Record<string, string>,
@@ -47,7 +47,7 @@ export const computeLayout = (
     remoteBranches: Record<string, string>,
     tags: Record<string, string>,
     HEAD: GitState['HEAD']
-): LayoutResult => {
+): LayoutResult {
     const combinedCommits = [
         ...commits.map(c => ({ ...c, isGhost: false })),
         ...potentialCommits.map(c => ({ ...c, isGhost: true }))
