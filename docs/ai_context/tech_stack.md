@@ -16,6 +16,9 @@
 - **Build Tool**: Vite.
 - **Language**: TypeScript (`.ts`, `.tsx`).
 - **Styling**: Vanilla CSS (CSS Variables), no Tailwind unless requested.
+- **Styling**: Vanilla CSS (CSS Variables), no Tailwind unless requested.
+- **Icons**: `lucide-react`.
+- **I18n**: `react-i18next`.
 - **Animation**: `framer-motion` for complex transitions and micro-interactions.
 
 ## Testing

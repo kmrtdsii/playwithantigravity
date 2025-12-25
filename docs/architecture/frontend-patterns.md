@@ -31,3 +31,11 @@
 - Graphs (`GitGraphViz`) are **Derived State**.
 - **Never** manually mutate the DOM of the graph.
 - Always re-render based on `state.commits` from the backend.
+
+## 4. Internationalization (I18n)
+- **Library**: `react-i18next`.
+- **Practice**: All user-facing text must be wrapped in `t('key')`.
+- **Keys**: Store in `public/locales/en/common.json`. Group by feature (e.g., `remote.list.delete`).
+
+## 5. Refactoring Patterns
+- **Functional Components**: Prefer `const Component: React.FC = ...` over helper render functions inside parents. This ensures hooks (`useTranslation`) work correctly.
