@@ -30,30 +30,44 @@ func (c *FetchCommand) Execute(_ context.Context, s *git.Session, args []string)
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	// Parse Flags
-	isDryRun := false
-	fetchAll := false
-	var positionalArgs []string
+	// 1. Parse Arguments & Flags
+	// git fetch [<options>] [<repository> [<refspec>...]]
+	var (
+		isDryRun   bool
+		fetchAll   bool
+		fetchTags  bool
+		prune      bool
+		remoteName string
+		refspecs   []string
+	)
 
+	// Simple flag parsing
 	cmdArgs := args[1:]
 	for i := 0; i < len(cmdArgs); i++ {
 		arg := cmdArgs[i]
-		switch arg {
-		case "-n", "--dry-run":
+		switch {
+		case arg == "-n" || arg == "--dry-run":
 			isDryRun = true
-		case "--all":
+		case arg == "--all":
 			fetchAll = true
-		case "-h", "--help":
+		case arg == "-t" || arg == "--tags":
+			fetchTags = true
+		case arg == "-p" || arg == "--prune":
+			prune = true
+		case arg == "-h" || arg == "--help":
 			return c.Help(), nil
+		case strings.HasPrefix(arg, "-"):
+			return "", fmt.Errorf("error: unknown option `%s`", arg)
 		default:
-			if strings.HasPrefix(arg, "-") {
-				// Unknown flag
-				return "", fmt.Errorf("unknown flag: %s", arg)
+			if remoteName == "" {
+				remoteName = arg
+			} else {
+				refspecs = append(refspecs, arg)
 			}
-			positionalArgs = append(positionalArgs, arg)
 		}
 	}
 
+	// 2. Determine Remotes to Fetch
 	var remotes []*gogit.Remote
 	var err error
 
@@ -63,10 +77,8 @@ func (c *FetchCommand) Execute(_ context.Context, s *git.Session, args []string)
 			return "", fmt.Errorf("failed to list remotes: %w", err)
 		}
 	} else {
-		// Single remote
-		remoteName := "origin"
-		if len(positionalArgs) > 0 {
-			remoteName = positionalArgs[0]
+		if remoteName == "" {
+			remoteName = "origin" // Default to origin
 		}
 		rem, err := repo.Remote(remoteName)
 		if err != nil {
@@ -75,15 +87,15 @@ func (c *FetchCommand) Execute(_ context.Context, s *git.Session, args []string)
 		remotes = []*gogit.Remote{rem}
 	}
 
+	// 3. Execute Fetch for each remote
 	var allResults []string
+	failed := false
 
 	for _, rem := range remotes {
-		res, err := c.fetchRemote(s, repo, rem, isDryRun)
+		res, err := c.fetchRemote(s, repo, rem, refspecs, fetchTags, prune, isDryRun)
 		if err != nil {
-			// In git fetch --all, one failure usually doesn't stop others, but returns non-zero.
-			// We will just log error in results and continue?
-			// Or fail immediately. Git usually continues but reports.
 			allResults = append(allResults, fmt.Sprintf("error: fetching %s: %v", rem.Config().Name, err))
+			failed = true
 		} else {
 			if res != "" {
 				allResults = append(allResults, res)
@@ -91,14 +103,18 @@ func (c *FetchCommand) Execute(_ context.Context, s *git.Session, args []string)
 		}
 	}
 
+	if failed && len(remotes) == 1 {
+		return "", fmt.Errorf("fetch failed") // Return error for single remote failure
+	}
+
 	if len(allResults) == 0 {
-		return "Already up to date.", nil
+		return "", nil // Standard git is silent if nothing happened? Or "Already up to date."? Git is usually silent if nothing printed.
 	}
 
 	return strings.Join(allResults, "\n"), nil
 }
 
-func (c *FetchCommand) fetchRemote(s *git.Session, repo *gogit.Repository, rem *gogit.Remote, isDryRun bool) (string, error) {
+func (c *FetchCommand) fetchRemote(s *git.Session, repo *gogit.Repository, rem *gogit.Remote, refspecs []string, fetchTags bool, prune bool, isDryRun bool) (string, error) {
 	cfg := rem.Config()
 	remoteName := cfg.Name
 	if len(cfg.URLs) == 0 {
@@ -106,97 +122,211 @@ func (c *FetchCommand) fetchRemote(s *git.Session, repo *gogit.Repository, rem *
 	}
 	url := cfg.URLs[0]
 
-	// Look up simulated remote
-	lookupKey := strings.TrimPrefix(url, "/")
-
-	var srcRepo *gogit.Repository
-	var ok bool
-
-	// Check Session-local
-	srcRepo, ok = s.Repos[lookupKey]
-	if !ok && s.Manager != nil {
-		// Check Shared
-		srcRepo, ok = s.Manager.SharedRemotes[lookupKey]
-		// Fallback: Check using full URL
-		if !ok {
-			srcRepo, ok = s.Manager.SharedRemotes[url]
-		}
+	// Look up simulated remote source
+	srcRepo, err := c.resolveSimulatedRemote(s, url)
+	if err != nil {
+		return "", err
 	}
 
-	if !ok {
-		return "", fmt.Errorf("remote repository '%s' not found (simulated path or URL required)", url)
-	}
-
-	// Scan remote refs (branches) and fetch them
+	// Scan remote refs
 	refs, err := srcRepo.References()
 	if err != nil {
 		return "", err
 	}
 
-	updated := 0
 	results := []string{fmt.Sprintf("From %s", url)}
+	nothingFetched := true
+
+	// Filter targets based on refspecs/tags
+	// Map: RemoteBranchName -> TargetLocalRef
+	fetchTargets := make(map[string]plumbing.ReferenceName)
+
+	// Default fetchspec if no refspecs provided: +refs/heads/*:refs/remotes/origin/*
+	// If refspecs provided (e.g. "main"), it usually means fetch that branch and map to FETCH_HEAD,
+	// BUT for simplicity in this simulated env, we will map "main" -> "refs/remotes/origin/main"
+	// unless a full refspec is given (which we honestly support minimally).
+
+	// Build a list of candidate remote branches we care about
+	candidates := make(map[string]*plumbing.Reference)
 
 	err = refs.ForEach(func(r *plumbing.Reference) error {
-		if r.Name().IsBranch() {
-			branchName := r.Name().Short()
-			localRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, branchName))
-
-			// Check if update needed
-			currentLocal, errRef := repo.Reference(localRefName, true)
-			if errRef == nil && currentLocal.Hash() == r.Hash() {
-				return nil // up to date
-			}
-
-			if isDryRun {
-				results = append(results, fmt.Sprintf(" * [dry-run] %s -> %s/%s", branchName, remoteName, branchName))
-				return nil
-			}
-
-			// 1. Copy Objects using Shared Helper
-			err = git.CopyCommitRecursive(srcRepo, repo, r.Hash())
-			if err != nil {
-				return err
-			}
-
-			// 2. Update Local Reference: refs/remotes/<remote>/<branch>
-			newRef := plumbing.NewHashReference(localRefName, r.Hash())
-			err = repo.Storer.SetReference(newRef)
-			if err != nil {
-				return err
-			}
-
-			status := "updated"
-			if errRef != nil {
-				status = "new branch"
-			}
-
-			results = append(results, fmt.Sprintf(" * [%s] %s -> %s/%s",
-				status,
-				branchName, remoteName, branchName))
-			updated++
-		}
+		candidates[r.Name().String()] = r
 		return nil
 	})
-
 	if err != nil {
 		return "", err
 	}
 
-	if updated == 0 {
-		return "", nil // Nothing to report for this remote if up to date
+	// Logic to decide what to fetch
+	if len(refspecs) > 0 {
+		for _, spec := range refspecs {
+			// Simplification: Assume spec is a branch name like "main" or "feature/1"
+			// Try to find it in candidates as refs/heads/<spec>
+			fullRemoteName := "refs/heads/" + spec
+			if _, ok := candidates[fullRemoteName]; ok {
+				localRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, spec))
+				fetchTargets[fullRemoteName] = localRefName
+				// Note: In real git, explicit refspecs also update FETCH_HEAD. We skip that complexity for now.
+			} else {
+				// Also check if it is a tag?
+				fullTagName := "refs/tags/" + spec
+				if _, ok := candidates[fullTagName]; ok {
+					fetchTargets[fullTagName] = plumbing.ReferenceName(fullTagName)
+				} else {
+					return "", fmt.Errorf("fatal: couldn't find remote ref %s", spec)
+				}
+			}
+		}
+	} else {
+		// Default behavior: Fetch all matching heads
+		// Currently hardcoded to refs/heads/* -> refs/remotes/<remote>/*
+		// This should respect remote config fetch refspecs in reality.
+		for name := range candidates {
+			if strings.HasPrefix(name, "refs/heads/") {
+				branchName := strings.TrimPrefix(name, "refs/heads/")
+				localRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, branchName))
+				fetchTargets[name] = localRefName
+			}
+		}
+	}
+
+	// Handle --tags
+	// "This default behavior can be changed by using the --tags or --no-tags options"
+	// --tags: Fetch all tags from the remote
+	if fetchTags {
+		for name := range candidates {
+			if strings.HasPrefix(name, "refs/tags/") {
+				fetchTargets[name] = plumbing.ReferenceName(name) // Tags map 1:1
+			}
+		}
+	}
+
+	// --- 1. PRUNE PHASE ---
+	if prune {
+		// Iterate local refs/remotes/<remoteName>/* and see if they exist in candidates
+		// Note: This logic needs to be careful not to prune things we just chose NOT to fetch if we have specific refspecs.
+		// "git fetch --prune" usually prunes remote-tracking branches that no longer exist on remote.
+		// It only applies to the configured fetch refspec mappings.
+		// For simplicity/safety, we only prune if NO specific refspecs were given (default fetch all mode).
+		if len(refspecs) == 0 {
+			iter, _ := repo.References()
+			prefix := fmt.Sprintf("refs/remotes/%s/", remoteName)
+			var toDelete []plumbing.ReferenceName
+
+			iter.ForEach(func(r *plumbing.Reference) error {
+				if strings.HasPrefix(r.Name().String(), prefix) {
+					// Extract branch name
+					branchPart := strings.TrimPrefix(r.Name().String(), prefix)
+					remoteSide := "refs/heads/" + branchPart
+
+					if _, exists := candidates[remoteSide]; !exists {
+						toDelete = append(toDelete, r.Name())
+					}
+				}
+				return nil
+			})
+
+			for _, refName := range toDelete {
+				if !isDryRun {
+					repo.Storer.RemoveReference(refName)
+				}
+				results = append(results, fmt.Sprintf(" - [deleted]         (none) -> %s", strings.TrimPrefix(refName.String(), "refs/remotes/")))
+				nothingFetched = false
+			}
+		}
+	}
+
+	// --- 2. FETCH UPDATE PHASE ---
+	for remoteRefName, localRefName := range fetchTargets {
+		remoteRef := candidates[remoteRefName]
+
+		// 1. Copy Objects
+		if !isDryRun {
+			err = git.CopyCommitRecursive(srcRepo, repo, remoteRef.Hash())
+			if err != nil {
+				return "", err
+			}
+		}
+
+		// 2. Update Ref
+		currentLocal, errRef := repo.Reference(localRefName, true)
+
+		var action string
+		var summary string
+
+		if errRef != nil {
+			// New
+			action = "[new]"
+			// Try to detect if it is branch or tag for display
+			if strings.HasPrefix(localRefName.String(), "refs/tags/") {
+				action = "[new tag]"
+				summary = fmt.Sprintf("%s -> %s", remoteRef.Name().Short(), localRefName.Short())
+			} else {
+				action = "[new branch]"
+				summary = fmt.Sprintf("%s -> %s/%s", remoteRef.Name().Short(), remoteName, remoteRef.Name().Short())
+			}
+
+			if !isDryRun {
+				newRef := plumbing.NewHashReference(localRefName, remoteRef.Hash())
+				repo.Storer.SetReference(newRef)
+			}
+			nothingFetched = false
+			results = append(results, fmt.Sprintf(" * %-18s %s", action, summary))
+
+		} else if currentLocal.Hash() != remoteRef.Hash() {
+			// Updated
+			// Check for forced update? Assuming fast-forward for now or force.
+			// Git fetch usually forces remote refs updates.
+			action = "   " + remoteRef.Hash().String()[:7] + ".." + currentLocal.Hash().String()[:7] // rough approx
+			summary = fmt.Sprintf("%s -> %s/%s", remoteRef.Name().Short(), remoteName, remoteRef.Name().Short())
+
+			if !isDryRun {
+				newRef := plumbing.NewHashReference(localRefName, remoteRef.Hash())
+				repo.Storer.SetReference(newRef)
+			}
+			nothingFetched = false
+			results = append(results, fmt.Sprintf("   %-18s %s", action, summary))
+		}
+		// If equal, say nothing
+	}
+
+	if nothingFetched {
+		return "", nil
 	}
 
 	return strings.Join(results, "\n"), nil
 }
 
+func (c *FetchCommand) resolveSimulatedRemote(s *git.Session, url string) (*gogit.Repository, error) {
+	lookupKey := strings.TrimPrefix(url, "/")
+
+	// Check Session-local
+	if repo, ok := s.Repos[lookupKey]; ok {
+		return repo, nil
+	}
+
+	if s.Manager != nil {
+		// Check Shared
+		if repo, ok := s.Manager.SharedRemotes[lookupKey]; ok {
+			return repo, nil
+		}
+		// Fallback: Check using full URL
+		if repo, ok := s.Manager.SharedRemotes[url]; ok {
+			return repo, nil
+		}
+	}
+
+	return nil, fmt.Errorf("remote repository '%s' not found (simulated path or URL required)", url)
+}
+
 func (c *FetchCommand) Help() string {
-	return `usage: git fetch [options] [<remote>]
+	return `usage: git fetch [options] [<remote> [<refspec>...]]
 
 Options:
-    -n, --dry-run     dry run (show what would be fetched without doing it)
-    --help            display this help message
-
-Download objects and refs from another repository.
-Note: This is a simulated fetch from virtual remotes.
+    -n, --dry-run          dry run (show what would be fetched)
+    -t, --tags             fetch all tags
+    -p, --prune            prune remote-tracking branches no longer on remote
+    --all                  fetch from all remotes
+    --help                 display this help message
 `
 }
