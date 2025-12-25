@@ -21,7 +21,7 @@ func init() {
 
 type FetchCommand struct{}
 
-func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
+func (c *FetchCommand) Execute(_ context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -32,6 +32,7 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	// Parse Flags
 	isDryRun := false
+	fetchAll := false
 	var positionalArgs []string
 
 	cmdArgs := args[1:]
@@ -40,6 +41,8 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		switch arg {
 		case "-n", "--dry-run":
 			isDryRun = true
+		case "--all":
+			fetchAll = true
 		case "-h", "--help":
 			return c.Help(), nil
 		default:
@@ -51,18 +54,53 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		}
 	}
 
-	// Syntax: git fetch [remote]
-	remoteName := "origin"
-	if len(positionalArgs) > 0 {
-		remoteName = positionalArgs[0]
+	var remotes []*gogit.Remote
+	var err error
+
+	if fetchAll {
+		remotes, err = repo.Remotes()
+		if err != nil {
+			return "", fmt.Errorf("failed to list remotes: %w", err)
+		}
+	} else {
+		// Single remote
+		remoteName := "origin"
+		if len(positionalArgs) > 0 {
+			remoteName = positionalArgs[0]
+		}
+		rem, err := repo.Remote(remoteName)
+		if err != nil {
+			return "", fmt.Errorf("fatal: '%s' does not appear to be a git repository", remoteName)
+		}
+		remotes = []*gogit.Remote{rem}
 	}
 
-	rem, err := repo.Remote(remoteName)
-	if err != nil {
-		return "", fmt.Errorf("fatal: '%s' does not appear to be a git repository", remoteName)
+	var allResults []string
+
+	for _, rem := range remotes {
+		res, err := c.fetchRemote(s, repo, rem, isDryRun)
+		if err != nil {
+			// In git fetch --all, one failure usually doesn't stop others, but returns non-zero.
+			// We will just log error in results and continue?
+			// Or fail immediately. Git usually continues but reports.
+			allResults = append(allResults, fmt.Sprintf("error: fetching %s: %v", rem.Config().Name, err))
+		} else {
+			if res != "" {
+				allResults = append(allResults, res)
+			}
+		}
 	}
 
+	if len(allResults) == 0 {
+		return "Already up to date.", nil
+	}
+
+	return strings.Join(allResults, "\n"), nil
+}
+
+func (c *FetchCommand) fetchRemote(s *git.Session, repo *gogit.Repository, rem *gogit.Remote, isDryRun bool) (string, error) {
 	cfg := rem.Config()
+	remoteName := cfg.Name
 	if len(cfg.URLs) == 0 {
 		return "", fmt.Errorf("remote %s has no URL defined", remoteName)
 	}
@@ -79,7 +117,7 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	if !ok && s.Manager != nil {
 		// Check Shared
 		srcRepo, ok = s.Manager.SharedRemotes[lookupKey]
-		// Fallback: Check using full URL (in case lookupKey stripped leading slash but map has it)
+		// Fallback: Check using full URL
 		if !ok {
 			srcRepo, ok = s.Manager.SharedRemotes[url]
 		}
@@ -127,13 +165,13 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 				return err
 			}
 
+			status := "updated"
+			if errRef != nil {
+				status = "new branch"
+			}
+
 			results = append(results, fmt.Sprintf(" * [%s] %s -> %s/%s",
-				func() string {
-					if err != nil {
-						return "new branch"
-					}
-					return "updated"
-				}(),
+				status,
 				branchName, remoteName, branchName))
 			updated++
 		}
@@ -144,8 +182,8 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		return "", err
 	}
 
-	if updated == 0 && !isDryRun {
-		return results[0] + "\nAlready up to date.", nil
+	if updated == 0 {
+		return "", nil // Nothing to report for this remote if up to date
 	}
 
 	return strings.Join(results, "\n"), nil

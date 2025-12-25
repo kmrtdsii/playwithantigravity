@@ -255,7 +255,9 @@ export function computeLayout(
                 color: node.color,
                 path,
                 isGhost: node.isGhost || parentNode.isGhost,
-                opacity: node.opacity
+                opacity: node.opacity,
+                minY: Math.min(node.y, parentNode.y),
+                maxY: Math.max(node.y, parentNode.y)
             });
         });
     });

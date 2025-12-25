@@ -32,6 +32,10 @@ export interface VizEdge {
     isGhost: boolean;
     /** Opacity for reachability visualization */
     opacity: number;
+    /** Minimum Y coordinate for visibility optimization */
+    minY: number;
+    /** Maximum Y coordinate for visibility optimization */
+    maxY: number;
 }
 
 /**

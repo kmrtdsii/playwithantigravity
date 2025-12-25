@@ -3,6 +3,7 @@ import React, { useMemo } from 'react';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit } from '../../types/gitTypes';
 import { Cloud, GitBranch, Tag } from 'lucide-react';
+import { useTranslation } from 'react-i18next'; // Import
 
 interface GitReferenceListProps {
     type: 'branches' | 'tags';
@@ -11,16 +12,17 @@ interface GitReferenceListProps {
 }
 
 const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) => {
+    const { t } = useTranslation('common'); // Hook
     const { state } = useGit();
     const references = type === 'branches' ? state.branches : state.tags;
     const { commits } = state;
 
     const listItems = useMemo(() => {
-        // Create a map of Commit ID -> Commit Object for easy lookup
+        // ... (Memo is same)
         const commitMap = new Map(commits.map(c => [c.id, c]));
         const items: { name: string; commitId: string; commit: Commit | undefined; isRemote: boolean }[] = [];
 
-        // 1. Local Branches / Tags
+        // 1. Local
         if (references) {
             Object.entries(references).forEach(([name, commitId]) => {
                 const commit = commitMap.get(commitId);
@@ -28,7 +30,7 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) =
             });
         }
 
-        // 2. Remote Branches (only if type is 'branches')
+        // 2. Remote
         if (type === 'branches' && state.remoteBranches) {
             Object.entries(state.remoteBranches).forEach(([name, commitId]) => {
                 const commit = commitMap.get(commitId);
@@ -62,7 +64,7 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) =
                 gap: '8px'
             }}>
                 {type === 'tags' ? <Tag size={24} style={{ opacity: 0.5 }} /> : <GitBranch size={24} style={{ opacity: 0.5 }} />}
-                <span>No {type} found.</span>
+                <span>{t('common.noItemsFound', { type: t(`viewMode.${type}`) })}</span>
             </div>
         );
     }
@@ -79,15 +81,14 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) =
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead style={{ position: 'sticky', top: 0, background: 'var(--bg-tertiary)', borderBottom: '1px solid var(--border-subtle)' }}>
                     <tr>
-                        <th style={{ textAlign: 'left', padding: '8px 16px', width: '150px' }}>Name</th>
-                        <th style={{ textAlign: 'left', padding: '8px 16px', width: '80px' }}>Hash</th>
-                        <th style={{ textAlign: 'left', padding: '8px 16px' }}>Message</th>
-                        <th style={{ textAlign: 'right', padding: '8px 16px', width: '150px' }}>Date</th>
+                        <th style={{ textAlign: 'left', padding: '8px 16px', width: '150px' }}>{t('common.name')}</th>
+                        <th style={{ textAlign: 'left', padding: '8px 16px', width: '80px' }}>{t('common.hash')}</th>
+                        <th style={{ textAlign: 'left', padding: '8px 16px' }}>{t('common.message')}</th>
+                        <th style={{ textAlign: 'right', padding: '8px 16px', width: '150px' }}>{t('common.date')}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {listItems.map((item) => {
-
                         return (
                             <tr
                                 key={item.name}
@@ -95,7 +96,6 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) =
                                 style={{
                                     cursor: 'pointer',
                                     borderBottom: '1px solid var(--border-subtle)',
-                                    // Removed highlight styles
                                     transition: 'background-color 0.2s',
                                     ':hover': { backgroundColor: 'var(--bg-secondary)' }
                                 } as React.CSSProperties}
@@ -121,9 +121,11 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) =
                             </tr>
                         );
                     })}
-                </tbody>
-            </table>
-        </div>
+
+
+                </tbody >
+            </table >
+        </div >
     );
 };
 

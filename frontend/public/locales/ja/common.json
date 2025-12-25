@@ -1,0 +1,23 @@
+{
+    "app": {
+        "title": "GitGym",
+        "theme": {
+            "light": "ライト",
+            "dark": "ダーク"
+        }
+    },
+    "viewMode": {
+        "graph": "グラフ",
+        "branches": "ブランチ",
+        "tags": "タグ"
+    },
+    "common": {
+        "showAll": "全表示",
+        "noRepoLoaded": "リポジトリが読み込まれていません",
+        "noItemsFound": "{{type}}が見つかりません。",
+        "name": "名前",
+        "hash": "ハッシュ",
+        "message": "メッセージ",
+        "date": "日付"
+    }
+}

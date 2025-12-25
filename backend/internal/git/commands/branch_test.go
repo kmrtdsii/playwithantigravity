@@ -167,3 +167,84 @@ func TestBranchCommand_Move(t *testing.T) {
 		t.Errorf("new-name should exist, got: %s", listRes)
 	}
 }
+
+func TestBranchCommand_CreateWithStartPoint(t *testing.T) {
+	sm := git.NewSessionManager()
+	s := setupBranchTestSession(t, sm, "test-branch-startpoint")
+	ctx := context.Background()
+	cmd := &BranchCommand{}
+
+	// 1. Get HEAD object
+	repo := s.GetRepo()
+	head, _ := repo.Head()
+	headHash := head.Hash().String()
+
+	// 2. Create branch from HEAD explicit
+	_, err := cmd.Execute(ctx, s, []string{"branch", "from-head", headHash})
+	if err != nil {
+		t.Fatalf("create with hash failed: %v", err)
+	}
+
+	// 3. Create branch from previous branch
+	_, err = cmd.Execute(ctx, s, []string{"branch", "from-branch", "from-head"})
+	if err != nil {
+		t.Fatalf("create with branch name failed: %v", err)
+	}
+
+	// 4. Create branch from unknown (should fail)
+	_, err = cmd.Execute(ctx, s, []string{"branch", "bad", "unknown-ref"})
+	if err == nil {
+		t.Fatal("expected error creating from unknown ref, got nil")
+	}
+}
+
+func TestBranchCommand_DeleteSafety(t *testing.T) {
+	sm := git.NewSessionManager()
+	s := setupBranchTestSession(t, sm, "test-branch-safety")
+	ctx := context.Background()
+	cmd := &BranchCommand{}
+
+	// 1. Create a divergent branch
+	// Get current branch name (default)
+	repo := s.GetRepo()
+	head, _ := repo.Head()
+	defaultBranch := head.Name().Short()
+
+	// switch to new branch, commit, switch back
+	switchCmd := &SwitchCommand{}
+	_, _ = switchCmd.Execute(ctx, s, []string{"switch", "-c", "divergent"})
+
+	touchCmd := &TouchCommand{}
+	_, _ = touchCmd.Execute(ctx, s, []string{"touch", "divergent.txt"})
+
+	addCmd := &AddCommand{}
+	_, _ = addCmd.Execute(ctx, s, []string{"add", "."})
+
+	commitCmd := &CommitCommand{}
+	_, _ = commitCmd.Execute(ctx, s, []string{"commit", "-m", "Divergent commit"})
+
+	// Switch back to master
+	_, err := switchCmd.Execute(ctx, s, []string{"switch", defaultBranch})
+	if err != nil {
+		t.Fatalf("failed to switch back to master: %v", err)
+	}
+	// master does not have "Divergent commit"
+
+	// 2. Try delete divergent with -d (should fail)
+	_, err = cmd.Execute(ctx, s, []string{"branch", "-d", "divergent"})
+	if err == nil {
+		t.Fatal("expected error deleting unmerged branch, got nil")
+	}
+	if !strings.Contains(err.Error(), "not fully merged") {
+		t.Errorf("expected 'not fully merged' error, got: %v", err)
+	}
+
+	// 3. Try delete divergent with -D (should succeed)
+	res, err := cmd.Execute(ctx, s, []string{"branch", "-D", "divergent"})
+	if err != nil {
+		t.Fatalf("force delete failed: %v", err)
+	}
+	if !strings.Contains(res, "Deleted branch divergent") {
+		t.Errorf("Expected deletion message, got: %s", res)
+	}
+}

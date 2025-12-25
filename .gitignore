@@ -27,7 +27,8 @@ dist-ssr
 # Nix/direnv
 .direnv
 
-# Go binaries
+# tmp
+backend/.gitgym-data/*
 
 # Go binaries
 /bin/

@@ -100,8 +100,15 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 	headHash := headRef.Hash()
 	targetHash := mergeRef.Hash()
 
-	if headHash == targetHash {
-		return fmt.Sprintf("%s\nAlready up to date.", fetchOutput), nil
+	// 3. Merge Flow
+	// Check for Fast-Forward first (optimization)
+	headCommit, err := repo.CommitObject(headHash)
+	if err != nil {
+		return "", err
+	}
+	targetCommit, err := repo.CommitObject(targetHash)
+	if err != nil {
+		return "", err
 	}
 
 	isFF, err := git.IsFastForward(repo, headHash, targetHash)
@@ -110,19 +117,18 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 	}
 
 	if isFF {
-		// Perform FF Merge
-		name := headRef.Name()
-		newRef := plumbing.NewHashReference(name, targetHash)
+		// Perform FF Merge (Update HEAD ref)
+		newRef := plumbing.NewHashReference(headRef.Name(), targetHash)
 		err = repo.Storer.SetReference(newRef)
 		if err != nil {
 			return "", err
 		}
 
+		// Update Working Tree
 		w, wErr := repo.Worktree()
 		if wErr != nil {
 			return "", wErr
 		}
-
 		err = w.Reset(&gogit.ResetOptions{
 			Commit: targetHash,
 			Mode:   gogit.HardReset,
@@ -134,15 +140,53 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 		return fmt.Sprintf("%s\nUpdating %s..%s\nFast-forward", fetchOutput, headHash.String()[:7], targetHash.String()[:7]), nil
 	}
 
-	isUpToDate, err := git.IsFastForward(repo, targetHash, headHash)
+	// 4. True Merge (3-Way)
+	// Find Merge Base
+	mergeBases, err := headCommit.MergeBase(targetCommit)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate merge base: %w", err)
+	}
+	if len(mergeBases) == 0 {
+		return "", fmt.Errorf("refusing to merge unrelated histories")
+	}
+	baseCommit := mergeBases[0]
+
+	w, err := repo.Worktree()
 	if err != nil {
 		return "", err
 	}
-	if isUpToDate {
-		return fmt.Sprintf("%s\nAlready up to date.", fetchOutput), nil
+
+	// Perform 3-Way Merge
+	err = git.Merge3Way(w, baseCommit, headCommit, targetCommit)
+	if err != nil {
+		if err == git.ErrConflict {
+			return fmt.Sprintf("%s\nCONFLICT (content): Merge conflict detected.\nAutomatic merge failed; fix conflicts and then commit the result.", fetchOutput), nil
+		}
+		return "", fmt.Errorf("merge failed: %w", err)
 	}
 
-	return fmt.Sprintf("%s\nfatal: Not possible to fast-forward, aborting. (Merge strategy not implemented in simulation yet)", fetchOutput), nil
+	// Success: Stage and Commit
+	// We assume Merge3Way updated the worktree files. Now we stage them.
+	// In a real git, we'd only stage changed files, but Add(".") is acceptable for simulation.
+	_, err = w.Add(".")
+	if err != nil {
+		return "", fmt.Errorf("failed to stage changes: %w", err)
+	}
+
+	message := fmt.Sprintf("Merge branch '%s' into %s", mergeRefName, headRef.Name().Short())
+	// Clean up ref name for message
+	if len(cleanArgs) > 1 {
+		message = fmt.Sprintf("Merge branch '%s' of %s into %s", cleanArgs[1], remoteName, headRef.Name().Short())
+	}
+
+	mergeCommit, err := w.Commit(message, &gogit.CommitOptions{
+		Parents: []plumbing.Hash{headHash, targetHash},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create merge commit: %w", err)
+	}
+
+	return fmt.Sprintf("%s\nMerge made by the 'ort' strategy.\n%s", fetchOutput, mergeCommit.String()[:7]), nil
 }
 
 func (c *PullCommand) Help() string {

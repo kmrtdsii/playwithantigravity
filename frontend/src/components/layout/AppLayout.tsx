@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import './AppLayout.css';
 import { useGit } from '../../context/GitAPIContext';
+import { useTranslation } from 'react-i18next'; // Import useTranslation
 
 import GitGraphViz from '../visualization/GitGraphViz';
 import GitReferenceList from '../visualization/GitReferenceList';
@@ -9,16 +10,18 @@ import RemoteRepoView from './RemoteRepoView';
 import DeveloperTabs from './DeveloperTabs';
 import BottomPanel from './BottomPanel';
 import { Resizer } from '../common';
-import AddDeveloperModal from './AddDeveloperModal'; // New Import
+import AddDeveloperModal from './AddDeveloperModal';
 
 import type { SelectedObject } from '../../types/layoutTypes';
 import { useTheme } from '../../context/ThemeContext';
-import { useResizablePanes } from '../../hooks/useResizablePanes'; // New Hook
+import { useResizablePanes } from '../../hooks/useResizablePanes';
 import { motion, AnimatePresence } from 'framer-motion';
 
 type ViewMode = 'graph' | 'branches' | 'tags';
 
 const AppLayout = () => {
+    const { t } = useTranslation('common'); // Hook
+
     const {
         state, showAllCommits, toggleShowAllCommits,
         developers, activeDeveloper, switchDeveloper, addDeveloper
@@ -113,7 +116,7 @@ const AppLayout = () => {
                                 }}
                                 data-testid={`view-mode-${mode}`}
                             >
-                                {mode}
+                                {t(`viewMode.${mode}`)}
                             </button>
                         ))}
                     </div>
@@ -127,7 +130,7 @@ const AppLayout = () => {
                                 onChange={toggleShowAllCommits}
                                 style={{ accentColor: 'var(--accent-primary)' }}
                             />
-                            SHOW ALL
+                            {t('common.showAll')}
                         </label>
                         {/* Theme Toggle - Segmented Switch */}
                         <div style={{
@@ -151,7 +154,7 @@ const AppLayout = () => {
                                 }}
                                 data-testid="theme-light-btn"
                             >
-                                Light
+                                {t('app.theme.light')}
                             </button>
                             <button
                                 onClick={() => theme === 'light' && toggleTheme()}
@@ -167,7 +170,7 @@ const AppLayout = () => {
                                 }}
                                 data-testid="theme-dark-btn"
                             >
-                                Dark
+                                {t('app.theme.dark')}
                             </button>
                         </div>
                     </div>
@@ -219,7 +222,7 @@ const AppLayout = () => {
                                     exit={{ opacity: 0 }}
                                     style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}
                                 >
-                                    No Repository Loaded
+                                    {t('common.noRepoLoaded')}
                                 </motion.div>
                             )}
                         </AnimatePresence>

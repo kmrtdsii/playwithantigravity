@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit, GitState } from '../../types/gitTypes';
@@ -49,6 +49,48 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
         [commits, potentialCommits, branches, references, remoteBranches, tags, HEAD]
     );
 
+    // Virtualization State
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scrollTop, setScrollTop] = useState(0);
+    const [viewportHeight, setViewportHeight] = useState(600); // Default fallback
+
+    useLayoutEffect(() => {
+        if (containerRef.current) {
+            setViewportHeight(containerRef.current.clientHeight);
+        }
+    }, []);
+
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el) return;
+        const ro = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                setViewportHeight(entry.contentRect.height);
+            }
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+        setScrollTop(e.currentTarget.scrollTop);
+    };
+
+    const BUFFER_PX = 300;
+    const minVisY = Math.max(0, scrollTop - BUFFER_PX);
+    const maxVisY = scrollTop + viewportHeight + BUFFER_PX;
+
+    // Filter for visibility
+    const visibleNodes = useMemo(() =>
+        nodes.filter(n => n.y >= minVisY && n.y <= maxVisY),
+        [nodes, minVisY, maxVisY]
+    );
+
+    const visibleEdges = useMemo(() =>
+        edges.filter(e => e.maxY >= minVisY && e.minY <= maxVisY),
+        [edges, minVisY, maxVisY]
+    );
+
     // Resolve HEAD commit ID for halo effect
     const headCommitId = useMemo(() => {
         if (HEAD.type === 'commit') return HEAD.id;
@@ -66,14 +108,19 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     }
 
     return (
-        <div data-testid="git-graph-container" style={{
-            height: '100%',
-            overflow: 'auto',
-            background: 'var(--bg-primary)',
-            color: 'var(--text-primary)',
-            fontFamily: 'Menlo, Monaco, Consolas, monospace',
-            fontSize: '12px'
-        }}>
+        <div
+            ref={containerRef}
+            onScroll={handleScroll}
+            data-testid="git-graph-container"
+            style={{
+                height: '100%',
+                overflow: 'auto',
+                background: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                fontFamily: 'Menlo, Monaco, Consolas, monospace',
+                fontSize: '12px'
+            }}
+        >
             {title && <GraphTitle title={title} />}
 
             <div style={{ position: 'relative', height: Math.max(height, 500) }}>
@@ -83,7 +130,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                     height={height}
                     style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
                 >
-                    {edges.map(edge => (
+                    {visibleEdges.map(edge => (
                         <path
                             key={edge.id}
                             d={edge.path}
@@ -97,7 +144,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                     ))}
 
                     <AnimatePresence>
-                        {nodes.map(node => (
+                        {visibleNodes.map(node => (
                             <motion.circle
                                 key={node.id}
                                 cx={node.x}
@@ -108,7 +155,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                                 strokeWidth={node.isGhost ? "2" : "1"}
                                 strokeDasharray={node.isGhost ? "3,3" : "0"}
                                 opacity={node.opacity}
-                                initial={{ scale: 0, opacity: 0 }}
+                                initial={false}
                                 animate={{ scale: 1, opacity: node.opacity }}
                                 exit={{ scale: 0, opacity: 0 }}
                                 transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -117,7 +164,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                     </AnimatePresence>
 
                     {/* HEAD Halo */}
-                    {nodes.map(node =>
+                    {visibleNodes.map(node =>
                         node.id === headCommitId && (
                             <circle
                                 key={`halo-${node.id}`}
@@ -134,7 +181,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                 </svg>
 
                 {/* Interactive Rows */}
-                {nodes.map(node => (
+                {visibleNodes.map(node => (
                     <CommitRow
                         key={node.id}
                         node={node}
