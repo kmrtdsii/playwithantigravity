@@ -40,15 +40,15 @@
         "pullRequests": "PULL REQUESTS",
         "newPR": "New Pull Request",
         "compare": {
-            "title": "Comparing changes",
-            "desc": "Choose two branches to see what's changed or to start a new pull request.",
-            "base": "base",
-            "compare": "compare",
-            "titlePlaceholder": "Pull Request Title",
-            "ableToMerge": "Able to merge.",
-            "ableToMergeDesc": "These branches can be automatically merged.",
+            "title": "New Pull Request",
+            "desc": "Select branches to compare and merge changes.",
+            "base": "Base",
+            "compare": "Source",
+            "titlePlaceholder": "Title",
+            "ableToMerge": "✓ Mergeable",
+            "ableToMergeDesc": "No conflicts. These branches can be merged automatically.",
             "defaultTitle": "Merge {{source}} into {{target}}",
-            "create": "Create pull request"
+            "create": "Create Pull Request"
         },
         "list": {
             "empty": "No active PRs",
