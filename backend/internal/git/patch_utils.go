@@ -190,3 +190,140 @@ func ResolveRevision(repo *gogit.Repository, rev string) (*plumbing.Hash, error)
 
 	return nil, fmt.Errorf("revision '%s' not found", rev)
 }
+
+// ErrConflict is returned when a merge cannot be resolved automatically.
+var ErrConflict = fmt.Errorf("merge conflict")
+
+// Merge3Way performs a 3-way merge of files between Base, Ours, and Theirs commits
+// and applies the result to the Worktree.
+//
+// Strategy:
+// - Base == Ours && Base != Theirs -> Update to Theirs (Fast-forward/Apply change)
+// - Base != Ours && Base == Theirs -> Keep Ours (Already applied or irrelevant)
+// - Base != Ours && Base != Theirs && Ours == Theirs -> Keep Ours (Both made same change)
+// - Base != Ours && Base != Theirs && Ours != Theirs -> CONFLICT
+//
+// In case of conflict, it writes conflict markers to the file and returns ErrConflict.
+func Merge3Way(w *gogit.Worktree, base, ours, theirs *object.Commit) error {
+	// 1. Collect all file paths from all 3 trees
+	paths := make(map[string]struct{})
+
+	collectPaths := func(c *object.Commit) error {
+		if c == nil {
+			return nil
+		}
+		fIter, err := c.Files()
+		if err != nil {
+			return err
+		}
+		return fIter.ForEach(func(f *object.File) error {
+			paths[f.Name] = struct{}{}
+			return nil
+		})
+	}
+
+	if err := collectPaths(base); err != nil {
+		return err
+	}
+	if err := collectPaths(ours); err != nil {
+		return err
+	}
+	if err := collectPaths(theirs); err != nil {
+		return err
+	}
+
+	hasConflict := false
+
+	// 2. Iterate all paths
+	for path := range paths {
+		// Helper to get hash (zero hash if missing)
+		getHashAndContent := func(c *object.Commit) (plumbing.Hash, string, error) {
+			if c == nil {
+				return plumbing.ZeroHash, "", nil
+			}
+			f, err := c.File(path)
+			if err != nil {
+				// File not found in commit
+				return plumbing.ZeroHash, "", nil
+			}
+			content, err := f.Contents()
+			if err != nil {
+				return plumbing.ZeroHash, "", err
+			}
+			return f.Hash, content, nil
+		}
+
+		baseH, _, err := getHashAndContent(base)
+		if err != nil {
+			return err
+		}
+		oursH, oursContent, err := getHashAndContent(ours)
+		if err != nil {
+			return err
+		}
+		theirsH, theirsContent, err := getHashAndContent(theirs)
+		if err != nil {
+			return err
+		}
+
+		// Analysis
+		if oursH == theirsH {
+			// No divergence between Ours and Theirs. Keep Ours.
+			continue
+		}
+
+		if baseH == oursH {
+			if baseH != theirsH {
+				// Ours didn't change, Theirs changed (or deleted).
+				// Action: Update to Theirs.
+				if theirsH == plumbing.ZeroHash {
+					// Theirs deleted it.
+					if err := w.Filesystem.Remove(path); err != nil && !os.IsNotExist(err) {
+						return fmt.Errorf("failed to remove %s: %w", path, err)
+					}
+					w.Remove(path) // Stage removal
+				} else {
+					// Theirs modified/added it.
+					if err := writeFile(w, path, theirsContent); err != nil {
+						return err
+					}
+					w.Add(path)
+				}
+			} else {
+				// Base == Ours == Theirs. Nothing to do.
+			}
+		} else {
+			// Ours changed (or deleted) from Base.
+			if baseH == theirsH {
+				// Theirs didn't change. Keep Ours. (No-op)
+			} else {
+				// Both changed from Base, and Ours != Theirs.
+				// CONFLICT.
+				hasConflict = true
+				conflictContent := fmt.Sprintf("<<<<<<< HEAD\n%s=======\n%s>>>>>>> %s\n", oursContent, theirsContent, theirs.Hash.String()[:7])
+				if err := writeFile(w, path, conflictContent); err != nil {
+					return err
+				}
+				// Do NOT stage (git behavior for conflicts)
+			}
+		}
+	}
+
+	if hasConflict {
+		return ErrConflict
+	}
+	return nil
+}
+
+func writeFile(w *gogit.Worktree, path, content string) error {
+	f, err := w.Filesystem.OpenFile(path, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s: %w", path, err)
+	}
+	defer f.Close()
+
+	if _, err := f.Write([]byte(content)); err != nil {
+		return fmt.Errorf("failed to write file %s: %w", path, err)
+	}
+	return nil
+}

@@ -27,7 +27,6 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	// Simple parser for cherry-pick
 	// Usage: git cherry-pick <commit>...
 	// Usage: git cherry-pick <start>..<end>
 
@@ -36,110 +35,129 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 		return "", fmt.Errorf("usage: git cherry-pick <commit>...")
 	}
 
-	// We assume one argument for range or multiple for single commits?
-	// The user specifically asked for range A..B.
-	// Standard git allows mixing. For now let's handle the first arg as potentially a range.
-
-	arg := cmdArgs[0]
 	var commitsToPick []*object.Commit
 
-	if strings.Contains(arg, "..") {
-		// Range detected
-		parts := strings.SplitN(arg, "..", 2)
-		startRev := parts[0]
-		endRev := parts[1]
+	// Parse arguments (Support mixed ranges and single commits)
+	for _, arg := range cmdArgs {
+		if strings.Contains(arg, "..") {
+			// Range detected: A..B
+			parts := strings.SplitN(arg, "..", 2)
+			startRev, endRev := parts[0], parts[1]
 
-		if startRev == "" || endRev == "" {
-			return "", fmt.Errorf("malformed range: %s", arg)
-		}
-
-		// Resolve revisions
-		startHash, err := c.resolveRevision(repo, startRev)
-		if err != nil {
-			return "", fmt.Errorf("invalid revision '%s': %v", startRev, err)
-		}
-		endHash, err := c.resolveRevision(repo, endRev)
-		if err != nil {
-			return "", fmt.Errorf("invalid revision '%s': %v", endRev, err)
-		}
-
-		// Traverse from End to Start (exclusive)
-		// A..B means (A, B]
-
-		endCommit, err := repo.CommitObject(*endHash)
-		if err != nil {
-			return "", err
-		}
-
-		iter := endCommit
-		var rangeCommits []*object.Commit
-		foundStart := false
-
-		for {
-			if iter.Hash == *startHash {
-				foundStart = true
-				break
+			if startRev == "" || endRev == "" {
+				return "", fmt.Errorf("malformed range: %s", arg)
 			}
-			rangeCommits = append(rangeCommits, iter)
 
-			if iter.NumParents() == 0 {
-				break
-			}
-			// Linear assumption fallback
-			p, err := iter.Parent(0)
+			startHash, err := c.resolveRevision(repo, startRev)
 			if err != nil {
-				return "", fmt.Errorf("failed to traverse history: %v", err)
+				return "", fmt.Errorf("invalid revision '%s': %v", startRev, err)
 			}
-			iter = p
-		}
+			endHash, err := c.resolveRevision(repo, endRev)
+			if err != nil {
+				return "", fmt.Errorf("invalid revision '%s': %v", endRev, err)
+			}
 
-		if !foundStart {
-			// If we didn't find start, maybe they are divergent?
-			// git cherry-pick A..B usually requires ancestry or it behaves like log A..B (reachable from B not A)
-			// Efficiently implementing A..B for complex graphs is hard.
-			// Assuming linear or simple error.
-			return "", fmt.Errorf("fatal: start revision '%s' is not an ancestor of '%s'", startRev, endRev)
-		}
+			endCommit, err := repo.CommitObject(*endHash)
+			if err != nil {
+				return "", err
+			}
 
-		// rangeCommits are in reverse order (End -> Start child)
-		// Reverse them to Apply in order
-		for i := len(rangeCommits) - 1; i >= 0; i-- {
-			commitsToPick = append(commitsToPick, rangeCommits[i])
-		}
+			iter := endCommit
+			var rangeCommits []*object.Commit
+			foundStart := false
 
-	} else {
-		// Single commit or list
-		h, err := c.resolveRevision(repo, arg)
-		if err != nil {
-			return "", fmt.Errorf("bad revision '%s'", arg)
+			// Walk back from End until Start
+			for {
+				if iter.Hash == *startHash {
+					foundStart = true
+					break
+				}
+				rangeCommits = append(rangeCommits, iter)
+
+				if iter.NumParents() == 0 {
+					break
+				}
+				p, err := iter.Parent(0)
+				if err != nil {
+					return "", fmt.Errorf("failed to traverse history: %v", err)
+				}
+				iter = p
+			}
+
+			if !foundStart {
+				return "", fmt.Errorf("fatal: start revision '%s' is not an ancestor of '%s'", startRev, endRev)
+			}
+
+			// Add in correct order (Oldest -> Newest)
+			for i := len(rangeCommits) - 1; i >= 0; i-- {
+				commitsToPick = append(commitsToPick, rangeCommits[i])
+			}
+
+		} else {
+			// Single commit
+			h, err := c.resolveRevision(repo, arg)
+			if err != nil {
+				return "", fmt.Errorf("bad revision '%s'", arg)
+			}
+			commit, err := repo.CommitObject(*h)
+			if err != nil {
+				return "", err
+			}
+			commitsToPick = append(commitsToPick, commit)
 		}
-		commit, err := repo.CommitObject(*h)
-		if err != nil {
-			return "", err
-		}
-		commitsToPick = append(commitsToPick, commit)
 	}
 
 	w, _ := repo.Worktree()
-	headRef, _ := repo.Head() // To record in result message
+	headRef, _ := repo.Head()
 
 	pickedCount := 0
-	for _, c := range commitsToPick {
-		// Apply changes using shared helper
-		if err := git.ApplyCommitChanges(w, c); err != nil {
-			return "", fmt.Errorf("failed to apply commit %s: %v", c.Hash.String()[:7], err)
+	for _, commitToPick := range commitsToPick {
+		// Prepare for 3-way merge
+		// Base: Parent of the commit we are picking
+		// Ours: Current HEAD
+		// Theirs: The commit we are picking
+
+		if commitToPick.NumParents() == 0 {
+			// Picking a root commit? technically possible, treat base as empty.
+			// For simplicity in this simulation, maybe just use ApplyCommit logic or error?
+			// Let's defer to ApplyCommitChanges for root commits or handle empty base.
+			// Current Merge3Way handles nil base.
 		}
 
-		time.Sleep(10 * time.Millisecond) // Ensure unique timestamp
+		// Get current HEAD (Ours)
+		headRef, err := repo.Head()
+		if err != nil {
+			return "", err
+		}
+		oursCommit, err := repo.CommitObject(headRef.Hash())
+		if err != nil {
+			return "", err
+		}
 
-		// Commit with same message and author
-		_, err := w.Commit(c.Message, &gogit.CommitOptions{
+		var baseCommit *object.Commit
+		if commitToPick.NumParents() > 0 {
+			baseCommit, _ = commitToPick.Parent(0)
+		}
+
+		// Execute Merge
+		err = git.Merge3Way(w, baseCommit, oursCommit, commitToPick)
+		if err != nil {
+			if err == git.ErrConflict {
+				return "", fmt.Errorf("error: could not apply %s... %s\nhint: after resolving the conflicts, mark the corrected paths\nhint: with 'git add <paths>' or 'git rm <paths>'\nhint: and commit the result with 'git commit'", commitToPick.Hash.String()[:7], commitToPick.Message)
+			}
+			return "", fmt.Errorf("failed to cherry-pick %s: %v", commitToPick.Hash.String()[:7], err)
+		}
+
+		time.Sleep(10 * time.Millisecond)
+
+		// Commit
+		_, err = w.Commit(commitToPick.Message, &gogit.CommitOptions{
 			Author: &object.Signature{
-				Name:  c.Author.Name,
-				Email: c.Author.Email,
-				When:  time.Now(), // Committer time is now
+				Name:  commitToPick.Author.Name,
+				Email: commitToPick.Author.Email,
+				When:  time.Now(),
 			},
-			AllowEmptyCommits: true,
+			AllowEmptyCommits: true, // cherry-pick allows empty if content matches (usually requires --allow-empty but for simulation we are permissive)
 		})
 		if err != nil {
 			return "", fmt.Errorf("failed to commit: %v", err)
