@@ -228,24 +228,43 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	w, err := localRepo.Worktree()
 	if err == nil {
 		// Try main first, then master
-		for _, branch := range []string{"main", "master"} {
-			branchRef := plumbing.NewBranchReferenceName(branch)
-			// Check if we have the remote counterpart: refs/remotes/origin/branch
-			remoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", branch))
-			if _, err := localRepo.Reference(remoteRefName, true); err == nil {
-				// Create local branch 'branch' pointing to the same hash
-				// And checkout
-				ref, _ := localRepo.Reference(remoteRefName, true)
-				newBranchRef := plumbing.NewHashReference(branchRef, ref.Hash())
-				_ = localRepo.Storer.SetReference(newBranchRef)
-
-				_ = w.Checkout(&gogit.CheckoutOptions{
-					Branch: branchRef,
-					Create: false, // Created manually above
-					Force:  true,
-				})
-				break
+		// Optimize: Use the remote's HEAD to determine the default branch
+		headRef, err := remoteRepo.Head()
+		targetBranch := plumbing.ReferenceName("refs/heads/main") // Default fallback
+		if err == nil {
+			if headRef.Type() == plumbing.SymbolicReference {
+				// e.g. refs/heads/trunk
+				targetBranch = headRef.Target()
+			} else if headRef.Type() == plumbing.HashReference {
+				// HEAD points to a commit (detached?) or is a direct ref.
+				// For a shared remote, HEAD usually points to the default branch ref (Symbolic).
+				// If it's a direct hash, check if it matches a known branch.
+				if headRef.Name().IsBranch() {
+					targetBranch = headRef.Name()
+				}
 			}
+		}
+
+		// Configure local HEAD
+		// Map refs/remotes/origin/<branch> -> refs/heads/<branch>
+		shortName := targetBranch.Short()
+		remoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", shortName))
+
+		// Check if we have the object locally (via HybridStorer/shared check)
+		if ref, err := localRepo.Reference(remoteRefName, true); err == nil {
+			// Create local branch 'branch' pointing to the same hash
+			newBranchRef := plumbing.NewHashReference(targetBranch, ref.Hash())
+			_ = localRepo.Storer.SetReference(newBranchRef)
+
+			// Checkout
+			_ = w.Checkout(&gogit.CheckoutOptions{
+				Branch: targetBranch,
+				Create: false, // Created manually above
+				Force:  true,
+			})
+			log.Printf("Clone: Checked out default branch '%s'", shortName)
+		} else {
+			log.Printf("Clone: Warning - Could not resolve default branch '%s' from remote", shortName)
 		}
 	}
 
