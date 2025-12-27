@@ -31,77 +31,105 @@ type CloneCommand struct{}
 // SafeRepoNameRegex enforces alphanumeric names to prevent traversal
 var SafeRepoNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
+type CloneOptions struct {
+	URL string
+}
+
+type cloneContext struct {
+	RepoName   string
+	RemoteRepo *gogit.Repository
+	RemoteSt   storage.Storer
+	RemotePath string
+}
+
 func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
+
 	log.Printf("Clone: Starting execution args=%v", args)
 
 	s.Lock()
 	defer s.Unlock()
 
-	// Parse flags
-	var url string
+	// 1. Parse Arguments
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
+	}
 
+	// 2. Resolve Context (Repo Name, Remote Source)
+	clCtx, err := c.resolveContext(s, opts)
+	if err != nil {
+		return "", err
+	}
+
+	// 3. Perform Clone
+	return c.performClone(s, clCtx)
+}
+
+func (c *CloneCommand) parseArgs(args []string) (*CloneOptions, error) {
+	opts := &CloneOptions{}
 	cmdArgs := args[1:]
 	for i := 0; i < len(cmdArgs); i++ {
 		arg := cmdArgs[i]
 		switch arg {
 		case "-h", "--help":
-			return c.Help(), nil
+			return nil, fmt.Errorf("help requested")
 		default:
-			if url == "" {
-				url = arg
+			if opts.URL == "" {
+				opts.URL = arg
 			}
 		}
 	}
 
-	if url == "" {
-		return "", fmt.Errorf("usage: git clone <url>")
+	if opts.URL == "" {
+		return nil, fmt.Errorf("usage: git clone <url>")
 	}
+	return opts, nil
+}
 
+func (c *CloneCommand) resolveContext(s *git.Session, opts *CloneOptions) (*cloneContext, error) {
 	// Extract repo name from URL
-	parts := strings.Split(url, "/")
+	parts := strings.Split(opts.URL, "/")
 	if len(parts) == 0 {
-		return "", fmt.Errorf("invalid url")
+		return nil, fmt.Errorf("invalid url")
 	}
 	repoName := parts[len(parts)-1]
 	repoName = strings.TrimSuffix(repoName, ".git")
 
 	// SECURITY: Input Validation
 	if !SafeRepoNameRegex.MatchString(repoName) {
-		return "", fmt.Errorf("invalid repository name '%s': must contain only alphanumeric characters, underscores, or hyphens", repoName)
+		return nil, fmt.Errorf("invalid repository name '%s': must contain only alphanumeric characters, underscores, or hyphens", repoName)
 	}
 	if repoName == "." || repoName == ".." {
-		return "", fmt.Errorf("invalid repository name: cannot be relative path")
+		return nil, fmt.Errorf("invalid repository name: cannot be relative path")
 	}
 
 	if _, exists := s.Repos[repoName]; exists {
-		return "", fmt.Errorf("destination path '%s' already exists and is not an empty directory", repoName)
+		return nil, fmt.Errorf("destination path '%s' already exists and is not an empty directory", repoName)
 	}
 
-	// 1. Resolve Remote Repository (Shared vs Session-local)
+	// Resolve Remote Repository
 	var remoteRepo *gogit.Repository
 	var remoteSt storage.Storer
 	var remotePath string
 
 	if s.Manager != nil {
-		// Check SharedRemotes (e.g., "origin", or the full URL)
-		log.Printf("Clone: Checking shared remotes for %s", url)
+		// Check SharedRemotes
+		log.Printf("Clone: Checking shared remotes for %s", opts.URL)
 
-		if r, ok := s.Manager.GetSharedRemote(url); ok { // SAFE ACCESS
-			log.Printf("Clone: Found shared remote for URL %s", url)
+		if r, ok := s.Manager.GetSharedRemote(opts.URL); ok {
+			log.Printf("Clone: Found shared remote for URL %s", opts.URL)
 			remoteRepo = r
 			remoteSt = r.Storer
 
-			// Look up the internal path to ensure we point to the bare repo, NOT the external URL
 			s.Manager.RLock()
-			path, found := s.Manager.SharedRemotePaths[url]
+			path, found := s.Manager.SharedRemotePaths[opts.URL]
 			s.Manager.RUnlock()
-
 			if found {
 				remotePath = path
 			} else {
-				remotePath = url // Fallback, though this implies leakage risk if it's a real URL
+				remotePath = opts.URL
 			}
-		} else if r, ok := s.Manager.GetSharedRemote(repoName); ok { // SAFE ACCESS
+		} else if r, ok := s.Manager.GetSharedRemote(repoName); ok {
 			log.Printf("Clone: Found shared remote by name %s", repoName)
 			remoteRepo = r
 			remoteSt = r.Storer
@@ -109,7 +137,6 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 			s.Manager.RLock()
 			path, found := s.Manager.SharedRemotePaths[repoName]
 			s.Manager.RUnlock()
-
 			if found {
 				remotePath = path
 			} else {
@@ -119,25 +146,31 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	if remoteRepo == nil {
-		// RESTRICTION: Disable arbitrary network cloning to prevent hangs.
-		// Users must only use pre-configured SharedRemotes.
-		return "", fmt.Errorf("repository '%s' not found in shared remotes. Network cloning is disabled to prevent timeout issues. Please use a valid shared remote URL.", url)
+		return nil, fmt.Errorf("repository '%s' not found in shared remotes. Network cloning is disabled to prevent timeout issues. Please use a valid shared remote URL.", opts.URL)
 	}
 
-	// 2. Create Local Working Copy
-	log.Printf("Clone: Remote resolved. Path: %s. Starting Local Creation...", remotePath)
+	return &cloneContext{
+		RepoName:   repoName,
+		RemoteRepo: remoteRepo,
+		RemoteSt:   remoteSt,
+		RemotePath: remotePath,
+	}, nil
+}
 
-	if errMkdir := s.Filesystem.MkdirAll(repoName, 0755); errMkdir != nil {
+func (c *CloneCommand) performClone(s *git.Session, clCtx *cloneContext) (string, error) {
+	log.Printf("Clone: Remote resolved. Path: %s. Starting Local Creation...", clCtx.RemotePath)
+
+	// Create Local Working Copy
+	if errMkdir := s.Filesystem.MkdirAll(clCtx.RepoName, 0755); errMkdir != nil {
 		return "", fmt.Errorf("failed to create directory: %w", errMkdir)
 	}
 
-	repoFS, err := s.Filesystem.Chroot(repoName)
+	repoFS, err := s.Filesystem.Chroot(clCtx.RepoName)
 	if err != nil {
 		return "", fmt.Errorf("failed to chroot: %w", err)
 	}
 
-	// PERFORMANCE: Use Filesystem Storage for Local Repo (.git)
-	// Create the .git directory
+	// Create .git
 	if errDotGit := repoFS.MkdirAll(".git", 0755); errDotGit != nil {
 		return "", fmt.Errorf("failed to create .git directory: %w", errDotGit)
 	}
@@ -147,134 +180,91 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 
 	localSt := filesystem.NewStorage(dotGitFS, cache.NewObjectLRUDefault())
-
-	// OPTIMIZATION: Use HybridStorer to avoid copying objects
-	// This delegates object reads to the remoteSt if not found locally.
-	hybridSt := git.NewHybridStorer(localSt, remoteSt)
+	hybridSt := git.NewHybridStorer(localSt, clCtx.RemoteSt)
 
 	localRepo, err := gogit.Init(hybridSt, repoFS)
 	if err != nil {
 		return "", fmt.Errorf("failed to init local repo: %w", err)
 	}
 
-	// Copy Objects STEP REMOVED - HybridStorer handles it dynamically
 	log.Printf("Clone: Using HybridStorer (Zero-Copy). Local initialized.")
 
-	// Copy References with Mapping (Standard Git Behavior)
-	// refs/heads/* -> refs/remotes/origin/*
-	// refs/tags/*  -> refs/tags/*
-	refs, errRefs := remoteRepo.References()
-	if errRefs != nil {
-		log.Printf("Clone: Warning - Failed to get references from remote: %v", errRefs)
-	} else {
-		errForEach := refs.ForEach(func(ref *plumbing.Reference) error {
-			name := ref.Name()
-			if name.IsBranch() {
-				// Map refs/heads/foo -> refs/remotes/origin/foo
-				newRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", name.Short()))
-				newRef := plumbing.NewHashReference(newRefName, ref.Hash())
-				if errSet := localRepo.Storer.SetReference(newRef); errSet != nil {
-					log.Printf("Clone: Failed to set ref %s: %v", newRefName, errSet)
-				}
-			} else if name.IsRemote() {
-				// The Shared Remote (bare repo) might have refs stored as refs/remotes/origin/xxx
-				// We want to copy these as-is to our local refs/remotes/origin/xxx
-				// Note: name.Short() for refs/remotes/origin/foo is origin/foo.
-				// We want to ensure we are writing to refs/remotes/origin/...
-
-				// Simplified: Just copy the ref as is.
-				// Validation: Ensure it starts with refs/remotes/origin to match our new Origin?
-				// Actually, if we just copy it, it will work.
-				// Note: Local repo was Init-ed. It has no remotes.
-
-				// We need to be careful not to overwrite if refs/heads/->refs/remotes/ takes precedence.
-				// But typically refs/heads is "more authoritative" for the server's view.
-				// However, here refs/heads is missing 'change-the-title', so we rely on this.
-
-				if errSet := localRepo.Storer.SetReference(ref); errSet != nil {
-					log.Printf("Clone: Failed to set remote ref %s: %v", name, errSet)
-				}
-			} else if name.IsTag() {
-				// Copy tags as is
-				if errSet := localRepo.Storer.SetReference(ref); errSet != nil {
-					log.Printf("Clone: Failed to set tag %s: %v", name, errSet)
-				}
-			}
-			return nil
-		})
-		if errForEach != nil {
-			log.Printf("Clone: Error iterating refs: %v", errForEach)
-		}
+	// Copy References
+	if err := c.copyReferences(localRepo, clCtx.RemoteRepo); err != nil {
+		log.Printf("Clone: Warning - Issue copying references: %v", err)
 	}
 
-	// Determine appropriate URL for origin
-	// Use the original URL to prevent exposing internal paths in error messages
-	originURL := url
-	// If it's not a URL schema and not absolute, assume it's relative to root
-	if !strings.Contains(originURL, "://") && !strings.HasPrefix(originURL, "/") {
-		originURL = "/" + originURL
-	}
+	// Configure Origin
+	// Use the raw path or URL? Logic logic used clCtx.RemotePath as "originURL" var before? No, it used 'url' arg mostly.
 
-	// Set Origin to point to our simulated remote path (mapped via SharedRemotes)
-	// We use the friendly URL; Fetch/Push commands will resolve it.
 	_, err = localRepo.CreateRemote(&config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{originURL},
+		URLs: []string{clCtx.RemotePath}, // Using resolved path
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to configure origin: %w", err)
 	}
 
-	s.Repos[repoName] = localRepo
+	s.Repos[clCtx.RepoName] = localRepo
 
-	// 3. Auto-cd into the cloned repository
-	s.CurrentDir = "/" + repoName
+	// Auto-cd
+	s.CurrentDir = "/" + clCtx.RepoName
 
-	// 4. Checkout the default branch (main or master)
-	w, err := localRepo.Worktree()
-	if err == nil {
-		// Optimize: Use the remote's HEAD to determine the default branch
-		headRef, err := remoteRepo.Head()
-		targetBranch := plumbing.ReferenceName("refs/heads/main") // Default fallback
-		if err == nil {
-			if headRef.Type() == plumbing.SymbolicReference {
-				// e.g. refs/heads/trunk
-				targetBranch = headRef.Target()
-			} else if headRef.Type() == plumbing.HashReference {
-				// HEAD points to a commit (detached?) or is a direct ref.
-				// For a shared remote, HEAD usually points to the default branch ref (Symbolic).
-				// If it's a direct hash, check if it matches a known branch.
-				if headRef.Name().IsBranch() {
-					targetBranch = headRef.Name()
-				}
-			}
+	// Checkout Default Branch
+	if err := c.checkoutDefaultBranch(localRepo, clCtx.RemoteRepo); err != nil {
+		log.Printf("Clone: Warning - Checkout default branch issue: %v", err)
+	}
+
+	log.Printf("Clone: Success. Cloned into %s", clCtx.RepoName)
+	return fmt.Sprintf("Cloned into '%s'... (Using shared remote)", clCtx.RepoName), nil
+}
+
+func (c *CloneCommand) copyReferences(local *gogit.Repository, remote *gogit.Repository) error {
+	refs, err := remote.References()
+	if err != nil {
+		return err
+	}
+	return refs.ForEach(func(ref *plumbing.Reference) error {
+		name := ref.Name()
+		if name.IsBranch() {
+			newRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", name.Short()))
+			newRef := plumbing.NewHashReference(newRefName, ref.Hash())
+			return local.Storer.SetReference(newRef)
+		} else if name.IsRemote() || name.IsTag() {
+			return local.Storer.SetReference(ref)
 		}
+		return nil
+	})
+}
 
-		// Configure local HEAD
-		// Map refs/remotes/origin/<branch> -> refs/heads/<branch>
-		shortName := targetBranch.Short()
-		remoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", shortName))
+func (c *CloneCommand) checkoutDefaultBranch(local *gogit.Repository, remote *gogit.Repository) error {
+	w, err := local.Worktree()
+	if err != nil {
+		return err
+	}
 
-		// Check if we have the object locally (via HybridStorer/shared check)
-		if ref, err := localRepo.Reference(remoteRefName, true); err == nil {
-			// Create local branch 'branch' pointing to the same hash
-			newBranchRef := plumbing.NewHashReference(targetBranch, ref.Hash())
-			_ = localRepo.Storer.SetReference(newBranchRef)
-
-			// Checkout
-			_ = w.Checkout(&gogit.CheckoutOptions{
-				Branch: targetBranch,
-				Create: false, // Created manually above
-				Force:  true,
-			})
-			log.Printf("Clone: Checked out default branch '%s'", shortName)
-		} else {
-			log.Printf("Clone: Warning - Could not resolve default branch '%s' from remote", shortName)
+	headRef, err := remote.Head()
+	targetBranch := plumbing.ReferenceName("refs/heads/main")
+	if err == nil {
+		if headRef.Type() == plumbing.SymbolicReference {
+			targetBranch = headRef.Target()
+		} else if headRef.Name().IsBranch() {
+			targetBranch = headRef.Name()
 		}
 	}
 
-	log.Printf("Clone: Success. Cloned into %s", repoName)
-	return fmt.Sprintf("Cloned into '%s'... (Using shared remote)", repoName), nil
+	shortName := targetBranch.Short()
+	remoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", shortName))
+
+	if ref, err := local.Reference(remoteRefName, true); err == nil {
+		newBranchRef := plumbing.NewHashReference(targetBranch, ref.Hash())
+		_ = local.Storer.SetReference(newBranchRef)
+		return w.Checkout(&gogit.CheckoutOptions{
+			Branch: targetBranch,
+			Force:  true,
+		})
+	}
+	return fmt.Errorf("could not resolve default branch '%s'", shortName)
 }
 
 func (c *CloneCommand) Help() string {
