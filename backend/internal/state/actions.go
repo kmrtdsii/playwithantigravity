@@ -11,6 +11,7 @@ import (
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 )
 
 // IngestRemote creates a new shared remote repository from a URL (simulated clone)
@@ -69,14 +70,49 @@ func (sm *SessionManager) IngestRemote(ctx context.Context, name, url string, de
 		r, errOpen := gogit.PlainOpen(repoPath)
 		if errOpen == nil {
 			log.Printf("IngestRemote: Repository already exists at %s. Fetching updates...", repoPath)
+
+			// FIX: Ensure we are NOT in Mirror mode (which fetches all PR refs).
+			// If previously initialized with Mirror: true, the config will have fetch = +refs/*:refs/*.
+			// We must reset it to only fetch heads and tags.
+			cfg, errCfg := r.Config()
+			if errCfg == nil && cfg.Remotes["origin"] != nil {
+				// Force sensible refspecs
+				// For a "bare remote" simulation, we want to mirror branches and tags, but NOT everything (PRs).
+				// +refs/heads/*:refs/heads/* and +refs/tags/*:refs/tags/*
+				refsHeads := config.RefSpec("+refs/heads/*:refs/heads/*")
+				refsTags := config.RefSpec("+refs/tags/*:refs/tags/*")
+
+				needsUpdate := false
+				if cfg.Remotes["origin"].Mirror {
+					cfg.Remotes["origin"].Mirror = false
+					needsUpdate = true
+				}
+				// Replace Fetch specs if they look like the dangerous wildcard
+				if len(cfg.Remotes["origin"].Fetch) == 0 || cfg.Remotes["origin"].Fetch[0].String() == "+refs/*:refs/*" {
+					cfg.Remotes["origin"].Fetch = []config.RefSpec{refsHeads, refsTags}
+					needsUpdate = true
+				}
+
+				if needsUpdate {
+					if errSet := r.SetConfig(cfg); errSet != nil {
+						log.Printf("IngestRemote: Failed to update config to disable mirror: %v", errSet)
+					} else {
+						log.Printf("IngestRemote: Updated remote config to disable Mirror mode (PR refs)")
+					}
+				}
+			}
+
 			// It exists. Fetch to update refs.
 			errFetch := r.Fetch(&gogit.FetchOptions{
 				Progress: os.Stdout,
 				Force:    true, // Force update refs
+				Tags:     gogit.AllTags,
 			})
 			if errFetch != nil && errFetch != gogit.NoErrAlreadyUpToDate {
 				log.Printf("IngestRemote: Fetch failed (%v), falling back to fresh clone", errFetch)
-				// Fallthrough to clone
+				// Fallthrough to clone is risky if we have bad config, but we just fixed config.
+				// If fetch failed, maybe the repo is corrupt. Let's recreate.
+				repo = nil // Signal to re-clone
 			} else {
 				log.Printf("IngestRemote: Fetch successful or already up to date")
 				repo = r
@@ -93,15 +129,26 @@ func (sm *SessionManager) IngestRemote(ctx context.Context, name, url string, de
 		}
 
 		log.Printf("IngestRemote: Cloning %s into %s (Depth: %d)", url, repoPath, depth)
-		r, errClone := gogit.PlainCloneContext(ctx, repoPath, true, &gogit.CloneOptions{
+
+		// Setup clone options
+		// IMPORTANT: Do NOT use Mirror: true. It fetches +refs/*:refs/* which includes thousands of PRs for popular repos.
+		cloneOpts := &gogit.CloneOptions{
 			URL:      url,
 			Progress: os.Stdout,
-			Mirror:   true,
-			Depth:    depth,
-		})
+			// Mirror:   true, // DANGEROUS for shared repos
+			Depth: depth,
+			Tags:  gogit.AllTags,
+		}
+
+		r, errClone := gogit.PlainCloneContext(ctx, repoPath, true, cloneOpts)
 		if errClone != nil {
 			return fmt.Errorf("failed to clone remote: %w", errClone)
 		}
+
+		// Post-clone: Configure fetch refspecs explicitly for future consistency?
+		// Default PlainClone(bare=true) usually sets +refs/heads/*:refs/heads/*.
+		// We verify this is sufficient.
+
 		repo = r
 		log.Printf("IngestRemote: Clone successful")
 	}

@@ -90,7 +90,10 @@ export const gitService = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, url, depth: depth || 0 })
         });
-        if (!res.ok) throw new Error('Failed to ingest remote');
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText || 'Failed to ingest remote');
+        }
     },
 
     async getRemoteInfo(url: string): Promise<{

@@ -31,11 +31,33 @@ func (s *Server) handleGetRemoteState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build state from the shared repo
-	stateObj := state.BuildGraphState(repo)
+	// Remote View: We generally want to see everything reachable from heads/tags.
+	// Passing true (ShowAll) ensures we see everything if BFS misses something,
+	// but strictly BFS from refs (false) is cleaner for "reachable".
+	// However, to debug "missing tags", let's enable ShowAll=true for Remote View.
+	stateObj := state.BuildGraphState(repo, true)
 	// Add logic to populate shared remotes
 	stateObj.SharedRemotes = []string{name} // The requested one is definitely there.
 
 	// CLEANUP FOR VISUALIZATION:
+	// The "Remote View" represents the server state.
+	// In our simulated backend, the server ("origin") has branches which are stored as
+	// "refs/remotes/origin/..." because we cloned them.
+	// We should display these as "Branches" to the user, not "Remote Branches".
+
+	for name, sha := range stateObj.RemoteBranches {
+		// name is like "origin/main", "origin/feature"
+		// We want to show "main", "feature"
+		// Simple heuristic: strip "origin/" prefix.
+		if len(name) > 7 && name[:7] == "origin/" {
+			branchName := name[7:]
+			// Avoid overwriting if we already have it (e.g. main matches refs/heads/main)
+			if _, exists := stateObj.Branches[branchName]; !exists {
+				stateObj.Branches[branchName] = sha
+			}
+		}
+	}
+
 	// Only show local branches (simulated as server branches) and tags.
 	stateObj.Remotes = []state.Remote{}               // Clear remotes
 	stateObj.RemoteBranches = make(map[string]string) // Clear remote tracking branches

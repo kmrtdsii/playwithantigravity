@@ -25,7 +25,7 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	// But we need to merge it with Session-specific data (Projects, proper Path)
 
 	// Create base structure from Session data
-	state := BuildGraphState(repo)
+	state := BuildGraphState(repo, showAll)
 
 	// Override/Augment with Session Data
 	state.PotentialCommits = session.PotentialCommits
@@ -49,7 +49,7 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 
 // BuildGraphState constructs a GraphState from a git.Repository.
 // It can be used for both local session repos and shared remotes.
-func BuildGraphState(repo *gogit.Repository) *GraphState {
+func BuildGraphState(repo *gogit.Repository, showAll bool) *GraphState {
 	state := &GraphState{
 		Commits:        []Commit{},
 		Branches:       make(map[string]string),
@@ -72,9 +72,8 @@ func BuildGraphState(repo *gogit.Repository) *GraphState {
 		}
 
 		// 3. Walk Commits
-		// Use BFS from Refs (showAll=false) to ensure HybridStorer works
-		// (Iterating objects fails because Local is empty)
-		populateCommits(repo, state, false)
+		// Use BFS from Refs (if showAll=false) or iterate all objects (if showAll=true)
+		populateCommits(repo, state, showAll)
 		// Let's assume for Shared Remote we want to show everything we have.
 		// Actually, populateCommits logic for ancestors might be better.
 		// But for "Server View", showing the reachable history from branches is correct.
@@ -143,6 +142,7 @@ func populateBranchesAndTags(repo *gogit.Repository, state *GraphState) error {
 		_ = refs.ForEach(func(r *plumbing.Reference) error {
 			if r.Name().IsRemote() {
 				state.RemoteBranches[r.Name().Short()] = r.Hash().String()
+				// log.Printf("Graph: Found Remote Branch %s -> %s", r.Name().Short(), r.Hash().String())
 			} else if r.Name().IsTag() {
 				hash := r.Hash().String()
 				// Check if it's an annotated tag

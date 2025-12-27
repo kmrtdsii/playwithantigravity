@@ -10,7 +10,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"regexp"
 	"strings"
 
@@ -33,17 +32,6 @@ type CloneCommand struct{}
 var SafeRepoNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
 func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
-	// DEBUG: Log to file
-	logFile := "/tmp/gitgym_clone_debug.log"
-	f, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Printf("Clone: Failed to open log file %s: %v", logFile, err)
-	} else {
-		defer f.Close()
-		log.SetOutput(f)
-		log.Printf("----------------------------------------------------------------")
-		log.Printf("Clone: Logging initialized to %s", logFile)
-	}
 	log.Printf("Clone: Starting execution args=%v", args)
 
 	s.Lock()
@@ -175,31 +163,49 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	// Copy References with Mapping (Standard Git Behavior)
 	// refs/heads/* -> refs/remotes/origin/*
 	// refs/tags/*  -> refs/tags/*
-	refs, _ := remoteRepo.References()
-	// Iterate Basic List (from previous block) if not error
-	// Note: ListOptions is not a ref iterator but returns slice.
-	// Wait, the error is at bs.ForEach. bs is storer.ReferenceIter.
-	// My view_file showed: refs, listErr := r.List... (slice).
-	// But earlier code likely uses r.Storer.IterReferences() equivalent?
-	// Ah, view_file showed: refs, listErr := r.List(...).
-	// Let's assume the error log line 150 refers to a different block or I misread.
-	// Line 150 in error log: `bs.ForEach`.
-	// I'll skip branch.go blindly edit without fresh view.
-	// But clone.go 179: refs.ForEach.
-	// I will fix clone.go.
-	_ = refs.ForEach(func(ref *plumbing.Reference) error {
-		name := ref.Name()
-		if name.IsBranch() {
-			// Map refs/heads/foo -> refs/remotes/origin/foo
-			newRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", name.Short()))
-			newRef := plumbing.NewHashReference(newRefName, ref.Hash())
-			_ = localRepo.Storer.SetReference(newRef)
-		} else if name.IsTag() {
-			// Copy tags as is
-			_ = localRepo.Storer.SetReference(ref)
+	refs, errRefs := remoteRepo.References()
+	if errRefs != nil {
+		log.Printf("Clone: Warning - Failed to get references from remote: %v", errRefs)
+	} else {
+		errForEach := refs.ForEach(func(ref *plumbing.Reference) error {
+			name := ref.Name()
+			if name.IsBranch() {
+				// Map refs/heads/foo -> refs/remotes/origin/foo
+				newRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", name.Short()))
+				newRef := plumbing.NewHashReference(newRefName, ref.Hash())
+				if errSet := localRepo.Storer.SetReference(newRef); errSet != nil {
+					log.Printf("Clone: Failed to set ref %s: %v", newRefName, errSet)
+				}
+			} else if name.IsRemote() {
+				// The Shared Remote (bare repo) might have refs stored as refs/remotes/origin/xxx
+				// We want to copy these as-is to our local refs/remotes/origin/xxx
+				// Note: name.Short() for refs/remotes/origin/foo is origin/foo.
+				// We want to ensure we are writing to refs/remotes/origin/...
+
+				// Simplified: Just copy the ref as is.
+				// Validation: Ensure it starts with refs/remotes/origin to match our new Origin?
+				// Actually, if we just copy it, it will work.
+				// Note: Local repo was Init-ed. It has no remotes.
+
+				// We need to be careful not to overwrite if refs/heads/->refs/remotes/ takes precedence.
+				// But typically refs/heads is "more authoritative" for the server's view.
+				// However, here refs/heads is missing 'change-the-title', so we rely on this.
+
+				if errSet := localRepo.Storer.SetReference(ref); errSet != nil {
+					log.Printf("Clone: Failed to set remote ref %s: %v", name, errSet)
+				}
+			} else if name.IsTag() {
+				// Copy tags as is
+				if errSet := localRepo.Storer.SetReference(ref); errSet != nil {
+					log.Printf("Clone: Failed to set tag %s: %v", name, errSet)
+				}
+			}
+			return nil
+		})
+		if errForEach != nil {
+			log.Printf("Clone: Error iterating refs: %v", errForEach)
 		}
-		return nil
-	})
+	}
 
 	// Determine appropriate URL for origin
 	// Use the original URL to prevent exposing internal paths in error messages
@@ -227,7 +233,6 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	// 4. Checkout the default branch (main or master)
 	w, err := localRepo.Worktree()
 	if err == nil {
-		// Try main first, then master
 		// Optimize: Use the remote's HEAD to determine the default branch
 		headRef, err := remoteRepo.Head()
 		targetBranch := plumbing.ReferenceName("refs/heads/main") // Default fallback
