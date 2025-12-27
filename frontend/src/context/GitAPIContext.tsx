@@ -7,7 +7,7 @@ import { useTerminalTranscript, type TranscriptLine } from '../hooks/useTerminal
 interface GitContextType {
     state: GitState;
     sessionId: string;
-    runCommand: (cmd: string, options?: { silent?: boolean }) => Promise<string[]>; // Return output for terminal to display
+    runCommand: (cmd: string, options?: { silent?: boolean; skipRefresh?: boolean }) => Promise<string[]>; // Return output for terminal to display
     // Terminal Recording API
     appendToTranscript: (text: string, hasNewline?: boolean) => void;
     terminalTranscripts: Record<string, TranscriptLine[]>;
@@ -135,7 +135,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, []);
 
     // 3. runCommand: Depends on fetchState, fetchServerState
-    const runCommand = useCallback(async (cmd: string, options?: { silent?: boolean }): Promise<string[]> => {
+    const runCommand = useCallback(async (cmd: string, options?: { silent?: boolean; skipRefresh?: boolean }): Promise<string[]> => {
         if (!sessionId) {
             console.error("No session ID");
             return [];
@@ -185,9 +185,11 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }));
             }
 
-            // Always fetch fresh state after command (using current sessionId)
+            // Always fetch fresh state after command (using current sessionId) UNLESS skipRefresh is true
             // This ensures currentPath and HEAD are updated before prompt is shown
-            await fetchState(sessionId);
+            if (!options?.skipRefresh) {
+                await fetchState(sessionId);
+            }
 
             // NOW increment command count - this triggers prompt rendering with correct state
             // Even silent commands effectively trigger a prompt refresh via 'pathChanged', 
@@ -202,10 +204,12 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }));
 
             // AUTO-REFRESH SERVER STATE
-            if (serverState && serverState.remotes?.length === 0) {
-                await fetchServerState('origin');
-            } else if (serverState) {
-                await fetchServerState('origin'); // Default fallback
+            if (!options?.skipRefresh) {
+                if (serverState && serverState.remotes?.length === 0) {
+                    await fetchServerState('origin');
+                } else if (serverState) {
+                    await fetchServerState('origin'); // Default fallback
+                }
             }
 
             return newLines;
