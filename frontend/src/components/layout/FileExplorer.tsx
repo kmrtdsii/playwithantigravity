@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useGit } from '../../context/GitAPIContext';
-import { GitBranch, Check } from 'lucide-react';
+import { GitBranch, Check, Folder, FileCode } from 'lucide-react';
 import type { SelectedObject } from '../../types/layoutTypes';
 import Modal from '../common/Modal';
 import { Button } from '../common/Button';
@@ -67,6 +67,7 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
     };
 
     const projects = state.projects || [];
+    const files = state.files || [];
 
     return (
         <div className="file-explorer" data-testid="file-explorer" style={{ color: 'var(--text-primary)', fontSize: '13px', fontFamily: 'system-ui, sans-serif', userSelect: 'none', display: 'flex', width: '100%', height: '100%' }}>
@@ -111,11 +112,35 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                                             }}
                                         >
                                             <span className="icon">{isActive ? '📂' : '📦'}</span>
-                                            <span className="name">{project}</span>
+                                            <span className="name" style={{ marginRight: '8px', flex: '0 1 auto' }}>{project}</span>
+
+                                            {/* ACTIVE BRANCH BADGE */}
+                                            {isActive && currentBranch && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    padding: '2px 8px',
+                                                    backgroundColor: 'rgba(74, 222, 128, 0.15)',
+                                                    border: '1px solid rgba(74, 222, 128, 0.3)',
+                                                    borderRadius: '12px',
+                                                    color: 'var(--accent-primary)',
+                                                    fontSize: '10px',
+                                                    fontFamily: 'monospace',
+                                                    whiteSpace: 'nowrap',
+                                                    flexShrink: 0
+                                                }}>
+                                                    <GitBranch size={10} style={{ marginRight: '4px' }} />
+                                                    <span style={{ fontWeight: 600 }}>{currentBranch}</span>
+                                                </div>
+                                            )}
+
+                                            {/* Spacer to push delete button to right */}
+                                            <div style={{ flex: 1 }} />
+
                                             <span
                                                 className="delete-btn"
                                                 onClick={(e) => handleDeleteClick(project, e)}
-                                                style={{ marginLeft: 'auto', cursor: 'pointer', opacity: 0.5 }}
+                                                style={{ marginLeft: '8px', cursor: 'pointer', opacity: 0.5 }}
                                                 title={t('workspace.deleteTitle')}
                                             >
                                                 🗑️
@@ -149,8 +174,11 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                                                                             style={{
                                                                                 padding: '3px 36px',
                                                                                 color: isCurrent ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                                                                                fontWeight: isCurrent ? 600 : 400,
-                                                                                cursor: isCurrent ? 'default' : 'pointer'
+                                                                                fontWeight: isCurrent ? 700 : 400,
+                                                                                backgroundColor: isCurrent ? 'rgba(74, 222, 128, 0.1)' : 'transparent', // var(--accent-primary) with opacity
+                                                                                cursor: isCurrent ? 'default' : 'pointer',
+                                                                                borderRadius: '4px',
+                                                                                margin: '0 4px'
                                                                             }}
                                                                             title={isCurrent ? 'Current branch' : `Checkout ${branch}`}
                                                                         >
@@ -165,6 +193,62 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                                                 )}
                                             </div>
                                         )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* SEPARATOR */}
+            <div style={{ height: '1px', background: 'var(--border-subtle)' }} />
+
+            {/* PANE 2: FILES */}
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                <div className="section-header" style={{
+                    height: 'var(--header-height)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '0 var(--space-3)',
+                    fontSize: 'var(--text-xs)',
+                    fontWeight: 'var(--font-extrabold)',
+                    color: 'var(--text-secondary)',
+                    background: 'var(--bg-secondary)',
+                    borderBottom: '1px solid var(--border-subtle)',
+                    letterSpacing: '0.05em',
+                    flexShrink: 0
+                }}>
+                    FILES
+                </div>
+
+                <div className="tree-content" style={{ flex: 1, overflowY: 'auto' }}>
+                    {files.length === 0 ? (
+                        <div style={{ padding: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                            {t('workspace.noFiles')}
+                        </div>
+                    ) : (
+                        <div>
+                            {files.map(file => {
+                                const isDir = file.endsWith('/');
+                                // Clean name for display (remove trailing slash for dirs)
+                                const displayName = isDir ? file.slice(0, -1) : file;
+
+                                return (
+                                    <div
+                                        key={file}
+                                        className="explorer-row"
+                                        style={{
+                                            padding: '4px 24px', // Matches indented branch padding roughly
+                                        }}
+                                    >
+                                        <span className="icon" style={{ display: 'flex', alignItems: 'center' }}>
+                                            {isDir ?
+                                                <Folder size={14} style={{ color: '#60a5fa' }} /> : // blue-400
+                                                <FileCode size={14} style={{ color: '#fbbf24' }} /> // amber-400 (using FileCode as generic code icon for visual pop)
+                                            }
+                                        </span>
+                                        <span className="name" style={{ fontSize: '12px' }}>{displayName}</span>
                                     </div>
                                 );
                             })}
