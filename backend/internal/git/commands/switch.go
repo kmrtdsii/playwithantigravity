@@ -79,16 +79,13 @@ func (c *SwitchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 func (c *SwitchCommand) Help() string {
 	return `📘 GIT-SWITCH (1)                                       Git Manual
 
- 🚀 NAME
-    git-switch - ブランチを切り替える
+ 💡 DESCRIPTION
+    ・作業するブランチを切り替える
+    ・新しいブランチを作成して、そのまま切り替える（-c）
 
  📋 SYNOPSIS
     git switch <branch>
     git switch -c <new-branch>
-
- 💡 DESCRIPTION
-    ブランチの切り替えに特化したコマンドです。
-    ` + "`" + `git checkout` + "`" + ` の機能のうち、ブランチ操作のみを使いやすく切り出したものです。
 
  ⚙️  COMMON OPTIONS
     -c, --create <new-branch>

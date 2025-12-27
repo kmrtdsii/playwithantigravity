@@ -71,15 +71,12 @@ func (c *CdCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 func (c *CdCommand) Help() string {
 	return `📘 CD (1)                                               Shell Manual
 
- 🚀 NAME
-    cd - カレントディレクトリを変更する（シェルコマンド）
+ 💡 DESCRIPTION
+    ・作業フォルダを移動する
+    （` + "`" + `..` + "`" + ` で一つ上の階層へ移動できます）
 
  📋 SYNOPSIS
     cd <path>
-
- 💡 DESCRIPTION
-    作業ディレクトリを移動します。
-    ` + "`" + `..` + "`" + ` で一つ上の階層へ移動できます。
 
  🛠  EXAMPLES
     1. ディレクトリへ移動

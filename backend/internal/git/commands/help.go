@@ -150,15 +150,13 @@ func (c *HelpCommand) Execute(ctx context.Context, s *git.Session, args []string
 func (c *HelpCommand) Help() string {
 	return `📘 GIT-HELP (1)                                         Git Manual
 
- 🚀 NAME
-    git-help - ヘルプ情報を表示する
+ 💡 DESCRIPTION
+    Gitコマンドの使い方やオプションを確認します。
+    困った時はまずこれを使ってみてください。
+    引数なしで実行すると、利用可能な主要コマンド一覧を表示します。
 
  📋 SYNOPSIS
     git help [-a] [<command>]
-
- 💡 DESCRIPTION
-    コマンドの使い方やオプションを表示します。
-    引数なしで実行すると、利用可能な主要コマンド一覧を表示します。
 
  ⚙️  COMMON OPTIONS
     -a, --all

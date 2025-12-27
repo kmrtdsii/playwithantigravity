@@ -26,14 +26,11 @@ func (c *PwdCommand) Execute(ctx context.Context, s *git.Session, args []string)
 func (c *PwdCommand) Help() string {
 	return `📘 PWD (1)                                              Shell Manual
 
- 🚀 NAME
-    pwd - 現在の作業ディレクトリの場所を表示する（シェルコマンド）
+ 💡 DESCRIPTION
+    ・「今どこにいるか」（現在のフォルダのパス）を表示する
 
  📋 SYNOPSIS
     pwd
-
- 💡 DESCRIPTION
-    現在のディレクトリのフルパスを表示します。
 
  🛠  EXAMPLES
     $ pwd

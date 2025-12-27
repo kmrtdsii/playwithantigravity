@@ -194,15 +194,13 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 func (c *PullCommand) Help() string {
 	return `📘 GIT-PULL (1)                                         Git Manual
 
- 🚀 NAME
-    git-pull - リモートから取得し、統合する
+ 💡 DESCRIPTION
+    ・リモートリポジトリから最新の変更をダウンロードする（fetch）
+    ・ダウンロードした変更を現在のブランチに取り込む（merge）
+    （fetch と merge を一度に行うコマンドです）
 
  📋 SYNOPSIS
     git pull [<remote>] [<branch>]
-
- 💡 DESCRIPTION
-    ` + "`" + `git fetch` + "`" + ` と ` + "`" + `git merge` + "`" + ` を一度に行うコマンドです。
-    リモートの変更を取得し、現在のブランチにマージします。
 `
 }
 

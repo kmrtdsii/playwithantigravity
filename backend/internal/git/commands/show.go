@@ -143,15 +143,12 @@ func (c *ShowCommand) Execute(ctx context.Context, s *git.Session, args []string
 func (c *ShowCommand) Help() string {
 	return `📘 GIT-SHOW (1)                                         Git Manual
 
- 🚀 NAME
-    git-show - さまざまな種類のオブジェクト（主にコミット）を表示する
+ 💡 DESCRIPTION
+    ・特定のコミットの変更内容やメッセージを詳しく表示する
+    ・コミットの内容を詳細に確認する
 
  📋 SYNOPSIS
     git show [<commit>] [--name-status]
-
- 💡 DESCRIPTION
-    指定したコミットの詳細（ログメッセージと変更内容）を表示します。
-    コミットを指定しない場合は HEAD（最新のコミット）を表示します。
 
  ⚙️  COMMON OPTIONS
     --name-status

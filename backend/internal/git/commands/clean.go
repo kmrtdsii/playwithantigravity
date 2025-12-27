@@ -122,18 +122,15 @@ func (c *CleanCommand) Execute(ctx context.Context, s *git.Session, args []strin
 func (c *CleanCommand) Help() string {
 	return `📘 GIT-CLEAN (1)                                        Git Manual
 
- 🚀 NAME
-    git-clean - 追跡されていないファイルをワーキングツリーから削除する
-
- 📋 SYNOPSIS
-    git clean [-n] [-f] [-d]
-
  💡 DESCRIPTION
-    Gitの追跡対象になっていない（untracked）ファイルを削除して、
-    ワーキングツリーを整理します。
+    ・追跡されていないファイル（ゴミファイル）を削除する
+    ・ディレクトリをまとめて整理する
     
     誤って必要なファイルを消さないよう、通常は ` + "`" + `-f` + "`" + ` (force) が必須です。
     まずは ` + "`" + `-n` + "`" + ` (dry-run) で何が消えるか確認することを推奨します。
+
+ 📋 SYNOPSIS
+    git clean [-n] [-f] [-d]
 
  ⚙️  COMMON OPTIONS
     -n, --dry-run

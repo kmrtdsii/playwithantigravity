@@ -20,13 +20,10 @@ func (c *VersionCommand) Execute(ctx context.Context, s *git.Session, args []str
 func (c *VersionCommand) Help() string {
 	return `📘 GIT-VERSION (1)                                      Git Manual
 
- 🚀 NAME
-    git-version - GitGymのバージョン情報を表示する
+ 💡 DESCRIPTION
+    GitGymシミュレータのバージョンを表示します。
 
  📋 SYNOPSIS
     git version
-
- 💡 DESCRIPTION
-    現在のシミュレータのバージョンを表示します。
 `
 }

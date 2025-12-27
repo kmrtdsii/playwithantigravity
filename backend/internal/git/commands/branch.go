@@ -319,18 +319,18 @@ func (c *BranchCommand) moveBranch(repo *gogit.Repository, oldName, newName stri
 func (c *BranchCommand) Help() string {
 	return `📘 GIT-BRANCH (1)                                       Git Manual
 
- 🚀 NAME
-    git-branch - ブランチのリスト表示、作成、削除
+ 💡 DESCRIPTION
+    ブランチ（作業の分岐）に関する以下の操作を行います：
+    ・ブランチの一覧を表示する（引数なし）
+    ・新しいブランチを作成する
+    ・ブランチ名を変更する（-m）
+    ・不要なブランチを削除する（-d）
 
  📋 SYNOPSIS
     git branch [--list] [-a] [-r]
     git branch [-f] <branchname> [<start-point>]
     git branch -d|-D <branchname>
     git branch -m <old> <new>
-
- 💡 DESCRIPTION
-    ブランチを管理します。
-    引数なしで実行すると、既存のブランチをリスト表示します（現在のブランチには * が付きます）。
 
  ⚙️  COMMON OPTIONS
     -a, --all

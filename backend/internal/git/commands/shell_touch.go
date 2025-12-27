@@ -72,15 +72,12 @@ func (c *TouchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 func (c *TouchCommand) Help() string {
 	return `📘 TOUCH (1)                                            Shell Manual
 
- 🚀 NAME
-    touch - ファイルのタイムスタンプ更新 / 新規作成（シェルコマンド）
+ 💡 DESCRIPTION
+    ・空のファイルを新規作成する
+    ・ファイルの最終更新日時を更新する
 
  📋 SYNOPSIS
     touch <file>...
-
- 💡 DESCRIPTION
-    ファイルが存在する場合はタイムスタンプを更新し、
-    存在しない場合は空のファイルを作成します。
 
  🛠  EXAMPLES
     1. 新しいファイルを作成

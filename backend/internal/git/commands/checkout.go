@@ -271,18 +271,20 @@ func (c *CheckoutCommand) checkoutRefOrPath(repo *gogit.Repository, w *gogit.Wor
 func (c *CheckoutCommand) Help() string {
 	return `📘 GIT-CHECKOUT (1)                                     Git Manual
 
- 🚀 NAME
-    git-checkout - ブランチの切り替えや、ファイルの復元
+ 💡 DESCRIPTION
+    HEAD（今作業しているブランチやコミット）を移動します。
+    それに合わせて、手元のファイル（ワーキングツリー）の内容も更新されます。
+    
+    主な用途：
+    ・別のブランチに切り替える
+    ・過去のバージョンに移動して確認する
+    
+    ※ 現在は ` + "`" + `git switch` + "`" + `（切り替え）や ` + "`" + `git restore` + "`" + `（復元）も推奨されています。
 
  📋 SYNOPSIS
     git checkout <branch>
     git checkout -b <new_branch>
     git checkout <commit>
-
- 💡 DESCRIPTION
-    ワーキングツリー内のファイルを更新して、指定したバージョンの状態にします。
-    主にブランチの切り替えに使用しますが、` + "`" + `-b` + "`" + ` で作成しながら切り替えたり、
-    コミットハッシュを指定して過去の状態を確認（Detached HEAD）したりできます。
 
  ⚙️  COMMON OPTIONS
     -b <new_branch>

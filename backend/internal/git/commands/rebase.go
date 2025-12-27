@@ -285,18 +285,16 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 func (c *RebaseCommand) Help() string {
 	return `📘 GIT-REBASE (1)                                       Git Manual
 
- 🚀 NAME
-    git-rebase - コミットを別のベースの上に再適用する
+ 💡 DESCRIPTION
+    ・ブランチの派生元（親コミット）を付け替える
+    ・コミットの履歴を整形して、一直線にする
+    （歴史を書き換えるため、共有されているブランチでの使用は注意が必要です）
+    
+    ⚠️ 注意: 既に公開（プッシュ）したコミットをリベースすることは推奨されません。
 
  📋 SYNOPSIS
     git rebase [--onto <newbase>] <upstream> [<branch>]
     git rebase --root
-
- 💡 DESCRIPTION
-    ブランチの履歴を書き換えて、別の地点から派生したかのように見せかけます。
-    履歴を一直線に綺麗に保つために使われます。
-    
-    ⚠️ 注意: 既に公開（プッシュ）したコミットをリベースすることは推奨されません。
 
  ⚙️  COMMON OPTIONS
     --onto <newbase>

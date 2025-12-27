@@ -237,16 +237,14 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 func (c *PushCommand) Help() string {
 	return `📘 GIT-PUSH (1)                                         Git Manual
 
- 🚀 NAME
-    git-push - リモート参照と関連オブジェクトを更新する
+ 💡 DESCRIPTION
+    ・自分のコミットをリモートリポジトリにアップロードする
+    ・ローカルのブランチをリモートに公開する
+    
+    ※ GitGymではシミュレーションであり、実際のネットワーク送信は行われません。
 
  📋 SYNOPSIS
     git push [<remote>] [<branch>]
-
- 💡 DESCRIPTION
-    ローカルのコミットをリモートリポジトリに送信（アップロード）します。
-    
-    GitGymではシミュレーションであり、実際のネットワーク送信は行われません。
 
  ⚙️  COMMON OPTIONS
     -f, --force

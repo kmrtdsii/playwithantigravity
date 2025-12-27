@@ -73,14 +73,12 @@ func (c *LogCommand) Execute(ctx context.Context, s *git.Session, args []string)
 func (c *LogCommand) Help() string {
 	return `📘 GIT-LOG (1)                                          Git Manual
 
- 🚀 NAME
-    git-log - コミットログを表示する
+ 💡 DESCRIPTION
+    ・これまでのコミット履歴（いつ、誰が、何をしたか）を表示する
+    ・プロジェクトの歴史を遡って確認する
 
  📋 SYNOPSIS
     git log [--oneline]
-
- 💡 DESCRIPTION
-    コミットの履歴を表示します。各コミットのハッシュ、作者、日付、メッセージが確認できます。
 
  ⚙️  COMMON OPTIONS
     --oneline

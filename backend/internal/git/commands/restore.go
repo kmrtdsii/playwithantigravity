@@ -191,16 +191,14 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 func (c *RestoreCommand) Help() string {
 	return `📘 GIT-RESTORE (1)                                      Git Manual
 
- 🚀 NAME
-    git-restore - ワーキングツリーやインデックスのファイルを復元する
+ 💡 DESCRIPTION
+    ・ファイルの変更を取り消して、以前の状態に戻す
+    ・ステージングした変更を取り消す（--staged）
+    オプションなしの場合は「インデックスの内容」でワーキングツリーを上書きします（変更の破棄）。
+    ` + "`--staged`" + ` を付けると「HEADの内容」でインデックスを上書きします（ステージングの取り消し）。
 
  📋 SYNOPSIS
     git restore [<options>] <pathspec>...
-
- 💡 DESCRIPTION
-    ファイルを以前の状態に戻します。
-    オプションなしの場合は「インデックスの内容」でワーキングツリーを上書きします（変更の破棄）。
-    ` + "`--staged`" + ` を付けると「HEADの内容」でインデックスを上書きします（ステージングの取り消し）。
 
  ⚙️  COMMON OPTIONS
     --staged

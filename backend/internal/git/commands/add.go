@@ -91,15 +91,12 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 func (c *AddCommand) Help() string {
 	return `📘 GIT-ADD (1)                                          Git Manual
 
- 🚀 NAME
-    git-add - ファイルの内容をインデックス（ステージングエリア）に追加する
+ 💡 DESCRIPTION
+    ・変更したファイルをステージングエリア（コミットする準備場所）に追加する
+    ・新規作成したファイルをGitの管理対象にする
 
  📋 SYNOPSIS
     git add [<options>] [--] <pathspec>...
-
- 💡 DESCRIPTION
-    作業ディレクトリ内の現在のコンテンツを使用してインデックスを更新し、
-    次回のコミットに向けて変更を準備（ステージング）します。
 
  ⚙️  COMMON OPTIONS
     .

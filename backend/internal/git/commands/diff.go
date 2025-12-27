@@ -85,17 +85,15 @@ func (c *DiffCommand) Execute(ctx context.Context, s *git.Session, args []string
 func (c *DiffCommand) Help() string {
 	return `📘 GIT-DIFF (1)                                         Git Manual
 
- 🚀 NAME
-    git-diff - コミット間やツリー間の変更を表示する
-
- 📋 SYNOPSIS
-    git diff <commit1> <commit2>
-
  💡 DESCRIPTION
-    2つのコミット（または参照）間の差分を表示します。
+    ・2つのコミットを比較して、変更内容（差分）を表示する
+    ・ファイルの中身が具体的にどう変わったかを確認する
     
     ⚠️ 現在のバージョンでは、ワーキングツリーとインデックスの差分（引数なしの diff）はサポートされていません。
     2つのコミットを指定して比較してください。
+
+ 📋 SYNOPSIS
+    git diff <commit1> <commit2>
 
  🛠  EXAMPLES
     1. 2つのコミットを比較

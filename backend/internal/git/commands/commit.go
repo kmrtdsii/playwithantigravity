@@ -110,17 +110,14 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 func (c *CommitCommand) Help() string {
 	return `📘 GIT-COMMIT (1)                                       Git Manual
 
- 🚀 NAME
-    git-commit - 変更をリポジトリに記録する
+ 💡 DESCRIPTION
+    ・ステージングエリアにある変更を記録する（セーブする）
+    ・変更内容にメッセージを付けて保存する
 
  📋 SYNOPSIS
     git commit -m <msg>
     git commit --amend
     git commit --allow-empty
-
- 💡 DESCRIPTION
-    インデックス（ステージングエリア）に追加された変更を記録し、
-    新しいコミットオブジェクトを作成します。
 
  ⚙️  COMMON OPTIONS
     -m <msg>

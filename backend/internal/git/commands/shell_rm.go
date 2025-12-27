@@ -100,18 +100,15 @@ func (c *RmCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 func (c *RmCommand) Help() string {
 	return `📘 RM (1)                                               Shell Manual
 
- 🚀 NAME
-    rm - ファイルやディレクトリを削除する（シェルコマンド）
-
- 📋 SYNOPSIS
-    rm [-rf] <path>
-
  💡 DESCRIPTION
-    指定されたファイルやディレクトリをファイルシステムから削除します。
+    ・ファイルやフォルダを削除する（復元できません）
     
     ⚠️ 注意: これは ` + "`git rm`" + ` ではなく、シェルの ` + "`rm`" + ` コマンド相当です。
     インデックス（ステージングエリア）からの削除は行われません。
     追跡対象のファイルを削除した場合は、その後 ` + "`git add`" + ` で削除を記録する必要があります。
+
+ 📋 SYNOPSIS
+    rm [-rf] <path>
 
  ⚙️  COMMON OPTIONS
     (暗黙的) -rf

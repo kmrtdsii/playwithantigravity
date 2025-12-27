@@ -46,18 +46,13 @@ func (c *StatusCommand) Execute(ctx context.Context, s *git.Session, args []stri
 func (c *StatusCommand) Help() string {
 	return `📘 GIT-STATUS (1)                                       Git Manual
 
- 🚀 NAME
-    git-status - ワーキングツリーの状態を表示する
+ 💡 DESCRIPTION
+    ・「どのファイルが変更されたか」を確認する
+    ・「どのファイルがコミット準備できているか」を確認する
+    ・現在のブランチや状況を確認する
 
  📋 SYNOPSIS
     git status
-
- 💡 DESCRIPTION
-    インデックスファイルと現在のHEADコミットの間、
-    およびワーキングツリーとインデックスファイルの間の違いを表示します。
-    
-    これにより、次にコミットされるもの（ステージング済み）、
-    コミットされないもの（未ステージ）、追跡されていないファイルを確認できます。
 
  🛠  EXAMPLES
     1. 現状を確認する

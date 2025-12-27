@@ -204,16 +204,14 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 func (c *MergeCommand) Help() string {
 	return `📘 GIT-MERGE (1)                                        Git Manual
 
- 🚀 NAME
-    git-merge - 2つ以上の開発履歴を結合する
+ 💡 DESCRIPTION
+    ・別のブランチの変更を、現在のブランチに取り込む
+    ・2つの異なる開発履歴を1つに統合する
+    通常は「マージコミット」が自動的に作成されます。
 
  📋 SYNOPSIS
     git merge <branch>...
     git merge --squash <branch>
-
- 💡 DESCRIPTION
-    指定したブランチの変更を現在のブランチに取り込み（統合）します。
-    通常は「マージコミット」が自動的に作成されます。
 
  ⚙️  COMMON OPTIONS
     --squash

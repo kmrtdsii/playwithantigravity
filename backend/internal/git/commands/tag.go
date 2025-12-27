@@ -103,15 +103,15 @@ func (c *TagCommand) Execute(ctx context.Context, s *git.Session, args []string)
 func (c *TagCommand) Help() string {
 	return `📘 GIT-TAG (1)                                          Git Manual
 
- 🚀 NAME
-    git-tag - タグ（特定のポイントへの参照）を作成・一覧表示・削除する
+ 💡 DESCRIPTION
+    タグ（コミットにつける名前・目印）に関する以下の操作を行います：
+    ・タグの一覧を表示する（引数なし）
+    ・新しいタグを作成する
+    ・不要なタグを削除する（-d）
 
  📋 SYNOPSIS
     git tag [-a] [-m <msg>] <tagname> [<commit>]
     git tag -d <tagname>
-
- 💡 DESCRIPTION
-    リリースポイントなど、歴史上の特定の瞬間に名前（タグ）を付けます。
 
  ⚙️  COMMON OPTIONS
     -a

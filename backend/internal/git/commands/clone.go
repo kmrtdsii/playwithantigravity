@@ -280,14 +280,11 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 func (c *CloneCommand) Help() string {
 	return `📘 GIT-CLONE (1)                                        Git Manual
 
- 🚀 NAME
-    git-clone - リポジトリを新しいディレクトリにクローンする
-
- 📋 SYNOPSIS
-    git clone <url>
-
  💡 DESCRIPTION
     リモートリポジトリを複製して、手元にローカルリポジトリを作成します。
     GitGymでは事前定義されたリポジトリURLのみサポートしています。
+
+ 📋 SYNOPSIS
+    git clone <url>
 `
 }
