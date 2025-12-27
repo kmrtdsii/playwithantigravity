@@ -130,17 +130,12 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 
 	} else {
 		// restore (worktree): Discard changes in worktree (restore from Index)
-		// Use w.Checkout to restore files from Index if possible, else manual
 
-		// Try standard Checkout first if supported (it writes to worktree from index)
-		// Usually checkout with options.Files works for restoring from index.
-		// If Hash is empty, it uses Index.
-		// We must do it manually for specific files because w.Checkout(Force:true)
-		// without a 'Files' filter would overwrite the entire worktree.
-
-		// If we can't use Checkout with Files, we must do it manually for specific files.
-		// w.Checkout without Files checks out everything! That is bad if we only want one file.
-		// So we MUST implement manual restore.
+		// We need the Worktree to access the correct Filesystem
+		w, err := repo.Worktree()
+		if err != nil {
+			return "", err
+		}
 
 		idx, err := repo.Storer.Index()
 		if err != nil {
@@ -148,6 +143,12 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 		}
 
 		for _, file := range files {
+			// Resolve file path logic could be added here for subdirs,
+			// but for now ensuring we strictly match the Index path is key.
+			// Git allows "git restore ." or paths.
+			// Currently we assume 'file' is the repo-relative path (user at root).
+			// Ideally we resolve s.CurrentDir + file -> path relative to Repo Root.
+
 			// Find entry in index
 			var entry *index.Entry
 			for _, e := range idx.Entries {
@@ -158,7 +159,7 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 			}
 
 			if entry == nil {
-				continue
+				return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", file)
 			}
 
 			// Read blob from Object Storage
@@ -172,8 +173,9 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 			}
 			defer reader.Close()
 
-			// Write to Worktree
-			f, err := s.Filesystem.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+			// Write to Worktree using w.Filesystem (which is rooted at repo root)
+			// instead of s.Filesystem (which is rooted at global root)
+			f, err := w.Filesystem.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 			if err != nil {
 				return "", err
 			}
@@ -192,10 +194,10 @@ func (c *RestoreCommand) Help() string {
 	return `📘 GIT-RESTORE (1)                                      Git Manual
 
  💡 DESCRIPTION
-    ・ファイルの変更を取り消して、以前の状態に戻す
+    ・ファイルの変更を破棄して、元の状態に戻す
     ・ステージングした変更を取り消す（--staged）
-    オプションなしの場合は「インデックスの内容」でワーキングツリーを上書きします（変更の破棄）。
-    ` + "`--staged`" + ` を付けると「HEADの内容」でインデックスを上書きします（ステージングの取り消し）。
+    
+    「編集をやり直したい」時や「addを取り消したい」時に使います。
 
  📋 SYNOPSIS
     git restore [<options>] <pathspec>...
