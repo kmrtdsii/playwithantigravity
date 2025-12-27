@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
@@ -15,24 +16,40 @@ func init() {
 
 type DiffCommand struct{}
 
+type DiffOptions struct {
+	Cached bool
+	Ref1   string
+	Ref2   string
+}
+
 func (c *DiffCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
+
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
+	}
 
 	repo := s.GetRepo()
 	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	// Parse flags
+	return c.executeDiff(s, repo, opts)
+}
+
+func (c *DiffCommand) parseArgs(args []string) (*DiffOptions, error) {
+	opts := &DiffOptions{}
 	var refs []string
 
 	cmdArgs := args[1:]
-	for i := 0; i < len(cmdArgs); i++ {
-		arg := cmdArgs[i]
+	for _, arg := range cmdArgs {
 		switch arg {
+		case "--cached", "--staged":
+			opts.Cached = true
 		case "-h", "--help":
-			return c.Help(), nil
+			return nil, fmt.Errorf("help requested")
 		default:
 			if !strings.HasPrefix(arg, "-") {
 				refs = append(refs, arg)
@@ -40,18 +57,44 @@ func (c *DiffCommand) Execute(ctx context.Context, s *git.Session, args []string
 		}
 	}
 
-	if len(refs) < 2 {
-		return "usage: git diff <ref1> <ref2>\n(Worktree diff not yet supported)", nil
+	if len(refs) > 0 {
+		opts.Ref1 = refs[0]
 	}
-	ref1 := refs[0]
-	ref2 := refs[1]
+	if len(refs) > 1 {
+		opts.Ref2 = refs[1]
+	}
 
+	// Validation
+	if opts.Ref1 == "" {
+		// git diff (no args) -> worktree vs index (not supported fully in simulation yet?)
+		// The original code returned usage message.
+		// Standard git diff (no args) is Worktree vs Index.
+		// git diff --cached is Index vs HEAD.
+		// git diff A B is A vs B.
+		if opts.Cached {
+			// diff --cached (Index vs HEAD)
+			// support later?
+			return nil, fmt.Errorf("diff --cached not yet supported in simulation (requires Index inspection)")
+		}
+		return nil, fmt.Errorf("usage: git diff <ref1> <ref2>\n(Worktree diff not yet supported)")
+	}
+
+	if opts.Ref2 == "" {
+		// diff A -> A vs Worktree? Or A vs HEAD?
+		// git diff <commit> -> <commit> vs Worktree
+		return nil, fmt.Errorf("usage: git diff <ref1> <ref2>\n(Single ref diff not yet supported)")
+	}
+
+	return opts, nil
+}
+
+func (c *DiffCommand) executeDiff(s *git.Session, repo *gogit.Repository, opts *DiffOptions) (string, error) {
 	// Resolve refs
-	h1, err := repo.ResolveRevision(plumbing.Revision(ref1))
+	h1, err := repo.ResolveRevision(plumbing.Revision(opts.Ref1))
 	if err != nil {
 		return "", err
 	}
-	h2, err := repo.ResolveRevision(plumbing.Revision(ref2))
+	h2, err := repo.ResolveRevision(plumbing.Revision(opts.Ref2))
 	if err != nil {
 		return "", err
 	}

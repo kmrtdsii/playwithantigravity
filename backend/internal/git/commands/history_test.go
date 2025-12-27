@@ -15,8 +15,9 @@ func TestLogCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-log")
 
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	// Init manually
+	s.InitRepo("testrepo")
+	s.CurrentDir = "/testrepo"
 	repo := s.GetRepo()
 	w, _ := repo.Worktree()
 
@@ -63,8 +64,9 @@ func TestReflogCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-reflog")
 
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	// Init manually
+	s.InitRepo("testrepo")
+	s.CurrentDir = "/testrepo"
 
 	s.Reflog = append(s.Reflog, git.ReflogEntry{Hash: "abc1234", Message: "checkout: moving", Timestamp: time.Now()})
 
@@ -82,8 +84,9 @@ func TestDiffCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-diff")
 
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	// Init manually
+	s.InitRepo("testrepo")
+	s.CurrentDir = "/testrepo"
 	repo := s.GetRepo()
 	w, _ := repo.Worktree()
 

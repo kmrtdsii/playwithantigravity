@@ -16,64 +16,82 @@ func init() {
 // SwitchCommand is similar but strictly for branches
 type SwitchCommand struct{}
 
+type SwitchOptions struct {
+	CreateBranch string
+	TargetBranch string
+}
+
 func (c *SwitchCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
+
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
+	}
 
 	repo := s.GetRepo()
 	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
-	w, _ := repo.Worktree()
-
-	if len(args) < 2 {
-		return "", fmt.Errorf("usage: git switch [-c] <branch>")
+	w, err := repo.Worktree()
+	if err != nil {
+		return "", err
 	}
 
-	// Naive parsing for switch for now
-	var createBranch string
-	target := ""
+	return c.executeSwitch(s, w, opts)
+}
 
-	for i := 1; i < len(args); i++ {
-		arg := args[i]
+func (c *SwitchCommand) parseArgs(args []string) (*SwitchOptions, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("usage: git switch [-c] <branch>")
+	}
+	opts := &SwitchOptions{}
+	cmdArgs := args[1:]
+
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
 		switch arg {
 		case "-c", "--create":
-			if i+1 < len(args) {
-				createBranch = args[i+1]
+			if i+1 < len(cmdArgs) {
+				opts.CreateBranch = cmdArgs[i+1]
 				i++
 			}
-		case "-h":
-			return c.Help(), nil
+		case "-h", "--help":
+			return nil, fmt.Errorf("help requested")
 		default:
-			target = arg
+			opts.TargetBranch = arg
 		}
 	}
+	return opts, nil
+}
 
-	if createBranch != "" {
+func (c *SwitchCommand) executeSwitch(s *git.Session, w *gogit.Worktree, opts *SwitchOptions) (string, error) {
+	if opts.CreateBranch != "" {
 		// logic for create
-		opts := &gogit.CheckoutOptions{
+		checkoutOpts := &gogit.CheckoutOptions{
 			Create: true,
-			Branch: plumbing.ReferenceName("refs/heads/" + createBranch),
+			Branch: plumbing.ReferenceName("refs/heads/" + opts.CreateBranch),
 		}
-		if err := w.Checkout(opts); err != nil {
+		if err := w.Checkout(checkoutOpts); err != nil {
 			return "", err
 		}
-		s.RecordReflog(fmt.Sprintf("switch: moving to %s", createBranch))
-		return fmt.Sprintf("Switched to a new branch '%s'", createBranch), nil
+		s.RecordReflog(fmt.Sprintf("switch: moving to %s", opts.CreateBranch))
+		return fmt.Sprintf("Switched to a new branch '%s'", opts.CreateBranch), nil
 	}
 
-	if target == "" {
+	if opts.TargetBranch == "" {
 		return "", fmt.Errorf("missing branch name")
 	}
 
 	err := w.Checkout(&gogit.CheckoutOptions{
-		Branch: plumbing.ReferenceName("refs/heads/" + target),
+		Branch: plumbing.ReferenceName("refs/heads/" + opts.TargetBranch),
 	})
 	if err != nil {
 		return "", err
 	}
-	s.RecordReflog(fmt.Sprintf("switch: moving to %s", target))
-	return fmt.Sprintf("Switched to branch '%s'", target), nil
+	s.RecordReflog(fmt.Sprintf("switch: moving to %s", opts.TargetBranch))
+	return fmt.Sprintf("Switched to branch '%s'", opts.TargetBranch), nil
 }
 
 func (c *SwitchCommand) Help() string {
