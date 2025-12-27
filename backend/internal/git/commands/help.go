@@ -15,6 +15,9 @@ func init() {
 
 type HelpCommand struct{}
 
+// Ensure HelpCommand implements git.Command
+var _ git.Command = (*HelpCommand)(nil)
+
 // Command metadata for help display
 type cmdMeta struct {
 	Category string

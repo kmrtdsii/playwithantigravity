@@ -124,6 +124,9 @@ func init() {
 
 type CleanCommand struct{}
 
+// Ensure CleanCommand implements git.Command
+var _ git.Command = (*CleanCommand)(nil)
+
 type CleanOptions struct {
 	DryRun bool
 	Force  bool

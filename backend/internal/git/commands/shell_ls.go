@@ -19,6 +19,9 @@ func init() {
 
 type LsCommand struct{}
 
+// Ensure LsCommand implements git.Command
+var _ git.Command = (*LsCommand)(nil)
+
 type LsOptions struct {
 	Path string
 }

@@ -22,6 +22,9 @@ func init() {
 
 type PullCommand struct{}
 
+// Ensure PullCommand implements git.Command
+var _ git.Command = (*PullCommand)(nil)
+
 type PullOptions struct {
 	DryRun bool
 	Remote string

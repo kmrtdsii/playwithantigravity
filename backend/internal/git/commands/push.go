@@ -26,6 +26,9 @@ func init() {
 
 type PushCommand struct{}
 
+// Ensure PushCommand implements git.Command
+var _ git.Command = (*PushCommand)(nil)
+
 type PushOptions struct {
 	Remote  string
 	Refspec string

@@ -16,6 +16,9 @@ func init() {
 // SwitchCommand is similar but strictly for branches
 type SwitchCommand struct{}
 
+// Ensure SwitchCommand implements git.Command
+var _ git.Command = (*SwitchCommand)(nil)
+
 type SwitchOptions struct {
 	CreateBranch string
 	TargetBranch string

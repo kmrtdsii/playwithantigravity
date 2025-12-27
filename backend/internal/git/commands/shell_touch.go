@@ -21,6 +21,9 @@ func init() {
 
 type TouchCommand struct{}
 
+// Ensure TouchCommand implements git.Command
+var _ git.Command = (*TouchCommand)(nil)
+
 type TouchOptions struct {
 	Files []string
 }

@@ -20,6 +20,9 @@ func init() {
 
 type CommitCommand struct{}
 
+// Ensure CommitCommand implements git.Command
+var _ git.Command = (*CommitCommand)(nil)
+
 type CommitOptions struct {
 	Message    string
 	Amend      bool

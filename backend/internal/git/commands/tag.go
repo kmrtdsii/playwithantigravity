@@ -18,6 +18,9 @@ func init() {
 
 type TagCommand struct{}
 
+// Ensure TagCommand implements git.Command
+var _ git.Command = (*TagCommand)(nil)
+
 type TagOptions struct {
 	List      bool
 	Delete    bool

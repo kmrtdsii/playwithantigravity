@@ -21,6 +21,9 @@ func init() {
 
 type FetchCommand struct{}
 
+// Ensure FetchCommand implements git.Command
+var _ git.Command = (*FetchCommand)(nil)
+
 type FetchOptions struct {
 	DryRun   bool
 	FetchAll bool

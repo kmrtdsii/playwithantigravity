@@ -18,6 +18,9 @@ func init() {
 
 type CherryPickCommand struct{}
 
+// Ensure CherryPickCommand implements git.Command
+var _ git.Command = (*CherryPickCommand)(nil)
+
 type CherryPickOptions struct {
 	Args []string
 }

@@ -24,6 +24,9 @@ func init() {
 
 type MergeCommand struct{}
 
+// Ensure MergeCommand implements git.Command
+var _ git.Command = (*MergeCommand)(nil)
+
 type MergeOptions struct {
 	Target string
 	Squash bool

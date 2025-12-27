@@ -20,6 +20,9 @@ func init() {
 
 type CdCommand struct{}
 
+// Ensure CdCommand implements git.Command
+var _ git.Command = (*CdCommand)(nil)
+
 func (c *CdCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()

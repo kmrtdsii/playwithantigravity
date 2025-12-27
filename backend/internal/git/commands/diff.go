@@ -16,6 +16,9 @@ func init() {
 
 type DiffCommand struct{}
 
+// Ensure DiffCommand implements git.Command
+var _ git.Command = (*DiffCommand)(nil)
+
 type DiffOptions struct {
 	Cached bool
 	Ref1   string

@@ -18,6 +18,9 @@ func init() {
 
 type RebaseCommand struct{}
 
+// Ensure RebaseCommand implements git.Command
+var _ git.Command = (*RebaseCommand)(nil)
+
 type RebaseOptions struct {
 	Upstream string
 	Branch   string

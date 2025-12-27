@@ -19,6 +19,9 @@ func init() {
 
 type AddCommand struct{}
 
+// Ensure AddCommand implements git.Command
+var _ git.Command = (*AddCommand)(nil)
+
 type AddOptions struct {
 	All       bool
 	Pathspecs []string

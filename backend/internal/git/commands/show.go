@@ -18,6 +18,9 @@ func init() {
 
 type ShowCommand struct{}
 
+// Ensure ShowCommand implements git.Command
+var _ git.Command = (*ShowCommand)(nil)
+
 type ShowOptions struct {
 	NameStatus bool
 	CommitID   string

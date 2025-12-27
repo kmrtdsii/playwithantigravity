@@ -12,6 +12,9 @@ func init() {
 
 type PwdCommand struct{}
 
+// Ensure PwdCommand implements git.Command
+var _ git.Command = (*PwdCommand)(nil)
+
 func (c *PwdCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.RLock()
 	defer s.RUnlock()

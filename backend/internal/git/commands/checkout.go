@@ -16,6 +16,9 @@ func init() {
 
 type CheckoutCommand struct{}
 
+// Ensure CheckoutCommand implements git.Command
+var _ git.Command = (*CheckoutCommand)(nil)
+
 type CheckoutOptions struct {
 	NewBranch      string
 	ForceNewBranch string

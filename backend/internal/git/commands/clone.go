@@ -28,6 +28,9 @@ func init() {
 
 type CloneCommand struct{}
 
+// Ensure CloneCommand implements git.Command
+var _ git.Command = (*CloneCommand)(nil)
+
 // SafeRepoNameRegex enforces alphanumeric names to prevent traversal
 var SafeRepoNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 

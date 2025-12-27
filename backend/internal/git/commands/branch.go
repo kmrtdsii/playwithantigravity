@@ -16,6 +16,9 @@ func init() {
 
 type BranchCommand struct{}
 
+// Ensure BranchCommand implements git.Command
+var _ git.Command = (*BranchCommand)(nil)
+
 type BranchOptions struct {
 	Delete      bool
 	DeleteForce bool

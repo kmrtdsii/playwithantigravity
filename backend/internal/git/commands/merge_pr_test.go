@@ -2,8 +2,8 @@ package commands
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -69,7 +69,7 @@ func TestMergePRCommand(t *testing.T) {
 	cmd := &MergePRCommand{}
 	ctx := context.Background()
 
-	output, err := cmd.Execute(ctx, session, []string{"merge-pr", fmt.Sprintf("%d", pr.ID), "origin"})
+	output, err := cmd.Execute(ctx, session, []string{"merge-pr", strconv.Itoa(pr.ID), "origin"})
 	if err != nil {
 		t.Fatalf("MergePR failed: %v", err)
 	}

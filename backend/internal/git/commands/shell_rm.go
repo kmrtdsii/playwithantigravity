@@ -19,6 +19,9 @@ func init() {
 
 type RmCommand struct{}
 
+// Ensure RmCommand implements git.Command
+var _ git.Command = (*RmCommand)(nil)
+
 type RmOptions struct {
 	Recursive bool
 	Force     bool

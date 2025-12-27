@@ -12,6 +12,9 @@ func init() {
 
 type VersionCommand struct{}
 
+// Ensure VersionCommand implements git.Command
+var _ git.Command = (*VersionCommand)(nil)
+
 func (c *VersionCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	// Imitate git version output, explicitly identifying as GitGym
 	return "git version 2.47.1 (GitGym)", nil

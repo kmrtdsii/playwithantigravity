@@ -13,6 +13,9 @@ func init() {
 
 type InitCommand struct{}
 
+// Ensure InitCommand implements git.Command
+var _ git.Command = (*InitCommand)(nil)
+
 func (c *InitCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	return "", fmt.Errorf("git init is not supported in GitGym. Please use 'git clone' to start a session.")
 }

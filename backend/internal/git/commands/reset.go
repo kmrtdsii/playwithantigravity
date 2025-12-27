@@ -15,6 +15,9 @@ func init() {
 
 type ResetCommand struct{}
 
+// Ensure ResetCommand implements git.Command
+var _ git.Command = (*ResetCommand)(nil)
+
 type ResetOptions struct {
 	Mode   gogit.ResetMode
 	Target string

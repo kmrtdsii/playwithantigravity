@@ -16,6 +16,9 @@ func init() {
 
 type RemoteCommand struct{}
 
+// Ensure RemoteCommand implements git.Command
+var _ git.Command = (*RemoteCommand)(nil)
+
 type RemoteOptions struct {
 	SubCmd  string
 	Name    string

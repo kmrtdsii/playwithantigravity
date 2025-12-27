@@ -17,6 +17,9 @@ func init() {
 
 type LogCommand struct{}
 
+// Ensure LogCommand implements git.Command
+var _ git.Command = (*LogCommand)(nil)
+
 type LogOptions struct {
 	Oneline bool
 	Args    []string // Revisions or paths

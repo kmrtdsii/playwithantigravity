@@ -14,6 +14,9 @@ func init() {
 
 type StatusCommand struct{}
 
+// Ensure StatusCommand implements git.Command
+var _ git.Command = (*StatusCommand)(nil)
+
 type StatusOptions struct {
 	Short bool
 }

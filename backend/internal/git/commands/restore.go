@@ -18,6 +18,9 @@ func init() {
 
 type RestoreCommand struct{}
 
+// Ensure RestoreCommand implements git.Command
+var _ git.Command = (*RestoreCommand)(nil)
+
 func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
