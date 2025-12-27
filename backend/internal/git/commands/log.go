@@ -17,31 +17,47 @@ func init() {
 
 type LogCommand struct{}
 
+type LogOptions struct {
+	Oneline bool
+	Args    []string // Revisions or paths
+}
+
 func (c *LogCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
+
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
+	}
 
 	repo := s.GetRepo()
 	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
-	oneline := false
+	return c.executeLog(s, repo, opts)
+}
 
+func (c *LogCommand) parseArgs(args []string) (*LogOptions, error) {
+	opts := &LogOptions{}
 	cmdArgs := args[1:]
-	for i := 0; i < len(cmdArgs); i++ {
-		arg := cmdArgs[i]
+	for _, arg := range cmdArgs {
 		switch arg {
 		case "--oneline":
-			oneline = true
+			opts.Oneline = true
 		case "-h", "--help":
-			return c.Help(), nil
+			return nil, fmt.Errorf("help requested")
 		default:
-			// log supports <revision range>, <path>...
-			// ignore for now or error?
-			// simulated log is simple HEAD traversal
+			opts.Args = append(opts.Args, arg)
 		}
 	}
+	return opts, nil
+}
+
+func (c *LogCommand) executeLog(s *git.Session, repo *gogit.Repository, opts *LogOptions) (string, error) {
+	// TODO: support revision range in opts.Args if needed.
+	// Current simulation uses default HEAD traversal.
 
 	cIter, err := repo.Log(&gogit.LogOptions{All: false}) // HEAD only usually
 	if err != nil {
@@ -50,7 +66,7 @@ func (c *LogCommand) Execute(ctx context.Context, s *git.Session, args []string)
 
 	var sb strings.Builder
 	err = cIter.ForEach(func(c *object.Commit) error {
-		if oneline {
+		if opts.Oneline {
 			// 7-char hash + message
 			sb.WriteString(fmt.Sprintf("%s %s\n", c.Hash.String()[:7], strings.Split(c.Message, "\n")[0]))
 		} else {

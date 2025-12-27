@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/utils/merkletrie"
@@ -17,41 +18,49 @@ func init() {
 
 type ShowCommand struct{}
 
+type ShowOptions struct {
+	NameStatus bool
+	CommitID   string
+}
+
 func (c *ShowCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
+
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
+	}
 
 	repo := s.GetRepo()
 	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	// Basic parsing: git show --name-status <commit>
-	// We ignore --format="" for now or just handle the commit arg.
-	if len(args) < 2 {
-		return "", fmt.Errorf("usage: git show <commit> [--name-status]")
+	return c.executeShow(s, repo, opts)
+}
+
+func (c *ShowCommand) parseArgs(args []string) (*ShowOptions, error) {
+	opts := &ShowOptions{
+		CommitID: "HEAD", // Default
 	}
-
-	// Simple arg parsing
-	var commitID string
-	showNameStatus := false
-
-	for _, arg := range args[1:] {
+	cmdArgs := args[1:]
+	for _, arg := range cmdArgs {
 		if arg == "--name-status" {
-			showNameStatus = true
+			opts.NameStatus = true
 		} else if strings.HasPrefix(arg, "--format=") {
 			// ignore
+		} else if arg == "-h" || arg == "--help" {
+			return nil, fmt.Errorf("help requested")
 		} else if !strings.HasPrefix(arg, "-") {
-			commitID = arg
+			opts.CommitID = arg
 		}
 	}
+	return opts, nil
+}
 
-	if commitID == "" {
-		// Default to HEAD if not provided? git defaults to HEAD.
-		commitID = "HEAD"
-	}
-
-	h, err := repo.ResolveRevision(plumbing.Revision(commitID))
+func (c *ShowCommand) executeShow(s *git.Session, repo *gogit.Repository, opts *ShowOptions) (string, error) {
+	h, err := repo.ResolveRevision(plumbing.Revision(opts.CommitID))
 	if err != nil {
 		return "", err
 	}
@@ -61,13 +70,12 @@ func (c *ShowCommand) Execute(ctx context.Context, s *git.Session, args []string
 		return "", err
 	}
 
-	if !showNameStatus {
-		// Fallback to basic commit info (not implemented strictly, but enough for now)
+	if !opts.NameStatus {
+		// Fallback to basic commit info
 		return commit.String(), nil
 	}
 
 	// Calculate Diff with Parent
-	// If no parent (root), diff with empty tree
 	var parentTree *object.Tree
 	if commit.NumParents() > 0 {
 		parent, err := commit.Parent(0)
@@ -78,11 +86,6 @@ func (c *ShowCommand) Execute(ctx context.Context, s *git.Session, args []string
 		if err != nil {
 			return "", err
 		}
-	} else {
-		// Root commit: Diff against empty tree?
-		// go-git doesn't easily support "empty tree" object without construction?
-		// We can just iterate the current tree and mark all as Added.
-		// For simplicity, let's treat it as empty parent.
 	}
 
 	currentTree, err := commit.Tree()
@@ -94,14 +97,7 @@ func (c *ShowCommand) Execute(ctx context.Context, s *git.Session, args []string
 	if parentTree != nil {
 		changes, err = parentTree.Diff(currentTree)
 	} else {
-		// Root commit diff logic
-		// Just listing all files as Added
-		// go-git Diff might not handle nil parentTree well.
-		// Workaround: custom walker or just accept empty changes for root for now.
-		// Correct way: use object.DiffTree with emtpy tree hash?
-		// Empty tree hash is usually 4b825dc642cb6eb9a060e54bf8d69288fbee4904
-		// But let's verify if Diff handles nil.
-		// It expects *Tree.
+		// Root diff
 		return listRootChanges(currentTree)
 	}
 
@@ -130,7 +126,7 @@ func (c *ShowCommand) Execute(ctx context.Context, s *git.Session, args []string
 			status = "M"
 			path = change.To.Name
 		default:
-			status = "M" // Rename or other?
+			status = "M"
 			path = change.To.Name
 		}
 
