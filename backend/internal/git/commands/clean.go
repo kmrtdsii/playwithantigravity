@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -10,47 +11,9 @@ import (
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
-func init() {
-	git.RegisterCommand("clean", func() git.Command { return &CleanCommand{} })
-}
-
-type CleanCommand struct{}
-
-func (c *CleanCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
-	dryRun := false
-	force := false
-	dir := false
-
-	// Basic flag parsing
-	for _, arg := range args {
-		if arg == "-n" || arg == "--dry-run" {
-			dryRun = true
-		} else if arg == "-f" || arg == "--force" {
-			force = true
-		} else if arg == "-d" {
-			dir = true
-		} else if strings.HasPrefix(arg, "-") && len(arg) > 1 {
-			// Handle combined flags roughly (e.g. -fd)
-			if strings.Contains(arg, "f") {
-				force = true
-			}
-			if strings.Contains(arg, "d") {
-				dir = true
-			}
-			if strings.Contains(arg, "n") {
-				dryRun = true
-			}
-		}
-	}
-
-	// Safety check
-	if !dryRun && !force {
+func (c *CleanCommand) executeClean(s *git.Session, repo *gogit.Repository, opts *CleanOptions) (string, error) {
+	if !opts.Force && !opts.DryRun {
 		return "", fmt.Errorf("fatal: clean.requireForce defaults to true and neither -i, -n, nor -f given; refusing to clean")
-	}
-
-	repo := s.GetRepo()
-	if repo == nil {
-		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
 	w, err := repo.Worktree()
@@ -63,60 +26,168 @@ func (c *CleanCommand) Execute(ctx context.Context, s *git.Session, args []strin
 		return "", err
 	}
 
-	var toClean []string
-	for path, fileStatus := range status {
-		if fileStatus.Worktree == gogit.Untracked {
-			toClean = append(toClean, path)
+	var candidates []string
+	for path, fStatus := range status {
+		if fStatus.Worktree == gogit.Untracked {
+			candidates = append(candidates, path)
 		}
 	}
 
-	// Sort for deterministic output
-	sort.Strings(toClean)
-
-	var output strings.Builder
 	fs := w.Filesystem
+	var toRemoveFiles []string
+	uniqueDirs := make(map[string]bool)
 
-	for _, path := range toClean {
-		// Check if directory
-		fi, err := fs.Stat(path)
-		if err == nil && fi.IsDir() {
-			if !dir {
-				continue // Skip directories if -d is not set
-			}
+	for _, path := range candidates {
+		info, err := fs.Lstat(path)
+		if err != nil {
+			fmt.Printf("DEBUG: Lstat failed for %s: %v\n", path, err)
+			continue
 		}
 
-		if dryRun {
-			output.WriteString(fmt.Sprintf("Would remove %s\n", path))
-		} else {
-			// Remove
-			// Use fs.Remove for files. For directories (if -d), RemoveAll?
-			// go-git's billy filesystem Remove usually handles files. RemoveAll for dirs.
-			// However, standard clean output says "Removing <path>"
+		fmt.Printf("DEBUG: processing %s IsDir=%v Dir=%v\n", path, info.IsDir(), opts.Dir)
 
-			// Actually, fs.Remove might fail on non-empty dirs. w.Filesystem usually supports Remove (files) and Remove (dirs if empty?).
-			// If it's a directory, we should probably recursively remove?
-			// But for now, let's assume simple Remove works or use a helper.
-			var err error
-			if fi.IsDir() {
-				// Use os.RemoveAll equivalent if possible, but we are in billy.Filesystem abstraction.
-				// billy basic interface only has Remove. Some impls have RemoveAll.
-				// Let's try Remove. If it fails (dir not empty), and we are in -d mode...
-				// But wait, if Status returned a directory, it means it's untracked content.
-				// Assuming standard Remove works for files.
-				err = fs.Remove(path)
-			} else {
-				err = fs.Remove(path)
+		if info.IsDir() {
+			if opts.Dir {
+				// If Status returned a directory, we remove it directly
+				// But we also might want to remove its parents?
+				uniqueDirs[path] = true
 			}
-
-			if err != nil {
-				output.WriteString(fmt.Sprintf("failed to remove %s: %v\n", path, err))
-			} else {
-				output.WriteString(fmt.Sprintf("Removing %s\n", path))
+		} else {
+			// File
+			toRemoveFiles = append(toRemoveFiles, path)
+			if opts.Dir {
+				// Collect parent directories
+				dir := filepath.Dir(path)
+				for dir != "." && dir != "/" && dir != "\\" {
+					uniqueDirs[dir] = true
+					dir = filepath.Dir(dir)
+				}
 			}
 		}
 	}
 
-	return strings.TrimSpace(output.String()), nil
+	// Remove files First
+	sort.Strings(toRemoveFiles) // Deterministic order
+
+	var sb strings.Builder
+	for _, path := range toRemoveFiles {
+		prefix := "Removing"
+		if opts.DryRun {
+			prefix = "Would remove"
+		} else {
+			err := fs.Remove(path)
+			if err != nil {
+				return "", fmt.Errorf("failed to remove %s: %v", path, err)
+			}
+		}
+		sb.WriteString(fmt.Sprintf("%s %s\n", prefix, path))
+	}
+
+	// Remove Directories if opts.Dir
+	if opts.Dir {
+		var toRemoveDirs []string
+		for dir := range uniqueDirs {
+			toRemoveDirs = append(toRemoveDirs, dir)
+		}
+		// Sort descending by length to remove children before parents
+		sort.Slice(toRemoveDirs, func(i, j int) bool {
+			return len(toRemoveDirs[i]) > len(toRemoveDirs[j])
+		})
+
+		fmt.Printf("DEBUG: uniqueDirs=%v toRemoveDirs=%v\n", uniqueDirs, toRemoveDirs)
+
+		for _, dir := range toRemoveDirs {
+			// We only remove if empty (implied by fs.Remove on dir)
+			// But we shouldn't fail if not empty (it means it had tracked files or we couldn't remove all children)
+
+			// Check if exists first (might have been removed if nested)
+			_, err := fs.Lstat(dir)
+			if err != nil {
+				continue
+			}
+
+			prefix := "Removing"
+			if opts.DryRun {
+				prefix = "Would remove"
+			} else {
+				err := fs.Remove(dir)
+				if err != nil {
+					// Report error for debugging
+					sb.WriteString(fmt.Sprintf("DEBUG: failed to remove dir %s: %v\n", dir, err))
+					continue
+				}
+			}
+			sb.WriteString(fmt.Sprintf("%s %s\n", prefix, dir))
+		}
+	} else {
+		fmt.Println("DEBUG: opts.Dir is false")
+	}
+
+	return sb.String(), nil
+}
+
+func init() {
+	git.RegisterCommand("clean", func() git.Command { return &CleanCommand{} })
+}
+
+type CleanCommand struct{}
+
+type CleanOptions struct {
+	DryRun bool
+	Force  bool
+	Dir    bool
+	Args   []string
+}
+
+func (c *CleanCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
+	s.Lock()
+	defer s.Unlock()
+
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
+	}
+
+	repo := s.GetRepo()
+	if repo == nil {
+		return "", fmt.Errorf("fatal: not a git repository")
+	}
+
+	return c.executeClean(s, repo, opts)
+}
+
+func (c *CleanCommand) parseArgs(args []string) (*CleanOptions, error) {
+	opts := &CleanOptions{}
+	cmdArgs := args[1:]
+
+	for _, arg := range cmdArgs {
+		if arg == "-n" || arg == "--dry-run" {
+			opts.DryRun = true
+		} else if arg == "-f" || arg == "--force" {
+			opts.Force = true
+		} else if arg == "-d" {
+			opts.Dir = true
+		} else if arg == "-h" || arg == "--help" {
+			return nil, fmt.Errorf("help requested")
+		} else if strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") {
+			// Combined short flags
+			for _, char := range arg[1:] {
+				switch char {
+				case 'n':
+					opts.DryRun = true
+				case 'f':
+					opts.Force = true
+				case 'd':
+					opts.Dir = true
+				default:
+					return nil, fmt.Errorf("unknown flag: -%c", char)
+				}
+			}
+		} else {
+			opts.Args = append(opts.Args, arg)
+		}
+	}
+	return opts, nil
 }
 
 func (c *CleanCommand) Help() string {

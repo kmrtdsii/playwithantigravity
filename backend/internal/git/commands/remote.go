@@ -16,72 +16,71 @@ func init() {
 
 type RemoteCommand struct{}
 
+type RemoteOptions struct {
+	SubCmd  string
+	Name    string
+	URL     string
+	Verbose bool
+}
+
 func (c *RemoteCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
+
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
+	}
 
 	repo := s.GetRepo()
 	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	// Syntax:
-	// git remote [-v]
-	// git remote add <name> <url>
-	// git remote remove <name>
+	return c.executeRemote(s, repo, opts)
+}
 
-	// Syntax:
-	// git remote [-v]
-	// git remote add <name> <url>
-	// git remote remove <name>
-
+func (c *RemoteCommand) parseArgs(args []string) (*RemoteOptions, error) {
+	opts := &RemoteOptions{}
 	cmdArgs := args[1:]
-	var subCmd string
-	verbose := false
 
-	if len(cmdArgs) == 0 {
-		return listRemotes(repo, false)
-	}
-
+	// Pre-scan structure: git remote [-v] [subcmd [args]]
+	var positional []string
 	for _, arg := range cmdArgs {
 		if arg == "-v" || arg == "--verbose" {
-			verbose = true
+			opts.Verbose = true
 		} else if arg == "-h" || arg == "--help" {
-			return c.Help(), nil
-		} else if subCmd == "" {
-			subCmd = arg
+			return nil, fmt.Errorf("help requested")
+		} else if !strings.HasPrefix(arg, "-") {
+			positional = append(positional, arg)
 		}
 	}
 
-	if subCmd == "" {
-		return listRemotes(repo, verbose)
+	if len(positional) > 0 {
+		opts.SubCmd = positional[0]
+	}
+	if len(positional) > 1 {
+		opts.Name = positional[1]
+	}
+	if len(positional) > 2 {
+		opts.URL = positional[2]
 	}
 
-	// Logic dispatch
-	if subCmd == "add" {
-		// Expect: add <name> <url>
-		// We need to find them in cmdArgs from the start or after "add"?
-		// cmdArgs contains ["add", "name", "url"] or similar order?
-		// Let's iterate cmdArgs to find "add" and subsequent args?
-		// Current simple loop found "add" as subCmd.
-		// Let's re-scan positional args from cmdArgs.
-		var pos []string
-		for _, arg := range cmdArgs {
-			if !strings.HasPrefix(arg, "-") {
-				pos = append(pos, arg)
-			}
-		}
+	return opts, nil
+}
 
-		// pos[0] is "add" (likely)
-		if len(pos) < 3 {
+func (c *RemoteCommand) executeRemote(s *git.Session, repo *gogit.Repository, opts *RemoteOptions) (string, error) {
+	if opts.SubCmd == "" {
+		return listRemotes(repo, opts.Verbose)
+	}
+
+	if opts.SubCmd == "add" {
+		if opts.Name == "" || opts.URL == "" {
 			return "", fmt.Errorf("usage: git remote add <name> <url>")
 		}
-		name := pos[1]
-		url := pos[2]
-
 		_, err := repo.CreateRemote(&config.RemoteConfig{
-			Name: name,
-			URLs: []string{url},
+			Name: opts.Name,
+			URLs: []string{opts.URL},
 		})
 		if err != nil {
 			return "", err
@@ -89,26 +88,18 @@ func (c *RemoteCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		return "", nil
 	}
 
-	if subCmd == "remove" || subCmd == "rm" {
-		var pos []string
-		for _, arg := range cmdArgs {
-			if !strings.HasPrefix(arg, "-") {
-				pos = append(pos, arg)
-			}
-		}
-
-		if len(pos) < 2 {
+	if opts.SubCmd == "remove" || opts.SubCmd == "rm" {
+		if opts.Name == "" {
 			return "", fmt.Errorf("usage: git remote remove <name>")
 		}
-		name := pos[1]
-		err := repo.DeleteRemote(name)
+		err := repo.DeleteRemote(opts.Name)
 		if err != nil {
 			return "", err
 		}
 		return "", nil
 	}
 
-	return "", fmt.Errorf("unknown subcommand: %s", subCmd)
+	return "", fmt.Errorf("unknown subcommand: %s", opts.SubCmd)
 }
 
 func listRemotes(repo *gogit.Repository, verbose bool) (string, error) {

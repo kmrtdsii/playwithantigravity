@@ -18,8 +18,9 @@ import (
 func TestRemoteCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-remote")
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"}) // creates session repo
+	// Init manually
+	s.InitRepo("testrepo")
+	s.CurrentDir = "/testrepo"
 
 	cmd := &RemoteCommand{}
 
