@@ -84,7 +84,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		w, _ := repo.Worktree()
 
 		// Try resolving branch to check existence
-		hash, err := c.resolveRevision(repo, branch)
+		hash, err := git.ResolveRevision(repo, branch)
 		if err != nil {
 			return "", fmt.Errorf("fatal: invalid branch '%s'", branch)
 		}
@@ -120,7 +120,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	var upstreamCommit *object.Commit
 
 	if upstream != "" {
-		h, err := c.resolveRevision(repo, upstream)
+		h, err := git.ResolveRevision(repo, upstream)
 		if err != nil {
 			return "", fmt.Errorf("invalid upstream '%s': %v", upstream, err)
 		}
@@ -138,7 +138,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	// If --onto is specified, we reset to 'onto'. Otherwise we reset to 'upstream'.
 	var targetHash *plumbing.Hash
 	if onto != "" {
-		h, err := c.resolveRevision(repo, onto)
+		h, err := git.ResolveRevision(repo, onto)
 		if err != nil {
 			return "", fmt.Errorf("invalid onto '%s': %v", onto, err)
 		}
@@ -264,11 +264,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		time.Sleep(10 * time.Millisecond)
 
 		_, err = w.Commit(c.Message, &gogit.CommitOptions{
-			Author: &object.Signature{
-				Name:  "User",
-				Email: "user@example.com",
-				When:  time.Now(),
-			},
+			Author:            git.GetDefaultSignature(),
 			AllowEmptyCommits: true,
 		})
 		if err != nil {
@@ -284,11 +280,6 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	s.RecordReflog(fmt.Sprintf("rebase: finished rebase onto %s", targetHash.String()))
 	return fmt.Sprintf("Successfully rebased and updated %s.\nReplayed %d commits.", headRef.Name().Short(), replayedCount), nil
-}
-
-// resolveRevision delegates to the shared git.ResolveRevision helper
-func (c *RebaseCommand) resolveRevision(repo *gogit.Repository, rev string) (*plumbing.Hash, error) {
-	return git.ResolveRevision(repo, rev)
 }
 
 func (c *RebaseCommand) Help() string {

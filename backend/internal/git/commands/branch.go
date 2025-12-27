@@ -324,7 +324,7 @@ func (c *BranchCommand) Help() string {
 
  📋 SYNOPSIS
     git branch [--list] [-a] [-r]
-    git branch <branchname>
+    git branch [-f] <branchname> [<start-point>]
     git branch -d|-D <branchname>
     git branch -m <old> <new>
 
@@ -339,6 +339,9 @@ func (c *BranchCommand) Help() string {
     -r, --remotes
         リモートブランチのみを表示します。
 
+    -f, --force
+        ブランチ作成時、同名のブランチが既に存在していても強制的に上書き（リセット）します。
+
     -d
         ブランチを削除します（マージ済みの安全な場合のみ）。
 
@@ -348,6 +351,9 @@ func (c *BranchCommand) Help() string {
     -m
         ブランチ名を変更（移動）します。
 
+    <start-point>
+        新しいブランチの作成元となるコミットやブランチを指定します（デフォルトはHEAD）。
+
  🛠  EXAMPLES
     1. ブランチ一覧を表示
        $ git branch
@@ -355,10 +361,17 @@ func (c *BranchCommand) Help() string {
     2. 新しいブランチを作成
        $ git branch feature/login
 
-    3. ブランチを強制削除
+    3. 特定のコミットからブランチを作成
+       $ git branch feature/fix-v1 e5a3b21
+
+    4. 既存のブランチを強制上書き
+       $ git branch -f existing-branch HEAD~1
+
+    5. ブランチを強制削除
        $ git branch -D old-feature
 
-    4. ブランチ名を変更
+    6. ブランチ名を変更
        $ git branch -m old-name new-name
+       $ git branch -m new-name （現在のブランチ名を変更）
 `
 }

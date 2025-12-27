@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -195,6 +196,50 @@ func TestBranchCommand_CreateWithStartPoint(t *testing.T) {
 	_, err = cmd.Execute(ctx, s, []string{"branch", "bad", "unknown-ref"})
 	if err == nil {
 		t.Fatal("expected error creating from unknown ref, got nil")
+	}
+
+	// 5. Create branch that already exists (should fail without force)
+	_, err = cmd.Execute(ctx, s, []string{"branch", "from-head", headHash})
+	if err == nil {
+		t.Fatal("expected error creating existing branch, got nil")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("expected 'already exists' error, got: %v", err)
+	}
+
+	// 6. Create branch FROM another branch (branchA branchB pattern)
+	// Create 'branchB' first (we used from-head earlier, let's use it)
+	// git branch branchA from-head
+	res, err := cmd.Execute(ctx, s, []string{"branch", "branchA", "from-head"})
+	if err != nil {
+		t.Fatalf("failed to create branchA from branchB: %v", err)
+	}
+	if !strings.Contains(res, "Created branch branchA") {
+		t.Errorf("unexpected output: %s", res)
+	}
+
+	// Verify branchA points to same commit as from-head
+	refA, _ := repo.Reference(plumbing.ReferenceName("refs/heads/branchA"), true)
+	refB, _ := repo.Reference(plumbing.ReferenceName("refs/heads/from-head"), true)
+	if refA.Hash() != refB.Hash() {
+		t.Error("branchA should point to same commit as from-head")
+	}
+
+	// 7. Force create (overwrite) existing branch
+	// git branch -f branchA <headHash>
+	res, err = cmd.Execute(ctx, s, []string{"branch", "-f", "branchA", headHash})
+	if err != nil {
+		t.Fatalf("failed to force create branchA: %v", err)
+	}
+	// Logic says "Created branch" even for update currently
+	if !strings.Contains(res, "Created branch branchA") {
+		t.Errorf("unexpected output for force create: %s", res)
+	}
+
+	// Verify it points to headHash now
+	refA2, _ := repo.Reference(plumbing.ReferenceName("refs/heads/branchA"), true)
+	if refA2.Hash().String() != headHash {
+		t.Errorf("branchA should have been updated to %s", headHash)
 	}
 }
 

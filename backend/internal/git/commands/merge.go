@@ -190,17 +190,9 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	s.UpdateOrigHead()
 
 	newCommitHash, err := w.Commit(msg, &gogit.CommitOptions{
-		Parents: parents,
-		Author: &object.Signature{
-			Name:  "User",
-			Email: "user@example.com",
-			When:  time.Now(),
-		},
-		Committer: &object.Signature{
-			Name:  "User",
-			Email: "user@example.com",
-			When:  time.Now(),
-		},
+		Parents:   parents,
+		Author:    git.GetDefaultSignature(),
+		Committer: git.GetDefaultSignature(),
 	})
 	if err != nil {
 		return "", err

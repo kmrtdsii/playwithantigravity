@@ -70,7 +70,31 @@ func TestCheckoutCommand(t *testing.T) {
 		}
 	})
 
-	// Test brittle case (if we want to support it, or confirm it fails now)
-	// git checkout -b feature2 (works)
-	// git checkout -f master (fails currently because args[1] must be -b or branch?)
+	t.Run("Checkout Force", func(t *testing.T) {
+		// Create a dirty state
+		f, _ := w.Filesystem.Create("file.txt")
+		f.Write([]byte("dirty"))
+		f.Close()
+
+		// Attempt checkout without force (should fail or carry over? Git checkout carries over if no conflict, but if modifying same file...)
+		// If we switch to 'master' (which has 'base'), it should conflict/fail.
+
+		// However, with memfs and our simplistic implementation, let's verify -f overwrites.
+		res, err := cmd.Execute(context.Background(), s, []string{"checkout", "-f", "master"})
+		if err != nil {
+			t.Fatalf("Checkout -f failed: %v", err)
+		}
+		if !strings.Contains(res, "Switched to branch 'master'") {
+			t.Errorf("Unexpected output: %s", res)
+		}
+
+		// Check content reverted to master's version
+		f2, _ := w.Filesystem.Open("file.txt")
+		buf := make([]byte, 100)
+		n, _ := f2.Read(buf)
+		content := string(buf[:n])
+		if content != "base" {
+			t.Errorf("Expected 'base', got '%s'", content)
+		}
+	})
 }

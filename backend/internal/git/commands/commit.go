@@ -9,10 +9,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	gogit "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -81,12 +79,8 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		s.UpdateOrigHead()
 
 		newCommitHash, err := w.Commit(msg, &gogit.CommitOptions{
-			Parents: parents,
-			Author: &object.Signature{
-				Name:  "User",
-				Email: "user@example.com",
-				When:  time.Now(),
-			},
+			Parents:           parents,
+			Author:            git.GetDefaultSignature(),
 			AllowEmptyCommits: true, // Amending should always be allowed even if no changes
 		})
 		if err != nil {
@@ -99,11 +93,7 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	// Normal commit
 	commit, err := w.Commit(msg, &gogit.CommitOptions{
-		Author: &object.Signature{
-			Name:  "User",
-			Email: "user@example.com",
-			When:  time.Now(),
-		},
+		Author:            git.GetDefaultSignature(),
 		AllowEmptyCommits: allowEmpty,
 	})
 	if err != nil {
