@@ -19,32 +19,60 @@ func init() {
 
 type RmCommand struct{}
 
+type RmOptions struct {
+	Recursive bool
+	Force     bool
+	Paths     []string
+}
+
 func (c *RmCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	if len(args) < 2 {
-		return "", fmt.Errorf("usage: rm [-rf] <path>")
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
 	}
 
-	// Parse arguments
-	var paths []string
-	for _, arg := range args[1:] {
+	return c.executeRm(s, opts)
+}
+
+func (c *RmCommand) parseArgs(args []string) (*RmOptions, error) {
+	opts := &RmOptions{
+		Recursive: true, // Defaulting to implied -rf as per existing behavior
+		Force:     true,
+	}
+	cmdArgs := args[1:]
+
+	for _, arg := range cmdArgs {
 		if strings.HasPrefix(arg, "-") {
-			continue // skip flags like -rf
+			// Parse flags if provided, though defaults are already true.
+			// This enables standard usage patterns to be valid.
+			if strings.Contains(arg, "r") || strings.Contains(arg, "R") {
+				opts.Recursive = true
+			}
+			if strings.Contains(arg, "f") {
+				opts.Force = true
+			}
+			// Should we support disabling? No standard flag for that.
+		} else {
+			opts.Paths = append(opts.Paths, arg)
 		}
-		paths = append(paths, arg)
 	}
 
-	if len(paths) == 0 {
-		return "", fmt.Errorf("usage: rm [-rf] <path>...")
+	if len(opts.Paths) == 0 {
+		return nil, fmt.Errorf("usage: rm [-rf] <path>...")
 	}
+	return opts, nil
+}
 
+func (c *RmCommand) executeRm(s *git.Session, opts *RmOptions) (string, error) {
 	var removed []string
-	for _, path := range paths {
+
+	for _, path := range opts.Paths {
 		// Safety check: Don't allow deleting root or critical paths if possible
 		if path == "/" || path == "." || path == ".." {
-			continue // skip unsafe
+			continue
 		}
 
 		// Normalize path
@@ -60,14 +88,18 @@ func (c *RmCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 		// Check if it exists
 		fi, err := s.Filesystem.Stat(targetPath)
 		if err != nil {
-			// If not found, just skip or error? strictly rm errors.
-			// But for multiple args, usually it errors but might continue?
-			// Let's error for now to be safe/simple, or just note it.
-			continue
+			if opts.Force {
+				continue // rm -f ignores missing files
+			}
+			return "", fmt.Errorf("cannot remove '%s': No such file or directory", path)
 		}
 
 		// Check if it is a directory representing a repo
 		if fi.IsDir() {
+			if !opts.Recursive {
+				return "", fmt.Errorf("cannot remove '%s': Is a directory", path)
+			}
+
 			repoName := strings.TrimPrefix(targetPath, "/")
 			delete(s.Repos, repoName) // Remove from Repos map
 
@@ -86,11 +118,14 @@ func (c *RmCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 		removed = append(removed, path)
 	}
 
-	if len(removed) == 0 {
+	if len(removed) == 0 && !opts.Force {
 		return "", fmt.Errorf("no files removed")
 	}
 
-	return fmt.Sprintf("Removed %s", strings.Join(removed, ", ")), nil
+	if len(removed) > 0 {
+		return fmt.Sprintf("Removed %s", strings.Join(removed, ", ")), nil
+	}
+	return "", nil
 }
 
 func (c *RmCommand) Help() string {

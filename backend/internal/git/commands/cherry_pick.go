@@ -18,48 +18,66 @@ func init() {
 
 type CherryPickCommand struct{}
 
+type CherryPickOptions struct {
+	Args []string
+}
+
 func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
+
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
+	}
 
 	repo := s.GetRepo()
 	if repo == nil {
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	// Usage: git cherry-pick <commit>...
-	// Usage: git cherry-pick <start>..<end>
-
-	cmdArgs := args[1:]
-	if len(cmdArgs) == 0 {
-		return "", fmt.Errorf("usage: git cherry-pick <commit>...")
+	commits, err := c.resolveCommits(repo, opts.Args)
+	if err != nil {
+		return "", err
 	}
 
+	return c.executeCherryPick(s, repo, commits)
+}
+
+func (c *CherryPickCommand) parseArgs(args []string) (*CherryPickOptions, error) {
+	cmdArgs := args[1:]
+	if len(cmdArgs) == 0 {
+		return nil, fmt.Errorf("usage: git cherry-pick <commit>...")
+	}
+	// For now, no flags supported, just assume all are commit args
+	return &CherryPickOptions{Args: cmdArgs}, nil
+}
+
+func (c *CherryPickCommand) resolveCommits(repo *gogit.Repository, args []string) ([]*object.Commit, error) {
 	var commitsToPick []*object.Commit
 
-	// Parse arguments (Support mixed ranges and single commits)
-	for _, arg := range cmdArgs {
+	for _, arg := range args {
 		if strings.Contains(arg, "..") {
 			// Range detected: A..B
 			parts := strings.SplitN(arg, "..", 2)
 			startRev, endRev := parts[0], parts[1]
 
 			if startRev == "" || endRev == "" {
-				return "", fmt.Errorf("malformed range: %s", arg)
+				return nil, fmt.Errorf("malformed range: %s", arg)
 			}
 
 			startHash, err := c.resolveRevision(repo, startRev)
 			if err != nil {
-				return "", fmt.Errorf("invalid revision '%s': %v", startRev, err)
+				return nil, fmt.Errorf("invalid revision '%s': %v", startRev, err)
 			}
 			endHash, err := c.resolveRevision(repo, endRev)
 			if err != nil {
-				return "", fmt.Errorf("invalid revision '%s': %v", endRev, err)
+				return nil, fmt.Errorf("invalid revision '%s': %v", endRev, err)
 			}
 
 			endCommit, err := repo.CommitObject(*endHash)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 
 			iter := endCommit
@@ -67,6 +85,7 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 			foundStart := false
 
 			// Walk back from End until Start
+			// Safety limit for simulation?
 			for {
 				if iter.Hash == *startHash {
 					foundStart = true
@@ -79,13 +98,13 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 				}
 				p, err := iter.Parent(0)
 				if err != nil {
-					return "", fmt.Errorf("failed to traverse history: %v", err)
+					return nil, fmt.Errorf("failed to traverse history: %v", err)
 				}
 				iter = p
 			}
 
 			if !foundStart {
-				return "", fmt.Errorf("fatal: start revision '%s' is not an ancestor of '%s'", startRev, endRev)
+				return nil, fmt.Errorf("fatal: start revision '%s' is not an ancestor of '%s'", startRev, endRev)
 			}
 
 			// Add in correct order (Oldest -> Newest)
@@ -97,18 +116,28 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 			// Single commit
 			h, err := c.resolveRevision(repo, arg)
 			if err != nil {
-				return "", fmt.Errorf("bad revision '%s'", arg)
+				return nil, fmt.Errorf("bad revision '%s'", arg)
 			}
 			commit, err := repo.CommitObject(*h)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 			commitsToPick = append(commitsToPick, commit)
 		}
 	}
+	return commitsToPick, nil
+}
 
-	w, _ := repo.Worktree()
-	headRef, _ := repo.Head()
+func (c *CherryPickCommand) executeCherryPick(s *git.Session, repo *gogit.Repository, commitsToPick []*object.Commit) (string, error) {
+	w, err := repo.Worktree()
+	if err != nil {
+		return "", err
+	}
+
+	headRef, err := repo.Head()
+	if err != nil {
+		return "", err
+	}
 
 	pickedCount := 0
 	for _, commitToPick := range commitsToPick {
@@ -118,14 +147,11 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 		// Theirs: The commit we are picking
 
 		if commitToPick.NumParents() == 0 {
-			// Picking a root commit? technically possible, treat base as empty.
-			// For simplicity in this simulation, maybe just use ApplyCommit logic or error?
-			// Let's defer to ApplyCommitChanges for root commits or handle empty base.
-			// Current Merge3Way handles nil base.
+			// Picking a root commit - not handled in basic flow yet
 		}
 
 		// Get current HEAD (Ours)
-		headRef, err := repo.Head()
+		headRef, err = repo.Head() // Update HEAD ref in each iteration as it moves
 		if err != nil {
 			return "", err
 		}
@@ -157,7 +183,7 @@ func (c *CherryPickCommand) Execute(ctx context.Context, s *git.Session, args []
 				Email: commitToPick.Author.Email,
 				When:  time.Now(),
 			},
-			AllowEmptyCommits: true, // cherry-pick allows empty if content matches (usually requires --allow-empty but for simulation we are permissive)
+			AllowEmptyCommits: true,
 		})
 		if err != nil {
 			return "", fmt.Errorf("failed to commit: %v", err)
