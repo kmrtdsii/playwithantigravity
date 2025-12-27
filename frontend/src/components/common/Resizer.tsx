@@ -13,7 +13,7 @@ interface ResizerProps {
     /**
      * Callback when user starts dragging the resizer
      */
-    onMouseDown: () => void;
+    onMouseDown: React.MouseEventHandler<HTMLDivElement>;
 
     /**
      * Optional additional class name

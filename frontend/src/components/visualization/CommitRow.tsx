@@ -40,7 +40,6 @@ export const CommitRow: React.FC<CommitRowProps> = ({
         data-testid="commit-row"
     >
         {/* Commit ID */}
-        {/* Commit ID */}
         <span
             onClick={onClick} // Allow click to trigger selection
             className="commit-hash"

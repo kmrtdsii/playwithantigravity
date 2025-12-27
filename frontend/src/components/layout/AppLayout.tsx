@@ -33,6 +33,7 @@ const AppLayout = () => {
 
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
+    const [detailsPaneWidth, setDetailsPaneWidth] = useState(300);
 
     // --- Layout State (Refactored) ---
     const {
@@ -53,6 +54,27 @@ const AppLayout = () => {
 
     const handleObjectSelect = (obj: SelectedObject) => {
         setSelectedObject(obj);
+    };
+
+    const startResizeDetails = (e: React.MouseEvent) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = detailsPaneWidth;
+
+        const handleMouseMove = (mm: MouseEvent) => {
+            const delta = startX - mm.clientX; // Dragging left increases width (since it's a right pane)
+            setDetailsPaneWidth(Math.max(200, Math.min(800, startWidth + delta)));
+        };
+
+        const handleMouseUp = () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.body.style.cursor = 'default';
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = 'col-resize';
     };
 
     const modes: ViewMode[] = ['graph', 'branches', 'tags'];
@@ -235,8 +257,8 @@ const AppLayout = () => {
                         {/* RIGHT PANE: Commit Details */}
                         {selectedObject?.type === 'commit' && (
                             <>
-                                <Resizer orientation="vertical" onMouseDown={() => { }} /* TODO: Implement Resize */ />
-                                <div style={{ width: '300px', flexShrink: 0 }}>
+                                <Resizer orientation="vertical" onMouseDown={startResizeDetails} />
+                                <div style={{ width: `${detailsPaneWidth}px`, flexShrink: 0 }}>
                                     <CommitDetails
                                         commitId={selectedObject.id}
                                         onClose={() => setSelectedObject(null)}
@@ -254,14 +276,13 @@ const AppLayout = () => {
 
                 </div>
 
+                {/* --- Modals (Refactored) --- */}
+                <AddDeveloperModal
+                    isOpen={isAddDevModalOpen}
+                    onClose={() => setIsAddDevModalOpen(false)}
+                    onAddDeveloper={addDeveloper}
+                />
             </div>
-
-            {/* --- Modals (Refactored) --- */}
-            <AddDeveloperModal
-                isOpen={isAddDevModalOpen}
-                onClose={() => setIsAddDevModalOpen(false)}
-                onAddDeveloper={addDeveloper}
-            />
         </div>
     );
 };
