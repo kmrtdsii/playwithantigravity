@@ -142,13 +142,39 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 			return "", err
 		}
 
-		for _, file := range files {
-			// Resolve file path logic could be added here for subdirs,
-			// but for now ensuring we strictly match the Index path is key.
-			// Git allows "git restore ." or paths.
-			// Currently we assume 'file' is the repo-relative path (user at root).
-			// Ideally we resolve s.CurrentDir + file -> path relative to Repo Root.
+		// Expand "." to all specific files in the index
+		var targets []string
 
+		// Determine current directory prefix relative to repo root
+		prefix := ""
+
+		containDot := false
+		for _, f := range files {
+			if f == "." {
+				containDot = true
+				break
+			}
+		}
+
+		if containDot {
+			// Add all index entries matching prefix
+			for _, e := range idx.Entries {
+				if strings.HasPrefix(e.Name, prefix) {
+					targets = append(targets, e.Name)
+				}
+			}
+		} else {
+			targets = files
+		}
+
+		if len(targets) == 0 {
+			if containDot {
+				return "Nothing to restore (no tracked files in current directory)", nil
+			}
+		}
+
+		restoredCount := 0
+		for _, file := range targets {
 			// Find entry in index
 			var entry *index.Entry
 			for _, e := range idx.Entries {
@@ -159,7 +185,10 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 			}
 
 			if entry == nil {
-				return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", file)
+				if !containDot {
+					return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", file)
+				}
+				continue
 			}
 
 			// Read blob from Object Storage
@@ -185,6 +214,11 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 				return "", err
 			}
 			f.Close()
+			restoredCount++
+		}
+
+		if containDot {
+			return fmt.Sprintf("Restored all tracked files in current directory (%d files)", restoredCount), nil
 		}
 		return "Restored files in worktree", nil
 	}
