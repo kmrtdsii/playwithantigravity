@@ -15,8 +15,9 @@ func TestResetCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-reset")
 
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	// Init manually
+	s.InitRepo("testrepo")
+	s.CurrentDir = "/testrepo"
 
 	repo := s.GetRepo()
 	w, _ := repo.Worktree()

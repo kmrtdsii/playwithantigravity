@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -18,37 +19,19 @@ func init() {
 
 type AddCommand struct{}
 
+type AddOptions struct {
+	All       bool
+	Pathspecs []string
+}
+
 func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	// Flags
-	var (
-		all bool
-	)
-	var pathspecs []string
-
-	// Parse flags
-	cmdArgs := args[1:]
-	for i := 0; i < len(cmdArgs); i++ {
-		arg := cmdArgs[i]
-		switch arg {
-		case "-h", "--help":
-			return c.Help(), nil
-		case "-A", "--all":
-			all = true
-		case "--":
-			// Remainder are pathspecs
-			if i+1 < len(cmdArgs) {
-				pathspecs = append(pathspecs, cmdArgs[i+1:]...)
-			}
-			i = len(cmdArgs) // Break loop
-		default:
-			if arg == "." {
-				all = true // git add . is effectively all in current dir
-			}
-			pathspecs = append(pathspecs, arg)
-		}
+	// 1. Parse Args
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
 	}
 
 	repo := s.GetRepo()
@@ -56,24 +39,57 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
-	w, _ := repo.Worktree()
+	// 2. Resolve Context (Worktree)
+	w, err := repo.Worktree()
+	if err != nil {
+		return "", err
+	}
 
-	if len(pathspecs) == 0 && !all {
+	// 3. Execution
+	return c.executeAdd(w, opts)
+}
+
+func (c *AddCommand) parseArgs(args []string) (*AddOptions, error) {
+	opts := &AddOptions{}
+	cmdArgs := args[1:]
+
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
+		case "-h", "--help":
+			return nil, fmt.Errorf("help requested")
+		case "-A", "--all":
+			opts.All = true
+		case "--":
+			// Remainder are pathspecs
+			if i+1 < len(cmdArgs) {
+				opts.Pathspecs = append(opts.Pathspecs, cmdArgs[i+1:]...)
+			}
+			return opts, nil // Break entirely as rest are paths
+		default:
+			if arg == "." {
+				opts.All = true
+			}
+			opts.Pathspecs = append(opts.Pathspecs, arg)
+		}
+	}
+	return opts, nil
+}
+
+func (c *AddCommand) executeAdd(w *gogit.Worktree, opts *AddOptions) (string, error) {
+	if len(opts.Pathspecs) == 0 && !opts.All {
 		return "", fmt.Errorf("Nothing specified, nothing added.\nMaybe you wanted to say 'git add .'?")
 	}
 
-	// Logic
 	var err error
-	if all {
+	if opts.All {
 		// "git add ." or "git add -A"
-		// go-git w.Add(".") adds all changes in worktree
 		_, err = w.Add(".")
 	} else {
-		for _, file := range pathspecs {
+		for _, file := range opts.Pathspecs {
 			_, e := w.Add(file)
 			if e != nil {
-				return "", e // Error out on first fail? Standard git warns but continues?
-				// go-git Add returns err.
+				return "", e
 			}
 		}
 	}
@@ -82,10 +98,10 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 		return "", err
 	}
 
-	if all {
+	if opts.All {
 		return "Added changes", nil
 	}
-	return "Added " + fmt.Sprintf("%v", pathspecs), nil
+	return "Added " + fmt.Sprintf("%v", opts.Pathspecs), nil
 }
 
 func (c *AddCommand) Help() string {
