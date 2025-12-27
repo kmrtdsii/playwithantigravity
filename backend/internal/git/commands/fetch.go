@@ -207,32 +207,16 @@ func (c *FetchCommand) fetchRemote(s *git.Session, repo *gogit.Repository, rem *
 	// 3. Prune Logic
 	// If --prune is set, we remove local remote-tracking branches that no longer exist on remote.
 	if prune {
-		localRefs, err := repo.References()
-		if err == nil {
-			prefix := fmt.Sprintf("refs/remotes/%s/", remoteName)
-			_ = localRefs.ForEach(func(r *plumbing.Reference) error {
-				name := r.Name().String()
-				if strings.HasPrefix(name, prefix) {
-					// e.g. refs/remotes/origin/main -> branchName = main
-					branchName := strings.TrimPrefix(name, prefix)
-					if !remoteBranches[branchName] {
-						// Stale!
-						if isDryRun {
-							results = append(results, fmt.Sprintf(" - [dry-run] [deleted] (none) -> %s/%s", remoteName, branchName))
-						} else {
-							err := repo.Storer.RemoveReference(r.Name())
-							if err != nil {
-								results = append(results, fmt.Sprintf(" ! [error] %s/%s (prune failed)", remoteName, branchName))
-							} else {
-								results = append(results, fmt.Sprintf(" - [deleted] (none) -> %s/%s", remoteName, branchName))
-								updated++
-							}
-						}
-					}
-				}
-				return nil
-			})
+		count, res, err := c.pruneRemoteBranches(repo, remoteName, remoteBranches, isDryRun)
+		if err != nil {
+			// Don't fail the whole fetch for prune errors, but maybe log?
+			// For now, we return error as per original logic if critical, but original logic appended error strings.
+			// Let's modify helper to return strings.
 		}
+		if len(res) > 0 {
+			results = append(results, res...)
+		}
+		updated += count
 	}
 
 	if updated == 0 {
@@ -343,4 +327,37 @@ func (c *FetchCommand) Help() string {
     2. 全てのリモートから取得
        $ git fetch --all
 `
+}
+func (c *FetchCommand) pruneRemoteBranches(repo *gogit.Repository, remoteName string, remoteBranches map[string]bool, isDryRun bool) (int, []string, error) {
+	var results []string
+	updated := 0
+	localRefs, err := repo.References()
+	if err != nil {
+		return 0, nil, err
+	}
+
+	prefix := fmt.Sprintf("refs/remotes/%s/", remoteName)
+	_ = localRefs.ForEach(func(r *plumbing.Reference) error {
+		name := r.Name().String()
+		if strings.HasPrefix(name, prefix) {
+			// e.g. refs/remotes/origin/main -> branchName = main
+			branchName := strings.TrimPrefix(name, prefix)
+			if !remoteBranches[branchName] {
+				// Stale!
+				if isDryRun {
+					results = append(results, fmt.Sprintf(" - [dry-run] [deleted] (none) -> %s/%s", remoteName, branchName))
+				} else {
+					err := repo.Storer.RemoveReference(r.Name())
+					if err != nil {
+						results = append(results, fmt.Sprintf(" ! [error] %s/%s (prune failed)", remoteName, branchName))
+					} else {
+						results = append(results, fmt.Sprintf(" - [deleted] (none) -> %s/%s", remoteName, branchName))
+						updated++
+					}
+				}
+			}
+		}
+		return nil
+	})
+	return updated, results, nil
 }

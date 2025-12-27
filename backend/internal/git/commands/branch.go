@@ -161,54 +161,27 @@ func (c *BranchCommand) listBranches(repo *gogit.Repository, remote, all bool) (
 
 	// Remote branches
 	if remote || all {
-		rs, err := repo.Remotes()
-		if err == nil {
-			for _, r := range rs {
-				refs, listErr := r.List(&gogit.ListOptions{}) // basic list
-				if listErr == nil {
-					for _, ref := range refs {
-						if ref.Name().IsRemote() {
-							// strip refs/remotes/
-							name := ref.Name().Short()
-							// Short() often gives origin/master for refs/remotes/origin/master
-							branches = append(branches, name)
-						}
-					}
-				}
-			}
-			// Fallback: iterate all references and filter
-			refs, _ := repo.References()
-			_ = refs.ForEach(func(r *plumbing.Reference) error {
-				// if r.Name().IsRemote() {
-				// 	// branches = append(branches, r.Name().Short())
-				// }
-				return nil
-			})
-		}
-		// Actually go-git `repo.References()` contains remotes too.
-		// Let's just use References() and filter.
-		refs, err := repo.References()
+		remotes, err := c.listRemoteBranches(repo)
 		if err != nil {
 			return "", err
 		}
-		_ = refs.ForEach(func(r *plumbing.Reference) error {
-			if r.Name().IsRemote() {
-				// Only add if we are in remote/all mode
-				// Avoid duplicates if possible, but for now simple list
-				exists := false
-				short := r.Name().Short()
-				for _, b := range branches {
-					if b == short {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					branches = append(branches, short)
+		// Merge specific logic: deduplicate against existing local branches?
+		// The original logic was appending to 'branches'.
+		// Let's verify duplication handling.
+		// Original logic:
+		// Check duplicates against 'branches' (which contains local branches if 'all' is true)
+		for _, rBranch := range remotes {
+			exists := false
+			for _, b := range branches {
+				if b == rBranch {
+					exists = true
+					break
 				}
 			}
-			return nil
-		})
+			if !exists {
+				branches = append(branches, rBranch)
+			}
+		}
 	}
 
 	return strings.Join(branches, "\n"), nil
@@ -325,6 +298,24 @@ func (c *BranchCommand) moveBranch(repo *gogit.Repository, opts *BranchOptions) 
 	}
 
 	return fmt.Sprintf("Renamed branch %s to %s", oldName, newName), nil
+}
+
+func (c *BranchCommand) listRemoteBranches(repo *gogit.Repository) ([]string, error) {
+	var remoteBranches []string
+	refs, err := repo.References()
+	if err != nil {
+		return nil, err
+	}
+	_ = refs.ForEach(func(r *plumbing.Reference) error {
+		if r.Name().IsRemote() {
+			short := r.Name().Short()
+			// Basic deduplication within remote list itself?
+			// The caller deduplicates against local.
+			remoteBranches = append(remoteBranches, short)
+		}
+		return nil
+	})
+	return remoteBranches, nil
 }
 
 func (c *BranchCommand) Help() string {
