@@ -29,6 +29,9 @@ func (c *RemoteCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	opts, err := c.parseArgs(args)
 	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
+		}
 		return "", err
 	}
 

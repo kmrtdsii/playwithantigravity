@@ -40,6 +40,9 @@ func (c *PullCommand) Execute(ctx context.Context, s *git.Session, args []string
 	// 1. Parse Args
 	opts, err := c.parseArgs(args)
 	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
+		}
 		return "", err
 	}
 

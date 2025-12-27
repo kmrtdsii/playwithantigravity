@@ -33,6 +33,9 @@ func (c *TagCommand) Execute(ctx context.Context, s *git.Session, args []string)
 
 	opts, err := c.parseArgs(args)
 	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
+		}
 		return "", err
 	}
 

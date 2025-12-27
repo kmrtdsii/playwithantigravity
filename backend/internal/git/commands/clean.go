@@ -137,6 +137,9 @@ func (c *CleanCommand) Execute(ctx context.Context, s *git.Session, args []strin
 
 	opts, err := c.parseArgs(args)
 	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
+		}
 		return "", err
 	}
 

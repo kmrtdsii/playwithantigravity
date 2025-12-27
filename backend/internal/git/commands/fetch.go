@@ -41,6 +41,9 @@ func (c *FetchCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	// 1. Parse Arguments
 	opts, err := c.parseArgs(args)
 	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
+		}
 		return "", err
 	}
 
