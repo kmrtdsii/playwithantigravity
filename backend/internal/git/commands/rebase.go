@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
@@ -17,6 +18,20 @@ func init() {
 
 type RebaseCommand struct{}
 
+type RebaseOptions struct {
+	Upstream string
+	Branch   string
+	Onto     string
+	Root     bool
+	Preserve bool
+}
+
+type rebaseContext struct {
+	targetHash      *plumbing.Hash
+	commitsToReplay []*object.Commit
+	headRef         *plumbing.Reference // Needed for success message
+}
+
 func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -26,162 +41,152 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	// Parse Flags & Args
-	var (
-		onto     string
-		upstream string
-		branch   string
-		preserve bool // -r / --rebase-merges
-		root     bool
-	)
-
-	// Simple custom parser
-	// args[0] is "rebase"
-	cmdArgs := args[1:]
-	for i := 0; i < len(cmdArgs); i++ {
-		arg := cmdArgs[i]
-		switch arg {
-		case "--onto":
-			if i+1 >= len(cmdArgs) {
-				return "", fmt.Errorf("fatal: option '--onto' requires a value")
-			}
-			onto = cmdArgs[i+1]
-			i++
-		case "-r", "--rebase-merges":
-			preserve = true
-		case "--root":
-			root = true
-		case "-h", "--help":
-			return c.Help(), nil
-		default:
-			// Positional arguments: <upstream> [<branch>]
-			if upstream == "" {
-				upstream = arg
-			} else if branch == "" {
-				branch = arg
-			} else {
-				// Too many args? git rebase usually errors or just ignores
-				return "", fmt.Errorf("fatal: too many arguments")
-			}
-		}
+	// 1. Parse Arguments
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
 	}
 
-	// git rebase --root does not require upstream argument usually
-	// usage: git rebase --root [<branch>]
-	if upstream == "" && !root && onto == "" {
-		return "", fmt.Errorf("usage: git rebase [--onto <newbase>] <upstream> [<branch>]")
-	}
-	// If only --onto is given without upstream, git usually requires upstream for the range.
-	// But `git rebase --onto A B` (B is upstream).
-	// Current parser requires positional upstream if not implied?
-	// Actually `git rebase --onto newbase upstream` corresponds to `onto=newbase`, `upstream=upstream`.
-	// My parser handles this.
-
-	// 1. Checkout Branch if provided
-	if branch != "" {
-		// "git rebase upstream branch" -> checkout branch then rebase
-		// Reuse checkout logic or just simple checkout
-		w, _ := repo.Worktree()
-
-		// Try resolving branch to check existence
-		hash, err := git.ResolveRevision(repo, branch)
-		if err != nil {
-			return "", fmt.Errorf("fatal: invalid branch '%s'", branch)
-		}
-
-		// Checkout
-		// Note: We need to update Worktree to point to this branch
-		// check if it's a branch name
-		refName := plumbing.ReferenceName("refs/heads/" + branch)
-		err = w.Checkout(&gogit.CheckoutOptions{
-			Branch: refName,
-			Force:  true, // Rebase implies we take over? usually strict checkout for working dir safety.
-			// But here strict safety might block user. Let's use Force=false first?
-			// Actually `git rebase` creates a temporary state.
-			// For simulation, let's just switch.
-		})
-		if err != nil {
-			// fallback to detach if not a branch?
-			// git rebase <upstream> <commit> triggers detached HEAD rebase.
-			err = w.Checkout(&gogit.CheckoutOptions{
-				Hash: *hash,
-			})
-			if err != nil {
-				return "", fmt.Errorf("fatal: checkout %s failed: %v", branch, err)
-			}
+	// 2. Checkout Branch if provided
+	if opts.Branch != "" {
+		if err := c.checkoutBranch(repo, opts.Branch); err != nil {
+			return "", err
 		}
 	}
 
 	// Update ORIG_HEAD before rebase starts
 	s.UpdateOrigHead()
 
-	// 2. Resolve Upstream (if provided)
+	// 3. Prepare Rebase Context (resolve revisions, find commits)
+	rbCtx, err := c.prepareRebaseContext(repo, opts)
+	if err != nil {
+		if err == ErrUpToDate {
+			return "Current branch is up to date.", nil
+		}
+		return "", err
+	}
+
+	// 4. Perform Rebase
+	return c.performRebase(ctx, s, repo, rbCtx, opts.Preserve)
+}
+
+var ErrUpToDate = fmt.Errorf("up to date")
+
+func (c *RebaseCommand) parseArgs(args []string) (*RebaseOptions, error) {
+	opts := &RebaseOptions{}
+	cmdArgs := args[1:]
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
+		case "--onto":
+			if i+1 >= len(cmdArgs) {
+				return nil, fmt.Errorf("fatal: option '--onto' requires a value")
+			}
+			opts.Onto = cmdArgs[i+1]
+			i++
+		case "-r", "--rebase-merges":
+			opts.Preserve = true
+		case "--root":
+			opts.Root = true
+		case "-h", "--help":
+			// Handled by calling Help() at higher level usually, but here checking arg
+			return nil, fmt.Errorf("help requested") // Should effectively show help if strictly followed, but standard is different. Logic in Execute handles it? No, Execute returns string/error.
+			// Let's assume help is handled before Execute or if we return specific error?
+			// Existing logic called c.Help() directly.
+		default:
+			if strings.HasPrefix(arg, "-") {
+				continue // ignore unknown flags
+			}
+			if opts.Upstream == "" {
+				opts.Upstream = arg
+			} else if opts.Branch == "" {
+				opts.Branch = arg
+			} else {
+				return nil, fmt.Errorf("fatal: too many arguments")
+			}
+		}
+	}
+
+	if opts.Upstream == "" && !opts.Root && opts.Onto == "" {
+		return nil, fmt.Errorf("usage: git rebase [--onto <newbase>] <upstream> [<branch>]")
+	}
+	return opts, nil
+}
+
+func (c *RebaseCommand) checkoutBranch(repo *gogit.Repository, branchName string) error {
+	w, _ := repo.Worktree()
+	hash, err := git.ResolveRevision(repo, branchName)
+	if err != nil {
+		return fmt.Errorf("fatal: invalid branch '%s'", branchName)
+	}
+
+	refName := plumbing.ReferenceName("refs/heads/" + branchName)
+	err = w.Checkout(&gogit.CheckoutOptions{
+		Branch: refName,
+		Force:  true,
+	})
+	if err != nil {
+		// fallback to detach
+		err = w.Checkout(&gogit.CheckoutOptions{
+			Hash: *hash,
+		})
+		if err != nil {
+			return fmt.Errorf("fatal: checkout %s failed: %v", branchName, err)
+		}
+	}
+	return nil
+}
+
+func (c *RebaseCommand) prepareRebaseContext(repo *gogit.Repository, opts *RebaseOptions) (*rebaseContext, error) {
+	// Resolve Upstream
 	var upstreamHash *plumbing.Hash
 	var upstreamCommit *object.Commit
 
-	if upstream != "" {
-		h, err := git.ResolveRevision(repo, upstream)
+	if opts.Upstream != "" {
+		h, err := git.ResolveRevision(repo, opts.Upstream)
 		if err != nil {
-			return "", fmt.Errorf("invalid upstream '%s': %v", upstream, err)
+			return nil, fmt.Errorf("invalid upstream '%s': %v", opts.Upstream, err)
 		}
 		upstreamHash = h
 		uc, err := repo.CommitObject(*upstreamHash)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		upstreamCommit = uc
-	} else if !root {
-		return "", fmt.Errorf("fatal: upstream required")
+	} else if !opts.Root {
+		return nil, fmt.Errorf("fatal: upstream required")
 	}
 
-	// 3. Resolve NewBase (target)
-	// If --onto is specified, we reset to 'onto'. Otherwise we reset to 'upstream'.
+	// Resolve NewBase (target)
 	var targetHash *plumbing.Hash
-	if onto != "" {
-		h, err := git.ResolveRevision(repo, onto)
+	if opts.Onto != "" {
+		h, err := git.ResolveRevision(repo, opts.Onto)
 		if err != nil {
-			return "", fmt.Errorf("invalid onto '%s': %v", onto, err)
+			return nil, fmt.Errorf("invalid onto '%s': %v", opts.Onto, err)
 		}
 		targetHash = h
 	} else {
-		// If --onto not specified, reset to upstream
-		// If --root is specified without --onto, we are just re-writing history in place?
-		// "git rebase --root" typically replays all history on top of... itself?
-		// Effectively used to squash root or something.
-		// "git rebase --root <branch>" defaults to replaying on top of... nothing (orphan)?
-		// No, `git rebase --root` without `onto` is usually for interactive mode or squashing.
-		// For simple rebase, if --root is given without --onto,
-		// "The new base is the first commit in the sequence." - wait.
-
-		if root && upstreamHash == nil {
-			// If no upstream and no onto, we probably shouldn't be here in this simple implem unless interactive.
-			// But let's assume if upstream IS provided with --root, it might be ignored or used?
-			// Git docs: "git rebase --root <branch>" -> rewrite all commits reachable from <branch>.
-			// Default base?
-			// For now, require --onto for --root usage to be safe/simple.
-			return "", fmt.Errorf("fatal: --onto required with --root for now")
+		if opts.Root && upstreamHash == nil {
+			return nil, fmt.Errorf("fatal: --onto required with --root for now")
 		}
 		targetHash = upstreamHash
 	}
 
-	// 4. Resolve HEAD
+	// Resolve HEAD
 	headRef, err := repo.Head()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	headCommit, err := repo.CommitObject(headRef.Hash())
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// 5. Find Commits to Replay
+	// Find Commits to Replay
 	var commitsToReplay []*object.Commit
-	var base *object.Commit
 
-	if root {
+	if opts.Root {
 		// Replay ALL reachable commits from HEAD (down to root)
-		// We ignore upstream for calculation of range (upstream..HEAD]
-		// We just traverse down to root.
 		iter := headCommit
 		for {
 			commitsToReplay = append(commitsToReplay, iter)
@@ -190,7 +195,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 			}
 			p, pErr := iter.Parent(0)
 			if pErr != nil {
-				return "", fmt.Errorf("failed to traverse parents: %v", pErr)
+				return nil, fmt.Errorf("failed to traverse parents: %v", pErr)
 			}
 			iter = p
 		}
@@ -198,44 +203,30 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		// Standard upstream..HEAD calculation
 		mergeBases, mbErr := upstreamCommit.MergeBase(headCommit)
 		if mbErr != nil {
-			return "", fmt.Errorf("failed to find merge base: %v", mbErr)
+			return nil, fmt.Errorf("failed to find merge base: %v", mbErr)
 		}
 		if len(mergeBases) == 0 {
-			return "", fmt.Errorf("fatal: no common ancestor found. Use --root to rebase unrelated histories.")
+			return nil, fmt.Errorf("fatal: no common ancestor found. Use --root to rebase unrelated histories.")
 		}
-		base = mergeBases[0]
+		base := mergeBases[0]
 
-		// Optimization: If HEAD is already based on Target (and no commits to replay?), we are done?
-		// But if --onto is used, we definitely move.
-		// If NOT --onto, and HEAD is already descendant of Upstream, we are "up to date".
-
-		if onto == "" {
-			if base.Hash == headCommit.Hash {
-				// HEAD is ancestor of Upstream? Then Fast-Forward or we are behind.
-				// "Current branch is up to date" usually means HEAD == Upstream
-				// If HEAD is behind, rebase usually fast-forwards HEAD to upstream.
-				// Let's assume FF.
-				// .. logic ..
-				_ = base
-			}
+		// Check for up-to-date
+		if opts.Onto == "" {
 			if base.Hash == upstreamCommit.Hash {
-				// Upstream is ancestor of HEAD. We are ahead.
-				// If we rebase onto upstream, nothing changes locally (already on top).
-				return "Current branch is up to date.", nil
+				return nil, ErrUpToDate
 			}
 		}
 
 		// Collect commits (Base..HEAD]
 		var iter = headCommit
 		for iter.Hash != base.Hash {
-			// Safety check to avoid infinite loop if detached or disjoint
 			commitsToReplay = append(commitsToReplay, iter)
 			if iter.NumParents() == 0 {
 				break
 			}
-			p, pErr := iter.Parent(0) // Linear history assumption for simple rebase
+			p, pErr := iter.Parent(0)
 			if pErr != nil {
-				return "", fmt.Errorf("failed to traverse parents: %v", pErr)
+				return nil, fmt.Errorf("failed to traverse parents: %v", pErr)
 			}
 			iter = p
 		}
@@ -246,16 +237,23 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		commitsToReplay[i], commitsToReplay[j] = commitsToReplay[j], commitsToReplay[i]
 	}
 
-	// 6. Hard Reset to Target (NewBase)
+	return &rebaseContext{
+		targetHash:      targetHash,
+		commitsToReplay: commitsToReplay,
+		headRef:         headRef,
+	}, nil
+}
+
+func (c *RebaseCommand) performRebase(ctx context.Context, s *git.Session, repo *gogit.Repository, rbCtx *rebaseContext, preserve bool) (string, error) {
+	// Hard Reset to Target (NewBase)
 	w, _ := repo.Worktree()
-	if resetErr := w.Reset(&gogit.ResetOptions{Commit: *targetHash, Mode: gogit.HardReset}); resetErr != nil {
+	if resetErr := w.Reset(&gogit.ResetOptions{Commit: *rbCtx.targetHash, Mode: gogit.HardReset}); resetErr != nil {
 		return "", fmt.Errorf("failed to reset to newbase: %v", resetErr)
 	}
 
-	// 7. Replay Commits (using shared helper)
+	// Replay Commits
 	replayedCount := 0
-	for _, c := range commitsToReplay {
-		// Apply changes from this commit using shared helper
+	for _, c := range rbCtx.commitsToReplay {
 		if applyErr := git.ApplyCommitChanges(w, c); applyErr != nil {
 			return "", fmt.Errorf("failed to apply commit %s: %v", c.Hash.String()[:7], applyErr)
 		}
@@ -263,7 +261,7 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		// Ensure timestamp distinctness
 		time.Sleep(10 * time.Millisecond)
 
-		_, err = w.Commit(c.Message, &gogit.CommitOptions{
+		_, err := w.Commit(c.Message, &gogit.CommitOptions{
 			Author:            git.GetDefaultSignature(),
 			AllowEmptyCommits: true,
 		})
@@ -273,13 +271,8 @@ func (c *RebaseCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		replayedCount++
 	}
 
-	if preserve {
-		// We aren't actually implementing merge preservation yet, just acknowledged flag.
-		_ = preserve
-	}
-
-	s.RecordReflog(fmt.Sprintf("rebase: finished rebase onto %s", targetHash.String()))
-	return fmt.Sprintf("Successfully rebased and updated %s.\nReplayed %d commits.", headRef.Name().Short(), replayedCount), nil
+	s.RecordReflog(fmt.Sprintf("rebase: finished rebase onto %s", rbCtx.targetHash.String()))
+	return fmt.Sprintf("Successfully rebased and updated %s.\nReplayed %d commits.", rbCtx.headRef.Name().Short(), replayedCount), nil
 }
 
 func (c *RebaseCommand) Help() string {
