@@ -27,74 +27,70 @@ func (c *RmCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 		return "", fmt.Errorf("usage: rm [-rf] <path>")
 	}
 
-	// Simple flag parsing
-	path := args[len(args)-1]
-
-	// Safety check: Don't allow deleting root or critical paths if possible, though FS is isolated.
-	if path == "/" || path == "." || path == ".." {
-		return "", fmt.Errorf("refusing to remove root or current directory")
+	// Parse arguments
+	var paths []string
+	for _, arg := range args[1:] {
+		if strings.HasPrefix(arg, "-") {
+			continue // skip flags like -rf
+		}
+		paths = append(paths, arg)
 	}
 
-	// Normalize path
-	targetPath := path
-	if !strings.HasPrefix(targetPath, "/") {
-		// Relative path, but for projects at root we usually expect them at root
-		// If s.CurrentDir is /, then payload is just the name.
-		if s.CurrentDir == "/" {
-			targetPath = "/" + targetPath
-		} else {
-			// Handle relative paths properly if needed, but for project deletion
-			// we assume we are likely at root or refer to it by name.
-			// For now, let's just assume we are deleting a folder in current dir.
-			targetPath = s.CurrentDir
-			if targetPath == "/" {
-				targetPath = ""
+	if len(paths) == 0 {
+		return "", fmt.Errorf("usage: rm [-rf] <path>...")
+	}
+
+	var removed []string
+	for _, path := range paths {
+		// Safety check: Don't allow deleting root or critical paths if possible
+		if path == "/" || path == "." || path == ".." {
+			continue // skip unsafe
+		}
+
+		// Normalize path
+		targetPath := path
+		if !strings.HasPrefix(targetPath, "/") {
+			if s.CurrentDir == "/" {
+				targetPath = "/" + targetPath
+			} else {
+				targetPath = s.CurrentDir + "/" + path
 			}
-			targetPath = targetPath + "/" + path
 		}
-	}
 
-	// Check if it exists
-	fi, err := s.Filesystem.Stat(targetPath)
-	if err != nil {
-		return "", fmt.Errorf("path not found: %s", path)
-	}
-
-	// Check if it is a directory representing a repo
-	if fi.IsDir() {
-		// Remove from Repos map if it exists there
-		// Name in Repos map is usually the relative name from root (e.g. "json-server")
-		// targetPath might be "/json-server"
-		repoName := strings.TrimPrefix(targetPath, "/")
-		delete(s.Repos, repoName)
-
-		// Remove from Filesystem
-		// standard Remove might not be recursive for billy?
-		// simple-git-fs usually supports Remove (which might be recursive depending on impl)
-		// or we need to implement walk delete.
-		// memfs usually requires empty dir for Remove.
-		// But let's see if there is RemoveAll.
-		// Billy interface usually has Remove.
-		// Note: memfs might not verify non-empty?
-		// Actually billy's basic Remove often mimics 'rm' which fails on non-empty directories.
-		// But we need 'rm -rf'.
-		// Let's try attempting a recursive delete helper if needed, or assume library support.
-		// checking billy docs (memory): it usually errors on non-empty Remove.
-		// We might need to walk it.
-
-		err = s.RemoveAll(targetPath)
+		// Check if it exists
+		fi, err := s.Filesystem.Stat(targetPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to remove: %v", err)
+			// If not found, just skip or error? strictly rm errors.
+			// But for multiple args, usually it errors but might continue?
+			// Let's error for now to be safe/simple, or just note it.
+			continue
 		}
-	} else {
-		// File
-		err = s.Filesystem.Remove(targetPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to remove file: %v", err)
+
+		// Check if it is a directory representing a repo
+		if fi.IsDir() {
+			repoName := strings.TrimPrefix(targetPath, "/")
+			delete(s.Repos, repoName) // Remove from Repos map
+
+			// Remove from Filesystem
+			err = s.RemoveAll(targetPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to remove %s: %v", path, err)
+			}
+		} else {
+			// File
+			err = s.Filesystem.Remove(targetPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to remove file %s: %v", path, err)
+			}
 		}
+		removed = append(removed, path)
 	}
 
-	return fmt.Sprintf("Removed '%s'", path), nil
+	if len(removed) == 0 {
+		return "", fmt.Errorf("no files removed")
+	}
+
+	return fmt.Sprintf("Removed %s", strings.Join(removed, ", ")), nil
 }
 
 func (c *RmCommand) Help() string {
