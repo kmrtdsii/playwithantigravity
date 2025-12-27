@@ -115,4 +115,42 @@ func TestRestoreCommand(t *testing.T) {
 	if string(content) != "v1-sub" {
 		t.Errorf("Expected subdir/b.txt 'v1-sub', got '%s'", string(content))
 	}
+
+	// 6. Test: Restore --staged .
+	// Stage changes first
+	f, _ = w.Filesystem.OpenFile("a.txt", os.O_WRONLY|os.O_TRUNC, 0644)
+	f.Write([]byte("v4-staged"))
+	f.Close()
+	w.Add("a.txt")
+
+	// Verify staged
+	status, _ := w.Status()
+	sStat := status.File("a.txt")
+	// Note: go-git status codes: ' ' (Unmodified), 'M' (Modified), 'A' (Added), etc.
+	// If staged, Staging should be 'M' (if modified from HEAD) or 'A' (if new)
+	// Here a.txt existed in HEAD(v1), was reset to v1, then modified to v4 and added.
+	// So Staging should be 'M'.
+	if sStat.Staging != gogit.Modified {
+		t.Errorf("Expected a.txt staging to be Modified, got %c", sStat.Staging)
+	}
+
+	// Restore --staged .
+	_, err = cmd.Execute(context.Background(), session, []string{"restore", "--staged", "."})
+	if err != nil {
+		t.Errorf("restore --staged . failed: %v", err)
+	}
+
+	status, _ = w.Status()
+	// After restore --staged, index should match HEAD (v1).
+	// Worktree has "v4-staged" content.
+	// So Staging should be ' ' (Unmodified vs HEAD).
+	// Worktree should be 'M' (Modified vs Index).
+
+	sStat = status.File("a.txt")
+	if sStat.Staging != gogit.Unmodified {
+		t.Errorf("Expected a.txt staging to be Unmodified (Unstaged), got %c", sStat.Staging)
+	}
+	if sStat.Worktree != gogit.Modified {
+		t.Errorf("Expected a.txt worktree to be Modified, got %c", sStat.Worktree)
+	}
 }

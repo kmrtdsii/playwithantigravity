@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/format/index"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
@@ -48,180 +49,216 @@ func (c *RestoreCommand) Execute(ctx context.Context, s *git.Session, args []str
 		return "", fmt.Errorf("fatal: you must specify path(s) to restore")
 	}
 
+	// 1. Expand Pathspecs
+	targets, err := c.expandPathspecs(repo, files)
+	if err != nil {
+		return "", err
+	}
+	if len(targets) == 0 {
+		// If original files contained ".", it means we wanted everything but found nothing
+		for _, f := range files {
+			if f == "." {
+				return "Nothing to restore (no tracked files found)", nil
+			}
+		}
+	}
+
+	// 2. Dispatch
 	if staged {
-		// restore --staged: Unstage files (reset index to HEAD)
-		headRef, err := repo.Head()
-		if err != nil {
-			// No HEAD (initial commit?), unstaging means removing from index
-			// We can iterate files and remove them from index
-			idx, idxErr := repo.Storer.Index()
-			if idxErr != nil {
-				return "", idxErr
-			}
-			for _, file := range files {
-				// Remove file from index entries
-				newEntries := make([]*index.Entry, 0, len(idx.Entries))
-				for _, e := range idx.Entries {
-					if e.Name != file {
-						newEntries = append(newEntries, e)
-					}
-				}
-				idx.Entries = newEntries
-			}
-			_ = repo.Storer.SetIndex(idx)
-			return "Unstaged files (initial commit)", nil
+		return c.restoreStaged(repo, targets, len(targets) > len(files)) // heuristics for "all" message
+	} else {
+		return c.restoreWorktree(repo, targets, len(targets) > len(files))
+	}
+}
+
+// expandPathspecs resolves "." to all files in index, otherwise returns files as-is
+func (c *RestoreCommand) expandPathspecs(repo *gogit.Repository, files []string) ([]string, error) {
+	idx, err := repo.Storer.Index()
+	if err != nil {
+		return nil, err
+	}
+
+	containDot := false
+	for _, f := range files {
+		if f == "." {
+			containDot = true
+			break
+		}
+	}
+
+	if containDot {
+		var targets []string
+		// In GitGym, operations are generally at repo root.
+		// If we support subdirectories later, we need to calculate path relative to Repo Root.
+		// For now, assume '.' implies everything in the repo (recursive).
+		for _, e := range idx.Entries {
+			targets = append(targets, e.Name)
+		}
+		return targets, nil
+	}
+
+	return files, nil
+}
+
+func (c *RestoreCommand) restoreStaged(repo *gogit.Repository, files []string, isMassOperation bool) (string, error) {
+	headRef, err := repo.Head()
+	if err != nil {
+		// No HEAD (initial commit?), unstaging means removing from index
+		idx, idxErr := repo.Storer.Index()
+		if idxErr != nil {
+			return "", idxErr
 		}
 
-		// HEAD exists, copy HEAD entry to Index
-		commit, err := repo.CommitObject(headRef.Hash())
-		if err != nil {
-			return "", err
-		}
-
-		tree, err := commit.Tree()
-		if err != nil {
-			return "", err
-		}
-
-		idx, err := repo.Storer.Index()
-		if err != nil {
-			return "", err
-		}
-
+		count := 0
 		for _, file := range files {
-			// 1. Check if file exists in HEAD
-			entry, err := tree.File(file)
-			if err != nil {
-				// File not in HEAD (it was a new file added). Remove from Index.
-				newEntries := make([]*index.Entry, 0, len(idx.Entries))
-				for _, e := range idx.Entries {
-					if e.Name != file {
-						newEntries = append(newEntries, e)
-					}
-				}
-				idx.Entries = newEntries
-				continue
-			}
-
-			// 2. File exists in HEAD. Update Index to match HEAD.
+			// Remove file from index entries
+			// Note: This is O(N*M) naive implementation.
+			newEntries := make([]*index.Entry, 0, len(idx.Entries))
 			found := false
-			for i, e := range idx.Entries {
-				if e.Name == file {
-					// Update
-					e.Hash = entry.Hash
-					e.Mode = entry.Mode
-					// ModifiedAt, Size etc?
-					idx.Entries[i] = e
+			for _, e := range idx.Entries {
+				if e.Name != file {
+					newEntries = append(newEntries, e)
+				} else {
 					found = true
-					break
 				}
 			}
-			if !found {
-				// If not in index but in HEAD, add it back
-				idx.Entries = append(idx.Entries, &index.Entry{
-					Name: file,
-					Hash: entry.Hash,
-					Mode: entry.Mode,
-				})
+			if found {
+				idx.Entries = newEntries
+				count++
 			}
 		}
 		_ = repo.Storer.SetIndex(idx)
-		return "Unstaged files", nil
+		return fmt.Sprintf("Unstaged files from initial commit (%d files)", count), nil
+	}
 
-	} else {
-		// restore (worktree): Discard changes in worktree (restore from Index)
+	// HEAD exists
+	commit, err := repo.CommitObject(headRef.Hash())
+	if err != nil {
+		return "", err
+	}
 
-		// We need the Worktree to access the correct Filesystem
-		w, err := repo.Worktree()
+	tree, err := commit.Tree()
+	if err != nil {
+		return "", err
+	}
+
+	idx, err := repo.Storer.Index()
+	if err != nil {
+		return "", err
+	}
+
+	successCount := 0
+	for _, file := range files {
+		// 1. Check if file exists in HEAD
+		entry, err := tree.File(file)
 		if err != nil {
-			return "", err
+			// File not in HEAD (new file). Remove from Index.
+			newEntries := make([]*index.Entry, 0, len(idx.Entries))
+			found := false
+			for _, e := range idx.Entries {
+				if e.Name != file {
+					newEntries = append(newEntries, e)
+				} else {
+					found = true
+				}
+			}
+			if found {
+				idx.Entries = newEntries
+				successCount++
+			}
+			continue
 		}
 
-		idx, err := repo.Storer.Index()
-		if err != nil {
-			return "", err
+		// 2. File exists in HEAD. Update Index.
+		foundInIndex := false
+		for i, e := range idx.Entries {
+			if e.Name == file {
+				e.Hash = entry.Hash
+				e.Mode = entry.Mode
+				idx.Entries[i] = e
+				foundInIndex = true
+				successCount++
+				break
+			}
 		}
+		if !foundInIndex {
+			// Add back to index if missing
+			idx.Entries = append(idx.Entries, &index.Entry{
+				Name: file,
+				Hash: entry.Hash,
+				Mode: entry.Mode,
+			})
+			successCount++
+		}
+	}
 
-		// Expand "." to all specific files in the index
-		var targets []string
+	err = repo.Storer.SetIndex(idx)
+	if err != nil {
+		return "", err
+	}
 
-		// Determine current directory prefix relative to repo root
-		prefix := ""
+	if isMassOperation {
+		return fmt.Sprintf("Unstaged all files in current directory (%d files)", successCount), nil
+	}
+	return "Unstaged files", nil
+}
 
-		containDot := false
-		for _, f := range files {
-			if f == "." {
-				containDot = true
+func (c *RestoreCommand) restoreWorktree(repo *gogit.Repository, files []string, isMassOperation bool) (string, error) {
+	w, err := repo.Worktree()
+	if err != nil {
+		return "", err
+	}
+
+	idx, err := repo.Storer.Index()
+	if err != nil {
+		return "", err
+	}
+
+	restoredCount := 0
+	for _, file := range files {
+		var entry *index.Entry
+		for _, e := range idx.Entries {
+			if e.Name == file {
+				entry = e
 				break
 			}
 		}
 
-		if containDot {
-			// Add all index entries matching prefix
-			for _, e := range idx.Entries {
-				if strings.HasPrefix(e.Name, prefix) {
-					targets = append(targets, e.Name)
-				}
+		if entry == nil {
+			// If explicitly requested but not in index, error
+			if !isMassOperation {
+				return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", file)
 			}
-		} else {
-			targets = files
+			continue
 		}
 
-		if len(targets) == 0 {
-			if containDot {
-				return "Nothing to restore (no tracked files in current directory)", nil
-			}
+		blob, err := repo.BlobObject(entry.Hash)
+		if err != nil {
+			return "", fmt.Errorf("failed to read blob %s: %w", entry.Hash, err)
+		}
+		reader, err := blob.Reader()
+		if err != nil {
+			return "", err
+		}
+		defer reader.Close()
+
+		f, err := w.Filesystem.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+		if err != nil {
+			return "", err
 		}
 
-		restoredCount := 0
-		for _, file := range targets {
-			// Find entry in index
-			var entry *index.Entry
-			for _, e := range idx.Entries {
-				if e.Name == file {
-					entry = e
-					break
-				}
-			}
-
-			if entry == nil {
-				if !containDot {
-					return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", file)
-				}
-				continue
-			}
-
-			// Read blob from Object Storage
-			blob, err := repo.BlobObject(entry.Hash)
-			if err != nil {
-				return "", fmt.Errorf("failed to read blob %s: %w", entry.Hash, err)
-			}
-			reader, err := blob.Reader()
-			if err != nil {
-				return "", err
-			}
-			defer reader.Close()
-
-			// Write to Worktree using w.Filesystem (which is rooted at repo root)
-			// instead of s.Filesystem (which is rooted at global root)
-			f, err := w.Filesystem.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-			if err != nil {
-				return "", err
-			}
-
-			if _, err := io.Copy(f, reader); err != nil {
-				f.Close()
-				return "", err
-			}
+		if _, err := io.Copy(f, reader); err != nil {
 			f.Close()
-			restoredCount++
+			return "", err
 		}
-
-		if containDot {
-			return fmt.Sprintf("Restored all tracked files in current directory (%d files)", restoredCount), nil
-		}
-		return "Restored files in worktree", nil
+		f.Close()
+		restoredCount++
 	}
+
+	if isMassOperation {
+		return fmt.Sprintf("Restored all tracked files in current directory (%d files)", restoredCount), nil
+	}
+	return "Restored files in worktree", nil
 }
 
 func (c *RestoreCommand) Help() string {
