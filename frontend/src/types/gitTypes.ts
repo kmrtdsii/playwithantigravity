@@ -5,6 +5,7 @@ export interface Commit {
     secondParentId: string | null;
     branch: string;
     timestamp: string;
+    author: string;
 }
 
 

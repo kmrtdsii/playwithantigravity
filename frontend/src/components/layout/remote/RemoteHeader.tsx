@@ -157,7 +157,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                     <div style={{ position: 'relative' }}>
                         <button
                             onClick={handleCopyUrl}
-                            title="Copy URL to clipboard"
+                            title={t('remote.copyUrl')}
                             style={{
                                 padding: 'var(--space-1)',
                                 background: 'transparent',
@@ -189,7 +189,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                                 zIndex: 100,
                                 animation: 'fadeIn 0.15s ease-out'
                             }}>
-                                Copied!
+                                {t('remote.copied')}
                             </div>
                         )}
                     </div>

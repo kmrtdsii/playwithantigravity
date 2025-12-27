@@ -89,6 +89,8 @@ export const CommitRow: React.FC<CommitRowProps> = ({
             {node.message}
         </span>
 
+
+
         {/* Timestamp */}
         <span style={{
             color: 'var(--text-tertiary)',

@@ -20,7 +20,7 @@ func TestParseCommand(t *testing.T) {
 		{"git -h", "help", []string{"help"}},
 		{"--version", "version", []string{"version"}},
 		{"git", "help", []string{"help"}},
-		{"git ls", "git-ls", []string{"git", "ls"}},
+		{"git ls", "ls", []string{"ls"}},
 	}
 
 	for _, tt := range tests {

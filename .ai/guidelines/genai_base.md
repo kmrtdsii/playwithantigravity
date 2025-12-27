@@ -21,6 +21,7 @@ Documentation is the "Prompt" for the next agent.
 When acting as an Agent, follow these loops:
 -   **Reflection**: Before finalizing a task, critique your own work. "Did I break existing tests? Does this match the user's intent?"
 -   **Tool Use**: Prefer using provided tools (verified paths) over guessing.
+-   **Environment Awareness**: Don't assume the world is ready. Check servers, ports, and file existence before acting. (e.g., "Is `localhost:80` responding?" before opening a browser).
 -   **Iterative Planning**: Don't try to solve the whole world in one prompt. Break it down into artifacts (`implementation_plan.md`).
 
 ## 4. Anti-Patterns to Avoid

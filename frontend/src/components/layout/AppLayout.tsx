@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import './AppLayout.css';
 import { useGit } from '../../context/GitAPIContext';
-import { useTranslation } from 'react-i18next'; // Import useTranslation
+import { useTranslation } from 'react-i18next';
 
 import GitGraphViz from '../visualization/GitGraphViz';
 import GitReferenceList from '../visualization/GitReferenceList';
@@ -18,9 +18,10 @@ import { useTheme } from '../../context/ThemeContext';
 import { useResizablePanes } from '../../hooks/useResizablePanes';
 import { motion, AnimatePresence } from 'framer-motion';
 
-type ViewMode = 'graph' | 'branches' | 'tags';
-
 import CommitDetails from '../visualization/CommitDetails';
+import SearchBar from '../common/SearchBar';
+
+type ViewMode = 'graph' | 'branches' | 'tags';
 
 const AppLayout = () => {
     const { t } = useTranslation('common'); // Hook
@@ -35,6 +36,7 @@ const AppLayout = () => {
     const [selectedObject, setSelectedObject] = useState<SelectedObject | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('graph');
     const [detailsPaneWidth, setDetailsPaneWidth] = useState(300);
+    const [searchQuery, setSearchQuery] = useState('');
 
     // --- Layout State (Refactored) ---
     const {
@@ -147,6 +149,11 @@ const AppLayout = () => {
                         ))}
                     </div>
 
+                    {/* Search Bar */}
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder={t('app.searchPlaceholder')} />
+                    </div>
+
                     {/* Right Side Controls */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px', fontSize: '10px', color: 'var(--text-secondary)' }} data-testid="show-all-toggle">
@@ -203,6 +210,7 @@ const AppLayout = () => {
                                                 // state={state} // Use context state to show all branches including remotes
                                                 onSelect={(commitData) => handleObjectSelect({ type: 'commit', id: commitData.id, data: commitData })}
                                                 selectedCommitId={selectedObject?.type === 'commit' ? selectedObject.id : undefined}
+                                                searchQuery={searchQuery}
                                             />
                                         </motion.div>
                                     ) : (

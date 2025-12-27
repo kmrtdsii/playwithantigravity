@@ -12,6 +12,7 @@ interface GitGraphVizProps {
     selectedCommitId?: string;
     state?: GitState;
     title?: string;
+    searchQuery?: string;
 }
 
 /**
@@ -27,7 +28,8 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     onSelect,
     selectedCommitId,
     state: propState,
-    title
+    title,
+    searchQuery
 }) => {
     const { state: contextState } = useGit();
     const state = propState || contextState;
@@ -80,15 +82,64 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     const minVisY = Math.max(0, scrollTop - BUFFER_PX);
     const maxVisY = scrollTop + viewportHeight + BUFFER_PX;
 
-    // Filter for visibility
+    // Dimming Logic based on search
+    const filteredNodes = useMemo(() => {
+        if (!searchQuery) return nodes;
+
+        const query = searchQuery.toLowerCase();
+        return nodes.map(node => {
+            const formattedDate = new Date(node.timestamp).toLocaleString('ja-JP', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+
+            const match =
+                node.id.toLowerCase().includes(query) ||
+                node.message.toLowerCase().includes(query) ||
+                formattedDate.startsWith(query); // Prefix match for date
+
+            return {
+                ...node,
+                opacity: match ? 1 : 0.2
+                // We keep edges attached to dimmed nodes consistent with node opacity or keep them dimmed?
+                // Visual preference: if node is dimmed, edges connecting it likely dimmed too.
+            };
+        });
+    }, [nodes, searchQuery]);
+
+    const activeNodes = searchQuery ? filteredNodes : nodes;
+
+    // Auto-scroll to first match
+    useEffect(() => {
+        if (!searchQuery) return;
+        const firstMatch = activeNodes.find(n => n.opacity === 1);
+        if (firstMatch && containerRef.current) {
+            containerRef.current.scrollTo({
+                top: firstMatch.y - viewportHeight / 2,
+                behavior: 'smooth'
+            });
+        }
+    }, [searchQuery, activeNodes, viewportHeight]);
+
+    // Filter for visibility (Virtualization)
     const visibleNodes = useMemo(() =>
-        nodes.filter(n => n.y >= minVisY && n.y <= maxVisY),
-        [nodes, minVisY, maxVisY]
+        activeNodes.filter(n => n.y >= minVisY && n.y <= maxVisY),
+        [activeNodes, minVisY, maxVisY]
     );
 
     const visibleEdges = useMemo(() =>
-        edges.filter(e => e.maxY >= minVisY && e.minY <= maxVisY),
-        [edges, minVisY, maxVisY]
+        edges.filter(e => e.maxY >= minVisY && e.minY <= maxVisY).map(edge => {
+            // If search is active, dim edges if their connected nodes are dimmed?
+            // This requires mapping edges to nodes. Simplified: if searchQuery, dim all edges to 0.2?
+            // Or better: keep original edges opacity but multiply by 0.2 if no match?
+            // Too complex to map dynamically without edge source/target ref.
+            // Let's just dim all edges slightly during search to emphasize nodes.
+            if (searchQuery) {
+                return { ...edge, opacity: 0.1 };
+            }
+            return edge;
+        }),
+        [edges, minVisY, maxVisY, searchQuery]
     );
 
     // Resolve HEAD commit ID for halo effect

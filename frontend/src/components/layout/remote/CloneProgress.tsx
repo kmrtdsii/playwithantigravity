@@ -1,5 +1,6 @@
 import React from 'react';
 import { Loader2, AlertCircle, CheckCircle, RefreshCw, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../common/Button';
 
 export type CloneStatus = 'idle' | 'fetching_info' | 'cloning' | 'complete' | 'error';
@@ -27,6 +28,8 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
     onRetry,
     onCancel,
 }) => {
+    const { t } = useTranslation('common');
+
     if (status === 'idle') return null;
 
     // Calculation logic
@@ -65,15 +68,15 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
             {/* Content Body */}
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
-                    {status === 'fetching_info' && 'Connecting to remote...'}
+                    {status === 'fetching_info' && t('remote.status.connecting')}
                     {status === 'cloning' && (
                         <span>
-                            Syncing remote repository...
+                            {t('remote.status.syncing')}
                             {repoInfo && <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}> ({repoInfo.sizeDisplay})</span>}
                         </span>
                     )}
-                    {status === 'complete' && 'Remote synced!'}
-                    {status === 'error' && 'Sync failed'}
+                    {status === 'complete' && t('remote.status.synced')}
+                    {status === 'error' && t('remote.status.failed')}
                 </div>
 
                 {/* Progress Bar */}
@@ -89,7 +92,7 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
                             }} />
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                            {remainingSeconds > 0 ? `~${formatTime(remainingSeconds)} remaining` : 'Almost done...'}
+                            {remainingSeconds > 0 ? `~${formatTime(remainingSeconds)} ${t('remote.status.remaining')}` : t('remote.status.almostDone')}
                         </div>
                     </div>
                 )}

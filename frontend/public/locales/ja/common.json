@@ -4,7 +4,9 @@
         "theme": {
             "light": "ライト",
             "dark": "ダーク"
-        }
+        },
+        "loading": "GitGymを読み込み中...",
+        "searchPlaceholder": "コミットを検索..."
     },
     "viewMode": {
         "graph": "グラフ",
@@ -65,6 +67,16 @@
             "delete": "削除",
             "deleting": "削除中...",
             "deleteConfirm": "このPRを削除してもよろしいですか？"
+        },
+        "copyUrl": "URLをクリップボードにコピー",
+        "copied": "コピーしました！",
+        "status": {
+            "connecting": "リモートに接続中...",
+            "syncing": "リモートリポジトリを同期中...",
+            "synced": "同期完了！",
+            "failed": "同期に失敗しました",
+            "remaining": "残り",
+            "almostDone": "まもなく完了します..."
         }
     },
     "developer": {
