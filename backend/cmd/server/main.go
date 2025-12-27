@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
@@ -14,7 +15,19 @@ import (
 // DefaultRemoteURL is the pre-configured remote repository available for cloning
 const DefaultRemoteURL = "https://github.com/octocat/Spoon-Knife.git"
 
+// DataDir is the directory for storing persistent data
+const DataDir = ".gitgym-data"
+
 func main() {
+	// Check if CLEAR_REMOTES_ON_START is set to clear the remotes directory
+	if os.Getenv("CLEAR_REMOTES_ON_START") == "true" {
+		remotesDir := DataDir + "/remotes"
+		log.Printf("CLEAR_REMOTES_ON_START is set, clearing %s", remotesDir)
+		if err := os.RemoveAll(remotesDir); err != nil {
+			log.Printf("Warning: Failed to clear remotes directory: %v", err)
+		}
+	}
+
 	// Initialize Core Dependencies
 	sessionManager := git.NewSessionManager()
 

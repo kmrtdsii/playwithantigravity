@@ -55,7 +55,7 @@ func (c *MergePRCommand) parseArgs(args []string) error {
 	return nil
 }
 
-func (c *MergePRCommand) resolveContext(ctx context.Context) error {
+func (c *MergePRCommand) resolveContext(_ context.Context) error {
 	sm := c.engine.Manager
 	sm.RLock()
 	defer sm.RUnlock()
@@ -87,7 +87,7 @@ func (c *MergePRCommand) resolveContext(ctx context.Context) error {
 	return nil
 }
 
-func (c *MergePRCommand) performAction(ctx context.Context) (string, error) {
+func (c *MergePRCommand) performAction(_ context.Context) (string, error) {
 	log.Printf("MergePRCommand: Merging PR #%d (%s -> %s) on remote %q", c.prID, c.pr.HeadRef, c.pr.BaseRef, c.remoteName)
 
 	// Resolve references

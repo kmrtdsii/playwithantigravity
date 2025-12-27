@@ -69,3 +69,9 @@ func (s *HybridStorer) IterEncodedObjects(t plumbing.ObjectType) (storer.Encoded
 	// Combine them
 	return storer.NewMultiEncodedObjectIter([]storer.EncodedObjectIter{localIter, sharedIter}), nil
 }
+
+// LocalStorer returns the underlying local storage without the shared fallback.
+// Use this when you need to iterate only locally-stored objects (e.g., for local graph view).
+func (s *HybridStorer) LocalStorer() storage.Storer {
+	return s.Storer
+}
