@@ -91,6 +91,8 @@
         "branch": "Branch",
         "welcome": "Welcome to GitGym! 🚀",
         "instructions": "To get started, please clone a repository using:",
-        "help": "Type 'git help' to see available commands."
+        "help": "Type 'git help' to see available commands.",
+        "allowEmpty": "Allow Empty",
+        "allowEmptyTooltip": "Automatically append --allow-empty to commit commands"
     }
 }

@@ -91,6 +91,8 @@
         "branch": "ブランチ",
         "welcome": "GitGymへようこそ！ 🚀",
         "instructions": "始めるには、以下のコマンドでリポジトリをクローンしてください:",
-        "help": "'git help' と入力すると利用可能なコマンドが表示されます。"
+        "help": "'git help' と入力すると利用可能なコマンドが表示されます。",
+        "allowEmpty": "空コミットを許可",
+        "allowEmptyTooltip": "コミットコマンドに自動的に --allow-empty を追加します"
     }
 }

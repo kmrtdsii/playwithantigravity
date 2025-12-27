@@ -50,14 +50,14 @@ const GitTerminal = () => {
 
                 {/* Allow Empty Toggle */}
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px', userSelect: 'none' }} title="Automatically append --allow-empty to commit commands">
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '6px', userSelect: 'none' }} title={t('terminal.allowEmptyTooltip')}>
                         <input
                             type="checkbox"
                             checked={allowEmpty}
                             onChange={(e) => setAllowEmpty(e.target.checked)}
                             style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }}
                         />
-                        <span style={{ color: 'var(--text-secondary)', fontWeight: '600', fontSize: '11px' }}>Allow Empty</span>
+                        <span style={{ color: 'var(--text-secondary)', fontWeight: '600', fontSize: '11px' }}>{t('terminal.allowEmpty')}</span>
                     </label>
                 </div>
             </div>
