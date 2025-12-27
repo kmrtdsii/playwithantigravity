@@ -28,13 +28,13 @@
         "loading": "Loading..."
     },
     "workspace": {
-        "title": "WORKSPACES",
+        "title": "REPOSITORIES",
         "deleteTitle": "Delete Project",
         "deleteConfirm": "Are you sure you want to delete project <1>{{name}}</1>? This action cannot be undone.",
         "branches": "BRANCHES",
-        "stagedChanges": "STAGED CHANGES",
+        "stagedChanges": "STAGE",
         "noProjects": "Projects Not Found. Please clone a repository!",
-        "files": "FILES",
+        "files": "WORKING TREE",
         "noFiles": "No files found. The directory is empty.",
         "currentBranch": "Current branch",
         "checkout": "Checkout {{name}}"
