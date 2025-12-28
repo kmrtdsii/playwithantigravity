@@ -89,18 +89,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         </div>
                     ) : null}
                     <span>{displayTitle}</span>
-                    {remoteUrl && (
-                        <span style={{
-                            fontSize: 'var(--text-xs)',
-                            background: 'var(--accent-primary)',
-                            color: 'white',
-                            padding: '1px 6px',
-                            borderRadius: '10px',
-                            fontWeight: 600
-                        }}>
-                            origin
-                        </span>
-                    )}
+
                 </div>
 
                 {/* Configure button */}
