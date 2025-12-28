@@ -110,10 +110,22 @@ func (c *RevertCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	// Standard git revert message
 	msg := fmt.Sprintf("Revert \"%s\"\n\nThis reverts commit %s.", strings.TrimSpace(targetCommit.Message), targetCommit.Hash.String())
 
+	// Resolve Author from config
+	authorName := "GitGym User"
+	authorEmail := "user@gitgym.com"
+	if cfg, err := repo.Config(); err == nil {
+		if cfg.User.Name != "" {
+			authorName = cfg.User.Name
+		}
+		if cfg.User.Email != "" {
+			authorEmail = cfg.User.Email
+		}
+	}
+
 	newHash, err := w.Commit(msg, &gogit.CommitOptions{
 		Author: &object.Signature{
-			Name:  "GitGym User", // Ideally from config
-			Email: "user@gitgym.com",
+			Name:  authorName,
+			Email: authorEmail,
 			When:  time.Now(),
 		},
 	})

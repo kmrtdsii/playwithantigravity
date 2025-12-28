@@ -108,7 +108,9 @@ func (c *StashCommand) executePush(repo *gogit.Repository, args []string) (strin
 	})
 	if err != nil {
 		// Try to rollback index?
-		w.Reset(&gogit.ResetOptions{Mode: gogit.MixedReset})
+		if resetErr := w.Reset(&gogit.ResetOptions{Mode: gogit.MixedReset}); resetErr != nil {
+			return "", fmt.Errorf("failed to create stash commit: %v (rollback also failed: %v)", err, resetErr)
+		}
 		return "", fmt.Errorf("failed to create stash commit: %v", err)
 	}
 

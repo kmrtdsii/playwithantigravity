@@ -4,9 +4,11 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-git/go-billy/v5/memfs"
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/kurobon/gitgym/backend/internal/git"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +25,9 @@ func TestStash(t *testing.T) {
 	f.Write([]byte("base\n"))
 	f.Close()
 	w.Add("file.txt")
-	w.Commit("Base", &gogit.CommitOptions{})
+
+	author := &object.Signature{Name: "Tester", Email: "test@example.com", When: time.Now()}
+	w.Commit("Base", &gogit.CommitOptions{Author: author})
 
 	// 2. Make it dirty
 	f, _ = fs.Open("file.txt")
@@ -87,9 +91,11 @@ func TestStashStack(t *testing.T) {
 	r, _ := gogit.Init(storer, fs)
 	w, _ := r.Worktree()
 
-	f, _ := fs.Create("a")
+	_, _ = fs.Create("a")
 	w.Add("a")
-	w.Commit("Base", &gogit.CommitOptions{})
+
+	author := &object.Signature{Name: "Tester", Email: "test@example.com", When: time.Now()}
+	w.Commit("Base", &gogit.CommitOptions{Author: author})
 
 	session := &git.Session{
 		ID:         "t",
@@ -100,7 +106,7 @@ func TestStashStack(t *testing.T) {
 	cmd := &StashCommand{}
 
 	// Push 1
-	f, _ = fs.Create("a")
+	f, _ := fs.Create("a")
 	f.Write([]byte("1"))
 	f.Close()
 	cmd.Execute(context.Background(), session, []string{"stash"})
