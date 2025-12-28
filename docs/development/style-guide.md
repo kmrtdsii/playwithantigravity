@@ -59,5 +59,10 @@ We enforce strict code quality via `golangci-lint`:
 - **Execution**: `scripts/test-all.sh` is the source of truth.
 - **Rule**: No lint warnings are allowed in production code.
 - **Test Exemption**: It is acceptable to use `--tests=false` for `golangci-lint` to avoid over-zealous security checks (like `gosec`) in `_test.go` files, provided the main code is secure.
-- **Unhandled Errors (G104)**: You MUST handle or explicitly ignore errors. `_ = f.Close()` is required, not just `f.Close()`.
+-   **Unhandled Errors (G104)**: You MUST handle or explicitly ignore errors. `_ = f.Close()` is required, not just `f.Close()`.
 
+## 6. Native First UI (Frontend Patterns)
+-   **Prefer Native Elements**: Use browser-native elements over custom JS implementations where possible.
+    -   **Modals**: Use `<dialog>` with `.showModal()` instead of `<div>` overlays. It handles focus trapping and Esc key naturally.
+    -   **Popovers**: Use the Popover API (if supported) or `<details>`/`<summary>` for simple toggles.
+-   **Internationalization (i18n)**: All user-facing text must be wrapped in `t()` from `react-i18next`. Even empty states and error messages.

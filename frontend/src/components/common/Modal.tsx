@@ -7,19 +7,7 @@ interface ModalProps {
     children: React.ReactNode;
 }
 
-const modalOverlayStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-    backdropFilter: 'blur(2px)',
-};
+
 
 const modalContentStyle: React.CSSProperties = {
     backgroundColor: 'var(--bg-secondary)',
@@ -42,44 +30,67 @@ const modalHeaderStyle: React.CSSProperties = {
 };
 
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
-    const dialogRef = useRef<HTMLDivElement>(null);
+    const dialogRef = useRef<HTMLDialogElement>(null);
 
     useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                onClose();
-            }
-        };
+        const dialog = dialogRef.current;
+        if (!dialog) return;
 
         if (isOpen) {
-            document.addEventListener('keydown', handleKeyDown);
+            dialog.showModal();
             // Lock body scroll
             document.body.style.overflow = 'hidden';
+        } else {
+            dialog.close();
+            document.body.style.overflow = 'unset';
         }
 
         return () => {
-            document.removeEventListener('keydown', handleKeyDown);
             document.body.style.overflow = 'unset';
+            if (dialog?.open) dialog.close();
         };
-    }, [isOpen, onClose]);
+    }, [isOpen]);
 
-    if (!isOpen) return null;
+    // Handle Closing via Backdrop click or Escape
+    const handleCancel = (e: React.SyntheticEvent<HTMLDialogElement, Event>) => {
+        e.preventDefault();
+        onClose();
+    };
+
+    const handleClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+        const dialog = dialogRef.current;
+        if (dialog) {
+            const rect = dialog.getBoundingClientRect();
+            // Check if click is outside the dialog (on the backdrop)
+            const isInDialog = (rect.top <= e.clientY && e.clientY <= rect.top + rect.height &&
+                rect.left <= e.clientX && e.clientX <= rect.left + rect.width);
+
+            if (!isInDialog) {
+                onClose();
+            }
+        }
+    };
 
     return (
-        <div style={modalOverlayStyle} onClick={(e) => {
-            if (e.target === e.currentTarget) onClose();
-        }}>
-            <div
-                ref={dialogRef}
-                style={modalContentStyle}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="modal-title"
-            >
-                <div id="modal-title" style={modalHeaderStyle}>{title}</div>
-                {children}
-            </div>
-        </div>
+        <dialog
+            ref={dialogRef}
+            onCancel={handleCancel}
+            onClick={handleClick}
+            style={{
+                ...modalContentStyle,
+                margin: 'auto', // Center natively
+                position: 'fixed', // Ensure fixed positioning even for dialog
+                zIndex: 1000
+                // Backdrop is handled by ::backdrop pseudo-element usually, but we keep content style
+            }}
+            aria-labelledby="modal-title"
+        >
+            <div id="modal-title" style={modalHeaderStyle}>{title}</div>
+            {children}
+            {/* Native backdrop styling injected via style tag or global css if needed, 
+                but browser default is usually passable (dimmed). 
+                Ideally we add ::backdrop to global CSS. */}
+        </dialog>
     );
 };
 

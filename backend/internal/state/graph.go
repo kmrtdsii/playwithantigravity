@@ -183,10 +183,18 @@ func populateFiles(session *Session, state *GraphState) {
 	}
 
 	// Walk the filesystem to get ALL files including untracked
+	// PERFORMANCE GUARD: Limit file count to preventing UI freezing
+	const MaxFileCount = 1000
+	count := 0
+
 	_ = util.Walk(w.Filesystem, "/", func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
 			return nil
 		}
+		if count >= MaxFileCount {
+			return filepath.SkipDir // Stop walking
+		}
+
 		if fi.IsDir() {
 			if path == ".git" {
 				return filepath.SkipDir
@@ -200,8 +208,13 @@ func populateFiles(session *Session, state *GraphState) {
 		}
 
 		state.Files = append(state.Files, path)
+		count++
 		return nil
 	})
+
+	if count >= MaxFileCount {
+		state.Files = append(state.Files, "... (limit reached)")
+	}
 }
 
 func populateGitStatus(repo *gogit.Repository, state *GraphState) error {

@@ -18,12 +18,11 @@ import (
 // IngestRemote creates a new shared remote repository from a URL (simulated clone)
 func (sm *SessionManager) IngestRemote(ctx context.Context, name, url string, depth int) error {
 	// Define local path for persistence
-	// READ LOCK only to get config if needed, but DataDir is static usually or we can just access it if it's not changing.
-	// Safe to read DataDir if it's set on init.
-	baseDir := sm.DataDir
+	baseDir := os.Getenv("GITGYM_DATA_ROOT")
 	if baseDir == "" {
-		baseDir = ".gitgym-data/remotes"
+		baseDir = ".gitgym-data"
 	}
+	baseDir = filepath.Join(baseDir, "remotes")
 
 	// Requirement: Single persistent remote. Clean up others.
 	// We use URL hash for directory name so clients pointing to old URL paths fail.

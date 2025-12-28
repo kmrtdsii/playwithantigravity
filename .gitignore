@@ -28,6 +28,8 @@ dist-ssr
 .direnv
 
 # tmp
+# tmp
+.gitgym-data/
 backend/.gitgym-data/*
 
 # Go binaries

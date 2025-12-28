@@ -13,6 +13,9 @@
         "branches": "Branches",
         "tags": "Tags"
     },
+    "visualization": {
+        "emptyState": "Type \"git init\" to start."
+    },
     "common": {
         "showAll": "SHOW ALL",
         "noRepoLoaded": "No Repository Loaded",

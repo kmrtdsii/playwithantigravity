@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit, GitState } from '../../types/gitTypes';
@@ -32,6 +33,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     searchQuery
 }) => {
     const { state: contextState } = useGit();
+    const { t } = useTranslation('common');
     const state = propState || contextState;
     const { commits, potentialCommits, branches, references, remoteBranches, tags, HEAD } = state;
 
@@ -153,7 +155,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     if (!state.initialized) {
         return (
             <div data-testid="git-graph-empty" className="flex h-full items-center justify-center text-gray-500 font-mono text-sm">
-                Type <code className="mx-1 text-gray-400">git init</code> to start.
+                {t('visualization.emptyState', { defaultValue: 'Type git init to start.' })}
             </div>
         );
     }

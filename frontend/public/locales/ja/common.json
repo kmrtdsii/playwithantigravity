@@ -13,6 +13,9 @@
         "branches": "ブランチ",
         "tags": "タグ"
     },
+    "visualization": {
+        "emptyState": "\"git init\" と入力して開始してください。"
+    },
     "common": {
         "showAll": "全表示",
         "noRepoLoaded": "リポジトリが読み込まれていません",

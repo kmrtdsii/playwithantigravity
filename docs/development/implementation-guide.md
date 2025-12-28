@@ -89,7 +89,17 @@ func (c *MyCommand) Execute(ctx context.Context, s *git.Session, args []string) 
     // 3. Perform
     return c.performAction(s, mCtx)
 }
-```
+
+## 2.3 Pragmatic Performance Guards (The "Cap" Rule)
+When implementing potentially expensive operations (e.g., file system walks, graph traversals):
+1.  **Hard Stop**: Always implement a hard limit (e.g., `MaxFileCount = 1000`) for synchronous operations.
+2.  **Fail Gracefully**: If the limit is reached, return partial results with a clear indicator (e.g., `... (limit reached)`).
+3.  **Defer Complexity**: Do not implement complex async indexers until the simple cap is proven insufficient. Avoid "Premature Optimization".
+
+## 2.4 Configuration Hygiene
+-   **Env Var First**: All filesystem paths and critical constants MUST be overridable via Environment Variables (e.g., `GITGYM_DATA_ROOT`).
+-   **Safe Defaults**: Always provide a sensible default if the env var is unset.
+-   **No Hardcoding**: Never hardcode absolute paths or "magic folders" deeper than the project root default.
 
 ## 3. Verification Strategy
 Detailed testing patterns are defined in [Testing Strategy](./testing-strategy.md).
