@@ -103,6 +103,7 @@ func (c *SwitchCommand) Help() string {
  💡 DESCRIPTION
     ・作業するブランチを切り替える
     ・新しいブランチを作成して、そのまま切り替える（-c）
+    (checkout コマンドから「ブランチ切り替え」機能だけを取り出した分かりやすいコマンドです)
 
  📋 SYNOPSIS
     git switch <branch>
@@ -111,12 +112,19 @@ func (c *SwitchCommand) Help() string {
  ⚙️  COMMON OPTIONS
     -c, --create <new-branch>
         新しいブランチを作成して切り替えます（` + "`" + `git checkout -b` + "`" + ` 相当）。
+    
+    -d, --detach
+        ブランチではなく、特定のコミットに直接切り替えます（Detached HEAD状態）。
 
- 🛠  EXAMPLES
-    1. ブランチを切り替え
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: ブランチを切り替え
        $ git switch main
 
-    2. 作成して切り替え
-       $ git switch -c new-feature
+    2. 実践: 作成して切り替え (Recommended)
+       「あ、これ新しいブランチで作業したいな」と思ったらこれを使います。
+       $ git switch -c feature/new-idea
+
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-switch
 `
 }

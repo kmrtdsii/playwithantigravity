@@ -124,12 +124,22 @@ func (c *AddCommand) Help() string {
     -A, --all
         ワークツリー全体のすべての変更を追加します。
 
- 🛠  EXAMPLES
-    1. カレントディレクトリのすべての変更をステージング
+    -p, --patch
+        (現在未実装) 変更箇所(hunk)を選択してステージングします。
+
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: すべての変更をステージング
+       変更内容が大きい場合など、一旦すべてステージングします。
        $ git add .
 
-    2. 特定のファイルのみをステージング
-       $ git add README.md
+    2. 実践: 特定のファイルだけ (Recommended)
+       関係ないファイルの巻き込み事故を防ぐため、慣れてきたらファイル指定がベストです。
+       $ git add src/main.go
+
+    3. 実践: 部分的にステージング (Advance)
+       「この修正はコミットしたいけど、あのデバッグログは入れたくない」
+       そういう時は -p (patch) オプションを使います。
+       $ git add -p
 
  🔗 REFERENCE
     Full documentation: https://git-scm.com/docs/git-add

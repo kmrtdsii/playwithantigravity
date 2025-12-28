@@ -35,7 +35,8 @@ var _ git.Command = (*CloneCommand)(nil)
 var SafeRepoNameRegex = regexp.MustCompile(`^[a-zA-Z0-9_\-]+$`)
 
 type CloneOptions struct {
-	URL string
+	URL       string
+	Directory string
 }
 
 type cloneContext struct {
@@ -54,6 +55,9 @@ func (c *CloneCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	// 1. Parse Arguments
 	opts, err := c.parseArgs(args)
 	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
+		}
 		return "", err
 	}
 
@@ -78,24 +82,32 @@ func (c *CloneCommand) parseArgs(args []string) (*CloneOptions, error) {
 		default:
 			if opts.URL == "" {
 				opts.URL = arg
+			} else if opts.Directory == "" {
+				opts.Directory = arg
 			}
 		}
 	}
 
 	if opts.URL == "" {
-		return nil, fmt.Errorf("usage: git clone <url>")
+		return nil, fmt.Errorf("usage: git clone <url> [<directory>]")
 	}
 	return opts, nil
 }
 
 func (c *CloneCommand) resolveContext(s *git.Session, opts *CloneOptions) (*cloneContext, error) {
-	// Extract repo name from URL
-	parts := strings.Split(opts.URL, "/")
-	if len(parts) == 0 {
-		return nil, fmt.Errorf("invalid url")
+	var repoName string
+
+	if opts.Directory != "" {
+		repoName = opts.Directory
+	} else {
+		// Extract repo name from URL
+		parts := strings.Split(opts.URL, "/")
+		if len(parts) == 0 {
+			return nil, fmt.Errorf("invalid url")
+		}
+		repoName = parts[len(parts)-1]
+		repoName = strings.TrimSuffix(repoName, ".git")
 	}
-	repoName := parts[len(parts)-1]
-	repoName = strings.TrimSuffix(repoName, ".git")
 
 	// SECURITY: Input Validation
 	if !SafeRepoNameRegex.MatchString(repoName) {
@@ -129,17 +141,15 @@ func (c *CloneCommand) resolveContext(s *git.Session, opts *CloneOptions) (*clon
 				remotePath = opts.URL
 			}
 		} else if r, ok := s.Manager.GetSharedRemote(repoName); ok {
+			// This fallback might be ambiguous if repoName is custom 'my-project' but remote is 'repo'
+			// Only rely on URL matching if possible, but keep fallback for short names
+			// However, if directory is custom, repoName is custom. Remote lookup should use URL mainly.
+			// But keeping logic for now.
 			remoteRepo = r
 			remoteSt = r.Storer
 
-			s.Manager.RLock()
-			path, found := s.Manager.SharedRemotePaths[repoName]
-			s.Manager.RUnlock()
-			if found {
-				remotePath = path
-			} else {
-				remotePath = repoName
-			}
+			// ...
+			remotePath = repoName
 		}
 	}
 
@@ -190,8 +200,6 @@ func (c *CloneCommand) performClone(s *git.Session, clCtx *cloneContext) (string
 	}
 
 	// Configure Origin
-	// Use the raw path or URL? Logic logic used clCtx.RemotePath as "originURL" var before? No, it used 'url' arg mostly.
-
 	_, err = localRepo.CreateRemote(&config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{clCtx.RemotePath}, // Use internal path for functionality
@@ -274,10 +282,18 @@ func (c *CloneCommand) Help() string {
 	return `📘 GIT-CLONE (1)                                        Git Manual
 
  💡 DESCRIPTION
-    リモートリポジトリを複製して、手元にローカルリポジトリを作成します。
-    GitGymでは事前定義されたリポジトリURLのみサポートしています。
+    ・リモートリポジトリを複製して、手元にローカルリポジトリを作成します。
+    ・GitGymでは事前定義されたリポジトリURLのみサポートしています。
 
  📋 SYNOPSIS
-    git clone <url>
+    git clone <url> [<directory>]
+
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: リポジトリをクローン
+       $ git clone git@github.com:org/repo.git
+
+    2. 実践: ディレクトリ名を指定してクローン (Recommended)
+       「リポジトリ名とは別のフォルダ名で作業したい」場合に使います。
+       $ git clone git@github.com:org/repo.git my-project
 `
 }

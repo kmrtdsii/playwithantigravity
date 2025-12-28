@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode"
 )
 
 // Command defines the interface for all git commands
@@ -62,8 +63,9 @@ func GetCommandHelp(name string) (string, error) {
 // It handles aliases like 'add' -> 'git add', 'commit' -> 'git commit', etc.
 // The returned args slice always starts with the resolved command name (args[0] == cmdName).
 func ParseCommand(input string) (string, []string) {
-	parts := strings.Fields(input)
-	if len(parts) == 0 {
+	// Parse command line respecting quotes
+	parts, err := parseCommandLine(input)
+	if err != nil || len(parts) == 0 {
 		return "", nil
 	}
 
@@ -74,9 +76,9 @@ func ParseCommand(input string) (string, []string) {
 		if len(parts) == 1 {
 			return "help", []string{"help"}
 		}
-		
+
 		sub := parts[1]
-		
+
 		// Handle global flags as commands or aliases
 		switch sub {
 		case "-v", "--version":
@@ -95,14 +97,14 @@ func ParseCommand(input string) (string, []string) {
 		// That implies "git ls" runs shell "ls". That is confusing.
 		// So we should ONLY return "sub" if "sub" is a GIT command, not a SHELL command?
 		// But our registry mixes them.
-		
+
 		// Let's preserve the explicit block for now to be safe, or just rely on a naming convention?
 		// Actually, simpler: just return the part. Dispatch will run it.
 		// If I type "git ls", and "ls" is registered (shell ls), it runs shell ls.
 		// Is that bad? "git ls" -> lists files. A bit weird but acceptable for a gym.
 		// But existing code wanted to prevent it.
 		// Let's stick to the rigid parsing for "git" prefix.
-		
+
 		return sub, parts[1:]
 	}
 
@@ -111,13 +113,13 @@ func ParseCommand(input string) (string, []string) {
 		// It is a valid command (git or shell)
 		// e.g. "commit" -> found in registry -> return "commit"
 		// e.g. "ls" -> found -> return "ls"
-		
+
 		// One exception: "commit" with args needs to be standard
 		if first == "commit" {
 			// ensure args[0] is "commit"
 			return "commit", append([]string{"commit"}, parts[1:]...)
 		}
-		
+
 		return first, parts
 	}
 
@@ -135,4 +137,60 @@ func ParseArgs(args []string) []string {
 	// In a real app, use pflag or similar.
 	// For now we just pass raw args to the specific command.
 	return args
+}
+
+// parseCommandLine parses a shell command string into arguments, handling quotes and escapes.
+func parseCommandLine(input string) ([]string, error) {
+	var args []string
+	var current strings.Builder
+	inQuote := false
+	var quoteChar rune
+	escaped := false
+
+	for _, r := range input {
+		if escaped {
+			current.WriteRune(r)
+			escaped = false
+			continue
+		}
+
+		if r == '\\' {
+			escaped = true
+			continue
+		}
+
+		if inQuote {
+			if r == quoteChar {
+				inQuote = false
+			} else {
+				current.WriteRune(r)
+			}
+			continue
+		}
+
+		if r == '"' || r == '\'' {
+			inQuote = true
+			quoteChar = r
+			continue
+		}
+
+		if unicode.IsSpace(r) {
+			if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		} else {
+			current.WriteRune(r)
+		}
+	}
+
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+
+	if inQuote {
+		return nil, fmt.Errorf("term: unclosed quote")
+	}
+
+	return args, nil
 }

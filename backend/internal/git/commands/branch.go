@@ -341,42 +341,31 @@ func (c *BranchCommand) Help() string {
     -a, --all
         ローカルとリモート（追跡）の両方のブランチを表示します。
 
-    -r, --remotes
-        リモートブランチのみを表示します。
-
-    -f, --force
-        ブランチ作成時、同名のブランチが既に存在していても強制的に上書き（リセット）します。
-
-    -d
+    -d, --delete
         ブランチを削除します（マージ済みの安全な場合のみ）。
 
     -D
         ブランチを強制削除します（マージされていなくても削除）。
+        ※ ゴミ箱機能はないので、消すと元に戻すのは大変です。注意！
 
-    -m
+    -m, --move
         ブランチ名を変更（移動）します。
 
-    <start-point>
-        新しいブランチの作成元となるコミットやブランチを指定します（デフォルトはHEAD）。
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: 全ブランチを表示
+       リモートブランチも含めてリストアップします。
+       $ git branch -a
 
- 🛠  EXAMPLES
-    1. ブランチ一覧を表示
-       $ git branch
+    2. 実践: ブランチを強制削除
+       「実験したけどダメだったブランチ」を消す時などに使います。
+       マージしていなくても問答無用で削除されます。
+       $ git branch -D feature/login
 
-    2. 新しいブランチを作成
-       $ git branch feature/login
+    3. 実践: 今のブランチ名を変更
+       「綴り間違えた！」という時に便利です。
+       $ git branch -m new-name
 
-    3. 特定のコミットからブランチを作成
-       $ git branch feature/fix-v1 e5a3b21
-
-    4. 既存のブランチを強制上書き
-       $ git branch -f existing-branch HEAD~1
-
-    5. ブランチを強制削除
-       $ git branch -D old-feature
-
-    6. ブランチ名を変更
-       $ git branch -m old-name new-name
-       $ git branch -m new-name （現在のブランチ名を変更）
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-branch
 `
 }

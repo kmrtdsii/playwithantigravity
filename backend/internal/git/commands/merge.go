@@ -31,6 +31,7 @@ type MergeOptions struct {
 	Target string
 	Squash bool
 	DryRun bool
+	NoFF   bool
 }
 
 type mergeContext struct {
@@ -52,6 +53,9 @@ func (c *MergeCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	// 1. Parse Arguments
 	opts, err := c.parseArgs(args)
 	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
+		}
 		return "", err
 	}
 
@@ -76,6 +80,8 @@ func (c *MergeCommand) parseArgs(args []string) (*MergeOptions, error) {
 		switch arg {
 		case "--squash":
 			opts.Squash = true
+		case "--no-ff":
+			opts.NoFF = true
 		case "--dry-run", "-n":
 			opts.DryRun = true
 		case "--help", "-h":
@@ -88,7 +94,7 @@ func (c *MergeCommand) parseArgs(args []string) (*MergeOptions, error) {
 	}
 
 	if opts.Target == "" {
-		return nil, fmt.Errorf("usage: git merge [--squash] [--dry-run] <branch>")
+		return nil, fmt.Errorf("usage: git merge [--no-ff] [--squash] [--dry-run] <branch>")
 	}
 	return opts, nil
 }
@@ -150,31 +156,35 @@ func (c *MergeCommand) performMerge(s *git.Session, repo *gogit.Repository, mCtx
 			return "Already up to date.", nil
 		}
 
-		// Fast-Forward
+		// Fast-Forward Check
+		// If base is head, then head is ancestor of target -> Fast Forward possible
 		if base[0].Hash == mCtx.HeadCommit.Hash {
-			if opts.DryRun {
-				return fmt.Sprintf("[dry-run] Would perform fast-forward merge of %s", opts.Target), nil
-			}
-			s.UpdateOrigHead() // Ensure checked before mutation
+			// Fast-Forward allowed if NoFF is false
+			if !opts.NoFF {
+				if opts.DryRun {
+					return fmt.Sprintf("[dry-run] Would perform fast-forward merge of %s", opts.Target), nil
+				}
+				s.UpdateOrigHead() // Ensure checked before mutation
 
-			if mCtx.HeadRef.Name().IsBranch() {
-				err = w.Reset(&gogit.ResetOptions{
-					Commit: mCtx.TargetCommit.Hash,
-					Mode:   gogit.HardReset,
-				})
-				if err != nil {
-					return "", err
+				if mCtx.HeadRef.Name().IsBranch() {
+					err = w.Reset(&gogit.ResetOptions{
+						Commit: mCtx.TargetCommit.Hash,
+						Mode:   gogit.HardReset,
+					})
+					if err != nil {
+						return "", err
+					}
+					return fmt.Sprintf("Updating %s..%s\nFast-forward", mCtx.HeadCommit.Hash.String()[:7], mCtx.TargetCommit.Hash.String()[:7]), nil
+				} else {
+					// Detached HEAD
+					err = w.Checkout(&gogit.CheckoutOptions{
+						Hash: mCtx.TargetCommit.Hash,
+					})
+					if err != nil {
+						return "", err
+					}
+					return fmt.Sprintf("Fast-forward to %s", opts.Target), nil
 				}
-				return fmt.Sprintf("Updating %s..%s\nFast-forward", mCtx.HeadCommit.Hash.String()[:7], mCtx.TargetCommit.Hash.String()[:7]), nil
-			} else {
-				// Detached HEAD
-				err = w.Checkout(&gogit.CheckoutOptions{
-					Hash: mCtx.TargetCommit.Hash,
-				})
-				if err != nil {
-					return "", err
-				}
-				return fmt.Sprintf("Fast-forward to %s", opts.Target), nil
 			}
 		}
 	}
@@ -249,22 +259,23 @@ func (c *MergeCommand) Help() string {
     通常は「マージコミット」が自動的に作成されます。
 
  📋 SYNOPSIS
-    git merge <branch>...
-    git merge --squash <branch>
+    git merge [--no-ff] [--squash] <branch>
 
  ⚙️  COMMON OPTIONS
+    --no-ff
+        Fast-forward 可能な場合でも、強制的にマージコミットを作成します。
+        履歴上に「ここで統合した」という事実を明確に残したい場合に使います。
+
     --squash
         マージコミットを作成せず、変更内容のみをワーキングツリーに取り込みます。
         あとで自分でコミットする場合に使用します。
 
-    --dry-run
-        実際にはマージせず、マージした場合の結果を表示します。
-
- 🛠  EXAMPLES
-    1. featureブランチを現在のブランチにマージ
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: featureブランチをマージ
        $ git merge feature/login
 
-    2.変更だけを取り込む（スカッシュ）
-       $ git merge --squash feature/login
+    2. 実践: マージコミットを必ず作る (Recommended)
+       単なるポインタ移動(Fast-forward)ではなく、コミットを残します。
+       $ git merge --no-ff feature/login
 `
 }

@@ -298,10 +298,28 @@ func (c *PushCommand) Help() string {
     ※ GitGymではシミュレーションであり、実際のネットワーク送信は行われません。
 
  📋 SYNOPSIS
-    git push [<remote>] [<branch>]
+    git push [<remote>] [<branch>] [--force] [--force-with-lease]
 
  ⚙️  COMMON OPTIONS
+    -u, --set-upstream
+        (現在未実装) リモートブランチとローカルブランチの関連付け(追跡設定)を行います。
+
     -f, --force
-        強制的にプッシュします（リモートの履歴を上書きする可能性があります）。
+        強制的にプッシュします（リモートの履歴を上書きするので注意）。
+
+    --force-with-lease
+        (現在未実装) より安全な強制プッシュです。他人の更新がないか確認してから上書きします。
+
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: リモートに送信
+       $ git push origin main
+
+    2. 実践: 履歴書き換え時の安全な強制プッシュ (Recommended)
+       commit --amend や rebase で履歴を書き換えた後は強制プッシュが必要です。
+       しかし --force は危険なので、現場では「競合がない時だけ強制する」このオプションを使います。
+       $ git push --force-with-lease
+
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-push
 `
 }

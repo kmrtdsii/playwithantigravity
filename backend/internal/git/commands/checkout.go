@@ -361,15 +361,14 @@ func (c *CheckoutCommand) Help() string {
     それに合わせて、手元のファイル（ワーキングツリー）の内容も更新されます。
     
     主な用途：
-    ・別のブランチに切り替える
-    ・過去のバージョンに移動して確認する
-    
-    ※ 現在は ` + "`" + `git switch` + "`" + `（切り替え）や ` + "`" + `git restore` + "`" + `（復元）も推奨されています。
+    1. 他のブランチに切り替える（switch使おう）
+    2. 新しいブランチを作って切り替える（switch -c使おう）
+    3. ファイルの変更を取り消して元に戻す（この使い方が重要！）
 
  📋 SYNOPSIS
     git checkout <branch>
     git checkout -b <new_branch>
-    git checkout <commit>
+    git checkout -- <file>...
 
  ⚙️  COMMON OPTIONS
     -b <new_branch>
@@ -377,18 +376,23 @@ func (c *CheckoutCommand) Help() string {
 
     -B <new_branch>
         ブランチが存在しても強制的に作成（リセット）して切り替えます。
+    
+    -- <file>
+        ブランチ切り替えではなく、指定したファイルの変更を取り消して元に戻します。
 
-    -f, --force
-        変更中のファイルがあっても強制的に切り替えます（変更は破棄されます）。
-
- 🛠  EXAMPLES
-    1. 既存のブランチに切り替え
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: 既存のブランチに切り替え
        $ git checkout main
 
-    2. 新しいブランチを作成して切り替え
-       $ git checkout -b develop
+    2. 基本: 新しいブランチを作成して切り替え
+       $ git checkout -b feature/login
 
-    3. 過去のコミットにチェックアウト（Detached HEAD）
-       $ git checkout e5a3b21
+    3. 実践: 変更の取り消し (Important)
+       「コードいじってたら動かなくなった...元に戻したい」
+       そんな時は、ファイルを指定して checkout します。
+       $ git checkout -- src/main.go
+
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-checkout
 `
 }

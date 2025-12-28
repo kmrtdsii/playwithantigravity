@@ -261,7 +261,23 @@ func (c *PullCommand) Help() string {
     （fetch と merge を一度に行うコマンドです）
 
  📋 SYNOPSIS
-    git pull [<remote>] [<branch>]
+    git pull [<remote>] [<branch>] [--rebase]
+
+ ⚙️  COMMON OPTIONS
+    --rebase
+        (現在未実装) マージコミットを作らずに、履歴を一直線にして取り込みます。
+
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: リモートの更新を取り込む
+       $ git pull
+
+    2. 実践: リベースで取り込む (Recommended)
+       「マージコミットだらけで履歴が汚い...」
+       そんな時はリベースを使います。履歴をきれいに一直線に保てます。
+       $ git pull --rebase
+
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-pull
 `
 }
 

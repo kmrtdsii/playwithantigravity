@@ -67,7 +67,7 @@ func (c *CommitCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 func (c *CommitCommand) parseArgs(args []string) (*CommitOptions, error) {
 	opts := &CommitOptions{
-		Message: "Default commit message",
+		// Message: "", // Default is empty
 	}
 
 	for i := 1; i < len(args); i++ {
@@ -84,6 +84,14 @@ func (c *CommitCommand) parseArgs(args []string) (*CommitOptions, error) {
 			opts.Amend = true
 		case "--allow-empty":
 			opts.AllowEmpty = true
+		case "--no-edit":
+			// Shim: In GitGym, amending without -m automatically behaves like --no-edit
+			// We just accept the flag to avoid error.
+		default:
+			// Reject positional arguments or unknown flags
+			// Standard git treats positional args as file paths, but we don't fully support that yet.
+			// Even if we did, "git commit --amend <text>" is usually an error (text interpreted as path).
+			return nil, fmt.Errorf("unknown argument or option: '%s'. Did you mean to use -m for message?", arg)
 		}
 	}
 	return opts, nil
@@ -126,6 +134,10 @@ func (c *CommitCommand) resolveContext(repo *gogit.Repository, opts *CommitOptio
 			ctx.message = headCommit.Message
 		}
 	} else {
+		// Normal Commit: Message is REQUIRED
+		if opts.Message == "" {
+			return nil, fmt.Errorf("message is required. Use -m \"message\"")
+		}
 		ctx.message = opts.Message
 	}
 
@@ -170,9 +182,7 @@ func (c *CommitCommand) Help() string {
     ・変更内容にメッセージを付けて保存する
 
  📋 SYNOPSIS
-    git commit -m <msg>
-    git commit --amend
-    git commit --allow-empty
+    git commit -m <msg> [--amend] [--allow-empty]
 
  ⚙️  COMMON OPTIONS
     -m <msg>
@@ -180,17 +190,28 @@ func (c *CommitCommand) Help() string {
 
     --amend
         直前のコミットを修正します（メッセージの変更や、ファイルの追加忘れ等）。
-        元のコミットは上書きされます。
+        ※ Push済みのコミットに対して行うと履歴が壊れるため、Push前だけに行いましょう。
 
     --allow-empty
         変更が含まれていなくてもコミットを作成できるようにします。
 
- 🛠  EXAMPLES
-    1. メッセージ付きでコミット
-       $ git commit -m "Initial commit"
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: メッセージ付きでコミット
+       1コミットにつき1つの論点（変更理由）になるよう意識するのがコツです。
+       $ git commit -m "feat: add user endpoint"
 
-    2. 直前のコミットメッセージを修正
-       $ git commit --amend -m "Corrected message"
+    2. 実践: 直前のコミットを修正 (Recommended)
+       「あっ、メッセージ間違えた！」という時に使います。
+       Push前であれば、履歴を汚さずにこっそり直せます。
+       $ git commit --amend -m "fix: typo in endpoint"
+
+    3. 実践: ファイルの入れ忘れを修正 + メッセージ変更
+       ファイルを追加し忘れた場合も --amend で修正できます。
+       $ git add forgotten_file.go
+       $ git commit --amend -m "fix: add user endpoint"
+
+       (メッセージはそのままで良い場合)
+       $ git commit --amend --no-edit
 
  🔗 REFERENCE
     Full documentation: https://git-scm.com/docs/git-commit

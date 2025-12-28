@@ -305,10 +305,12 @@ func (c *FetchCommand) Help() string {
     （ワーキングツリーのファイルは更新されません。あくまで情報取得のみです）
     
     「何が変わったか」を確認するのに安全な操作です。
+    取得した情報は ` + "`" + `git log origin/main` + "`" + ` などで確認できます。
 
  📋 SYNOPSIS
-    git fetch [<remote>]
+    git fetch [<remote>] [<branch>]
     git fetch --all
+    git fetch --prune
 
  ⚙️  COMMON OPTIONS
     --all
@@ -319,16 +321,22 @@ func (c *FetchCommand) Help() string {
 
     --prune, -p
         リモートで削除されたブランチに対応するローカルの追跡ブランチを削除します。
+        （これをやらないと、ローカルに古い origin/xxx が残り続けます）
 
     --dry-run, -n
         実際にはフェッチを行わず、何が行われるかを表示します。
 
- 🛠  EXAMPLES
-    1. originから最新情報を取得
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: originから最新情報を取得
        $ git fetch
 
-    2. 全てのリモートから取得
-       $ git fetch --all
+    2. 実践: 情報を整理しながら取得 (Recommended)
+       「リモートで消されたブランチは、ローカルの追跡情報からも消す」
+       $ git fetch -p
+
+    3. 実践: 特定のブランチだけ取得
+       「mainの更新だけ欲しい」という時に。
+       $ git fetch origin main
 `
 }
 func (c *FetchCommand) pruneRemoteBranches(repo *gogit.Repository, remoteName string, remoteBranches map[string]bool, isDryRun bool) (int, []string, error) {

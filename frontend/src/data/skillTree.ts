@@ -22,14 +22,14 @@ export const SKILL_TREE: SkillLevel[] = [
         color: '#ffffff',
         textColor: '#000000',
         commands: [
-            { id: 'init', name: 'git init', description: 'Initialize a new repository', disabled: true },
-            { id: 'clone', name: 'git clone', description: 'Clone a repository into a new directory' },
-            { id: 'status', name: 'git status', description: 'Show the working tree status' },
-            { id: 'help', name: 'git help', description: 'Display help information' },
-            { id: 'add', name: 'git add', description: 'Stage changes' },
-            { id: 'commit', name: 'git commit', description: 'Save changes to history' },
-            { id: 'push', name: 'git push', description: 'Upload changes to remote' },
-            { id: 'pull', name: 'git pull', description: 'Fetch and merge from remote' },
+            { id: 'init', name: 'git init', description: 'Initialize a new repository. (Usually handled by "git clone" or system setup)', disabled: true },
+            { id: 'clone', name: 'git clone', description: 'Clone a repository. Try "git clone <url> <dir>" to specify a directory name.' },
+            { id: 'status', name: 'git status', description: 'Check which files are changed. Pro tip: Use "git status -sb" for a cleaner view.' },
+            { id: 'help', name: 'git help', description: 'Display help. Try "git help <command>" to see practical examples.' },
+            { id: 'add', name: 'git add', description: 'Stage changes. Use "git add ." for everything or "git add <file>" for precision.' },
+            { id: 'commit', name: 'git commit', description: 'Save changes history. Pro tip: "git commit --amend" fixes the last commit.' },
+            { id: 'push', name: 'git push', description: 'Upload to remote. Note: GitGym simulates this safely.' },
+            { id: 'pull', name: 'git pull', description: 'Fetch and merge. Try "git pull --rebase" to keep history linear.' },
         ]
     },
     {
@@ -39,14 +39,14 @@ export const SKILL_TREE: SkillLevel[] = [
         color: '#e5e7eb', // Gray 200
         textColor: '#000000',
         commands: [
-            { id: 'branch', name: 'git branch', description: 'Create/List branches' },
-            { id: 'switch', name: 'git switch', description: 'Switch branches' },
-            { id: 'checkout', name: 'git checkout', description: 'Switch branches or restore files' },
-            { id: 'merge', name: 'git merge', description: 'Join histories together' },
-            { id: 'fetch', name: 'git fetch', description: 'Download objects and refs' },
-            { id: 'diff', name: 'git diff', description: 'Show changes between commits' },
-            { id: 'log', name: 'git log', description: 'Show commit logs' },
-            { id: 'blame', name: 'git blame', description: 'Show what revision and author last modified each line of a file' },
+            { id: 'branch', name: 'git branch', description: 'List/Create branches. Use "git branch -d" to delete merged branches.' },
+            { id: 'switch', name: 'git switch', description: 'Switch branches. Use "git switch -c <name>" to create and switch instantly.' },
+            { id: 'checkout', name: 'git checkout', description: 'Switch branches or restore files using "git checkout -- <file>".' },
+            { id: 'merge', name: 'git merge', description: 'Join branches. Use "git merge --no-ff" to preserve the merge history.' },
+            { id: 'fetch', name: 'git fetch', description: 'Download remote info. Use "git fetch --prune" to clean up deleted branches.' },
+            { id: 'diff', name: 'git diff', description: 'Show changes. "git diff --staged" shows what you are about to commit.' },
+            { id: 'log', name: 'git log', description: 'Show history. Try "git log --oneline --graph" for a visual tree.' },
+            { id: 'blame', name: 'git blame', description: 'Show who changed lines. Useful for debugging specific lines.' },
         ]
     },
     {
