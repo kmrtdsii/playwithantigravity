@@ -30,7 +30,10 @@ export const useGitSession = (): GitSessionHook => {
         try {
             if (developers.includes(name)) return;
             const data = await gitService.initSession();
-            setDevelopers(prev => [...prev, name]);
+            setDevelopers(prev => {
+                if (prev.includes(name)) return prev;
+                return [...prev, name];
+            });
             setDeveloperSessions(prev => ({ ...prev, [name]: data.sessionId }));
             if (!activeDeveloper) {
                 setActiveDeveloper(name);
