@@ -204,7 +204,9 @@ func (c *CloneCommand) performClone(s *git.Session, clCtx *cloneContext) (string
 	cfg, err := localRepo.Config()
 	if err == nil {
 		cfg.Raw.Section("remote").Subsection("origin").AddOption("displayurl", clCtx.RemoteURL)
-		localRepo.Storer.SetConfig(cfg)
+		if err := localRepo.Storer.SetConfig(cfg); err != nil {
+			log.Printf("Clone: Warning - failed to set display URL config: %v", err)
+		}
 	}
 
 	s.Repos[clCtx.RepoName] = localRepo

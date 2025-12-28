@@ -101,8 +101,40 @@ When implementing potentially expensive operations (e.g., file system walks, gra
 -   **Safe Defaults**: Always provide a sensible default if the env var is unset.
 -   **No Hardcoding**: Never hardcode absolute paths or "magic folders" deeper than the project root default.
 
-## 3. Verification Strategy
+## 3. Debugging Utilities
+
+When debugging `go-git` operations, use these patterns in test files or temporary scripts:
+
+### Inspecting Branches and Tags
+```go
+repo, _ := git.PlainOpen(path)
+
+// List branches
+iter, _ := repo.Branches()
+_ = iter.ForEach(func(r *plumbing.Reference) error {
+    fmt.Println(r.Name(), r.Hash())
+    return nil
+})
+
+// List tags (including annotated)
+tIter, _ := repo.Tags()
+_ = tIter.ForEach(func(r *plumbing.Reference) error {
+    fmt.Printf("Tag: %s, Hash: %s\n", r.Name().Short(), r.Hash())
+    // Check if annotated
+    if tagObj, err := repo.TagObject(r.Hash()); err == nil {
+        fmt.Printf("  -> Annotated! Target: %s\n", tagObj.Target)
+    }
+    return nil
+})
+
+// Check HEAD
+h, _ := repo.Head()
+fmt.Println(h.Name(), h.Hash())
+```
+
+## 4. Verification Strategy
 Detailed testing patterns are defined in [Testing Strategy](./testing-strategy.md).
 
 -   **Backend Unit Tests**: Required for every new command logic.
 -   **E2E Tests**: Use Playwright (`npm run test:e2e`) if the user flow is affected.
+

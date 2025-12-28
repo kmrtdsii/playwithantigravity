@@ -66,7 +66,7 @@ const AppLayout = () => {
         if (state.HEAD && state.HEAD.type === 'none') {
             setSelectedObject(null);
         }
-    }, [state.HEAD?.type]);
+    }, [state.HEAD]);
 
     const startResizeDetails = (e: React.MouseEvent) => {
         e.preventDefault();
