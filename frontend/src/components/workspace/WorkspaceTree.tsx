@@ -27,7 +27,8 @@ interface TreeNodeProps {
 }
 
 const TreeNode: React.FC<TreeNodeProps> = ({ node, depth, currentPath, currentRepo, onNavigate }) => {
-    const [isExpanded, setIsExpanded] = useState(true);
+    // Top-level items (repos) start expanded, nested folders start collapsed
+    const [isExpanded, setIsExpanded] = useState(depth === 0);
     const hasChildren = node.children && node.children.length > 0;
     const isCurrentPath = currentPath === node.path || currentPath.startsWith(node.path + '/');
     const isActiveRepo = currentRepo === node.path;

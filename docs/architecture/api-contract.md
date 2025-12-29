@@ -50,6 +50,23 @@ Creates a new bare remote repository.
         "remoteUrl": "remote://gitgym/my-new-repo.git"
     }
     ```
+- **Note**: Creating a new remote clears any previously existing remote (Single Residency design).
+
+### 5. `GET /api/remote/list`
+Returns the list of currently registered shared remotes.
+- **Response**:
+    ```json
+    {
+        "remotes": ["my-repo-name"]
+    }
+    ```
+- **Note**: Returns only simple names (not URLs or disk paths). Useful for frontend to determine active remote.
+
+### 6. `GET /api/remote/state`
+Returns the Git graph state of a shared remote repository.
+- **Query Params**:
+    - `name`: The remote name to query (e.g., "my-repo" or "origin").
+- **Response**: `GitState` JSON object representing the remote's commit graph.
 
 ## Error Handling
 - **400 Bad Request**: Invalid command or arguments.

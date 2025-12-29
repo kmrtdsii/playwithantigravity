@@ -1,6 +1,7 @@
 package integration_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -273,4 +274,118 @@ func TestGitPhase2Features(t *testing.T) {
 			t.Errorf("reflog missing checkout entry: %s", out)
 		}
 	})
+}
+
+// TestRemoteWorkflowGoldenPath is an end-to-end integration test for the core remote workflow:
+// Init -> Commit -> Create Remote -> Push -> Fetch -> Reset Remote
+// This test validates the happy path to ensure the main user journey works correctly.
+func TestRemoteWorkflowGoldenPath(t *testing.T) {
+	sessionID := "golden-path-test"
+	if err := InitSession(sessionID); err != nil {
+		t.Fatalf("Failed to init session: %v", err)
+	}
+
+	exec := func(args ...string) (string, error) {
+		return ExecuteGitCommand(sessionID, args)
+	}
+
+	// Step 1: Initialize Repository
+	t.Log("Step 1: Initialize repository")
+	session, err := GetSession(sessionID)
+	if err != nil {
+		t.Fatalf("Failed to get session: %v", err)
+	}
+	if _, err := session.InitRepo("my-project"); err != nil {
+		t.Fatalf("Init repo failed: %v", err)
+	}
+	// Set current directory to the new repo
+	session.CurrentDir = "/my-project"
+
+	// Step 2: Create and commit a file
+	t.Log("Step 2: Create file and commit")
+	f, err := session.Filesystem.Create("my-project/hello.txt")
+	if err != nil {
+		t.Fatalf("Create file failed: %v", err)
+	}
+	_, _ = f.Write([]byte("Hello World"))
+	_ = f.Close()
+
+	if _, err := exec("add", "hello.txt"); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+
+	out, err := exec("commit", "-m", "Initial commit")
+	if err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+	if !strings.Contains(out, "Commit created") {
+		t.Errorf("Commit output missing expected format: %s", out)
+	}
+
+	// Step 3: Create bare remote repository
+	t.Log("Step 3: Create bare remote repository")
+	tmpDir := t.TempDir()
+	t.Setenv("GITGYM_DATA_ROOT", tmpDir)
+
+	sm := session.Manager
+	err = sm.CreateBareRepository(context.TODO(), sessionID, "my-remote")
+	if err != nil {
+		t.Fatalf("Create bare repo failed: %v", err)
+	}
+
+	// Verify remote was created
+	sm.RLock()
+	_, remoteExists := sm.SharedRemotes["my-remote"]
+	sm.RUnlock()
+	if !remoteExists {
+		t.Fatalf("Remote 'my-remote' not found in SharedRemotes")
+	}
+
+	// Step 4: Add remote and push
+	t.Log("Step 4: Add remote and push")
+	_, err = exec("remote", "add", "origin", "remote://gitgym/my-remote.git")
+	if err != nil {
+		t.Fatalf("git remote add failed: %v", err)
+	}
+
+	out, err = exec("push", "origin", "main")
+	if err != nil {
+		// Push might fail if branch is master instead of main
+		out, err = exec("push", "origin", "master")
+		if err != nil {
+			t.Fatalf("git push failed: %v", err)
+		}
+	}
+	t.Logf("Push output: %s", out)
+
+	// Step 5: Fetch from remote
+	t.Log("Step 5: Fetch from remote")
+	out, err = exec("fetch")
+	if err != nil {
+		t.Fatalf("git fetch failed: %v", err)
+	}
+	t.Logf("Fetch output: %s", out)
+
+	// Step 6: Reset remote (Single Residency cleanup)
+	t.Log("Step 6: Reset remote")
+	err = sm.RemoveRemote("my-remote")
+	if err != nil {
+		t.Fatalf("RemoveRemote failed: %v", err)
+	}
+
+	// Verify remote is gone
+	sm.RLock()
+	_, stillExists := sm.SharedRemotes["my-remote"]
+	sm.RUnlock()
+	if stillExists {
+		t.Errorf("Remote 'my-remote' should have been removed")
+	}
+
+	// Verify PRs are also cleared
+	prs := sm.GetPullRequests()
+	if len(prs) != 0 {
+		t.Errorf("PullRequests should be empty after RemoveRemote, got %d", len(prs))
+	}
+
+	t.Log("✅ Golden Path test completed successfully")
 }

@@ -32,3 +32,27 @@ Each user session gets a temporary workspace (`/tmp/session-xyz/`).
 -   **Safety**: Users cannot accidentally push to production repos.
 -   **Speed**: Operations are local disk copies (instant).
 -   **Offline**: Works without internet after initial ingest.
+
+## 7. Single Residency Design
+
+> [!IMPORTANT]
+> Currently, GitGym supports only **one remote repository at a time** per session. This is called "Single Residency".
+
+### Behavior
+-   When a new remote is created (`CreateBareRepository`) or ingested (`IngestRemote`), **any previously existing remote is cleared**.
+-   Pull Requests associated with the previous remote are also cleared.
+-   The `SharedRemotes` map in `SessionManager` stores the active remote under multiple keys (name, pseudo-URL, disk path).
+
+### Rationale
+-   **Simplicity**: Reduces complexity for learners who focus on one repo at a time.
+-   **Resource Management**: Prevents orphaned bare repos from accumulating.
+
+### Future Consideration
+If multi-remote support is needed:
+1.  Remove the `make(map...)` reset in `IngestRemote` and `CreateBareRepository`.
+2.  Add an explicit "switch active remote" mechanism.
+3.  Associate PRs with remote URL (not remote name) for persistence.
+
+### Related Tests
+-   `TestSingleResidencySpecification` in `actions_test.go`
+-   `TestRemoveRemote` verifies PR cleanup on remote removal
