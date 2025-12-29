@@ -110,10 +110,26 @@ func (c *LsCommand) executeLs(s *git.Session, opts *LsOptions) (string, error) {
 			continue
 		}
 
-		if info.IsDir() {
-			name = name + "/"
+		if opts.LongList {
+			// -l format: Mode Size ModTime Name
+			mode := info.Mode()
+			size := info.Size()
+			modTime := info.ModTime().Format("Jan 02 15:04")
+
+			// Adjust name for directory
+			displayName := name
+			if info.IsDir() {
+				displayName = name + "/"
+			}
+
+			line := fmt.Sprintf("%s %6d %s %s", mode, size, modTime, displayName)
+			output = append(output, line)
+		} else {
+			if info.IsDir() {
+				name = name + "/"
+			}
+			output = append(output, name)
 		}
-		output = append(output, name)
 	}
 
 	if len(output) == 0 {

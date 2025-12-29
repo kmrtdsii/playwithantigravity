@@ -46,6 +46,9 @@ func (s *Server) routes() {
 	s.Mux.HandleFunc("/api/mission/list", s.handleListMissions)
 	s.Mux.HandleFunc("/api/mission/start", s.handleStartMission)
 	s.Mux.HandleFunc("/api/mission/verify", s.handleVerifyMission)
+
+	// Workspace
+	s.Mux.HandleFunc("/api/workspace/tree", s.handleGetWorkspaceTree)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

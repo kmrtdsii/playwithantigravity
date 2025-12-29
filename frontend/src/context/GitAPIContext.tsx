@@ -4,6 +4,7 @@ import { useTerminalTranscript, type TranscriptLine } from '../hooks/useTerminal
 import { useGitSession } from '../hooks/useGitSession';
 import { useGitData } from '../hooks/useGitData';
 import { useGitCommand } from '../hooks/useGitCommand';
+import type { DirectoryNode } from '../services/gitService';
 
 interface GitContextType {
     state: GitState;
@@ -34,6 +35,10 @@ interface GitContextType {
     refreshState: () => Promise<void>;
     serverState: GitState | null;
     fetchServerState: (name: string) => Promise<void>;
+    // Workspace Tree
+    workspaceTree: DirectoryNode[];
+    currentRepo: string;
+    fetchWorkspaceTree: (sid: string) => Promise<void>;
 }
 
 const GitContext = createContext<GitContextType | undefined>(undefined);
@@ -62,6 +67,9 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         refreshPullRequests,
         fetchServerState,
         setServerState,
+        workspaceTree,
+        currentRepo,
+        fetchWorkspaceTree,
     } = gitData;
 
     // 3. Command Execution
@@ -170,7 +178,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetRemote,
         refreshState: refreshStateWrapper,
         serverState,
-        fetchServerState
+        fetchServerState,
+        workspaceTree,
+        currentRepo,
+        fetchWorkspaceTree
     }), [
         state,
         sessionId,
@@ -197,7 +208,10 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetRemote,
         refreshStateWrapper,
         serverState,
-        fetchServerState
+        fetchServerState,
+        workspaceTree,
+        currentRepo,
+        fetchWorkspaceTree
     ]);
 
     return (

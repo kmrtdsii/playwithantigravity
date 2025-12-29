@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useGit } from '../../context/GitAPIContext';
-import { GitBranch, Check, Folder, FileCode } from 'lucide-react';
+import { Folder, FileCode } from 'lucide-react';
 import type { SelectedObject } from '../../types/layoutTypes';
 import Modal from '../common/Modal';
 import { Button } from '../common/Button';
+import WorkspaceTree from '../workspace/WorkspaceTree';
 
 import { ChevronRight, ChevronDown } from 'lucide-react';
 interface FileExplorerProps {
@@ -209,46 +210,30 @@ const TreeItem: React.FC<{ node: TreeNode, depth: number }> = ({ node, depth }) 
 
 const FileExplorer: React.FC<FileExplorerProps> = () => {
     const { t } = useTranslation('common');
-    const { state, runCommand } = useGit();
-    const [showBranches, setShowBranches] = useState(true);
+    const {
+        state,
+        runCommand,
+        sessionId,
+        workspaceTree,
+        currentRepo,
+        fetchWorkspaceTree
+    } = useGit();
 
-    // Modal State
+    // Modal State (for delete confirmation)
     const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
-    // Active Project Detection
+    // Fetch tree on mount and when state changes
+    useEffect(() => {
+        if (sessionId) {
+            fetchWorkspaceTree(sessionId);
+        }
+    }, [fetchWorkspaceTree, sessionId, state.commandCount]);
+
+    // Active Project Detection (for delete logic)
     const currentPathClean = state.currentPath ? state.currentPath.replace(/^\//, '') : '';
     const isRoot = !currentPathClean;
     const activeProject = isRoot ? null : currentPathClean.split('/')[0];
-
-    // Get current branch from HEAD
-    const currentBranch = state.HEAD?.ref || null;
-
-    // Get local branches
-    const localBranches = useMemo(() => {
-        return Object.keys(state.branches || {}).sort();
-    }, [state.branches]);
-
-    const handleProjectClick = (projectName: string) => {
-        if (activeProject === projectName) {
-            runCommand(`cd /`, { silent: true });
-        } else {
-            runCommand(`cd /${projectName}`, { silent: true });
-        }
-    };
-
-    const handleBranchClick = (branchName: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (branchName !== currentBranch) {
-            runCommand(`git checkout ${branchName}`);
-        }
-    };
-
-    const handleDeleteClick = (projectName: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        setProjectToDelete(projectName);
-        setIsDeleteModalOpen(true);
-    };
 
     const confirmDelete = async () => {
         if (!projectToDelete) return;
@@ -266,7 +251,13 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
         runCommand('cd ..');
     };
 
-    const projects = state.projects || [];
+    const handleNavigate = async (path: string) => {
+        await runCommand(`cd ${path}`, { silent: true });
+        if (sessionId) {
+            await fetchWorkspaceTree(sessionId);
+        }
+    };
+
     const files = state.files || [];
     const fileStatuses = state.fileStatuses || {};
 
@@ -292,113 +283,12 @@ const FileExplorer: React.FC<FileExplorerProps> = () => {
                 </div>
 
                 <div className="tree-content" style={{ flex: 1, overflowY: 'auto' }}>
-                    {projects.length === 0 ? (
-                        <div style={{ padding: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
-                            {t('workspace.noProjects')}
-                        </div>
-                    ) : (
-                        <div>
-                            {projects.map(project => {
-                                const isActive = project === activeProject;
-                                return (
-                                    <div key={project}>
-                                        {/* Project Row */}
-                                        <div
-                                            className="explorer-row"
-                                            onClick={() => handleProjectClick(project)}
-                                            style={{
-                                                padding: '4px 12px',
-                                                background: isActive ? 'var(--bg-button-inactive)' : 'transparent',
-                                                fontWeight: isActive ? 600 : 400
-                                            }}
-                                        >
-                                            <span className="icon">{isActive ? '📂' : '📦'}</span>
-                                            <span className="name" style={{ marginRight: '8px', flex: '0 1 auto' }}>{project}</span>
-
-                                            {/* ACTIVE BRANCH BADGE */}
-                                            {isActive && currentBranch && (
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    padding: '2px 8px',
-                                                    backgroundColor: 'rgba(74, 222, 128, 0.15)',
-                                                    border: '1px solid rgba(74, 222, 128, 0.3)',
-                                                    borderRadius: '12px',
-                                                    color: 'var(--accent-primary)',
-                                                    fontSize: '10px',
-                                                    fontFamily: 'monospace',
-                                                    whiteSpace: 'nowrap',
-                                                    flexShrink: 0
-                                                }}>
-                                                    <GitBranch size={10} style={{ marginRight: '4px' }} />
-                                                    <span style={{ fontWeight: 600 }}>{currentBranch}</span>
-                                                </div>
-                                            )}
-
-                                            {/* Spacer to push delete button to right */}
-                                            <div style={{ flex: 1 }} />
-
-                                            <span
-                                                className="delete-btn"
-                                                onClick={(e) => handleDeleteClick(project, e)}
-                                                style={{ marginLeft: '8px', cursor: 'pointer', opacity: 0.5 }}
-                                                title={t('workspace.deleteTitle')}
-                                            >
-                                                🗑️
-                                            </span>
-                                        </div>
-
-                                        {/* Expanded Content (Only if active) */}
-                                        {isActive && (
-                                            <div style={{ marginLeft: '0px' }}>
-                                                {/* Branches Section */}
-                                                {localBranches.length > 0 && (
-                                                    <div style={{ borderBottom: '1px solid var(--border-subtle)', marginBottom: '4px' }}>
-                                                        <div
-                                                            className="explorer-row"
-                                                            onClick={() => setShowBranches(!showBranches)}
-                                                            style={{ padding: '4px 24px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)' }}
-                                                        >
-                                                            <GitBranch size={12} style={{ marginRight: '6px', opacity: 0.8 }} />
-                                                            <span>{t('workspace.branches')}</span>
-                                                            <span style={{ marginLeft: 'auto', fontSize: '10px', opacity: 0.6 }}>{showBranches ? '▼' : '▶'}</span>
-                                                        </div>
-                                                        {showBranches && (
-                                                            <div style={{ paddingBottom: '4px' }}>
-                                                                {localBranches.map(branch => {
-                                                                    const isCurrent = branch === currentBranch;
-                                                                    return (
-                                                                        <div
-                                                                            key={branch}
-                                                                            className="explorer-row branch-row"
-                                                                            onClick={(e) => handleBranchClick(branch, e)}
-                                                                            style={{
-                                                                                padding: '3px 36px',
-                                                                                color: isCurrent ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                                                                                fontWeight: isCurrent ? 700 : 400,
-                                                                                backgroundColor: isCurrent ? 'rgba(74, 222, 128, 0.1)' : 'transparent', // var(--accent-primary) with opacity
-                                                                                cursor: isCurrent ? 'default' : 'pointer',
-                                                                                borderRadius: '4px',
-                                                                                margin: '0 4px'
-                                                                            }}
-                                                                            title={isCurrent ? 'Current branch' : `Checkout ${branch}`}
-                                                                        >
-                                                                            {isCurrent && <Check size={12} style={{ marginRight: '4px', color: 'var(--accent-primary)' }} />}
-                                                                            <span>{branch}</span>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                    <WorkspaceTree
+                        tree={workspaceTree}
+                        currentPath={state.currentPath || '/'}
+                        currentRepo={currentRepo}
+                        onNavigate={handleNavigate}
+                    />
                 </div>
             </div>
 

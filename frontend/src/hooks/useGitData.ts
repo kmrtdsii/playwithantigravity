@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import type { GitState, PullRequest } from '../types/gitTypes';
-import { gitService } from '../services/gitService';
+import { gitService, type DirectoryNode } from '../services/gitService';
 import { filterReachableCommits } from '../utils/filterReachableCommits';
 
 export interface GitDataHook {
@@ -16,6 +16,9 @@ export interface GitDataHook {
     setServerState: React.Dispatch<React.SetStateAction<GitState | null>>;
     updateCommandOutput: (sid: string, output: string[]) => void;
     incrementCommandCount: (sid: string) => void;
+    workspaceTree: DirectoryNode[];
+    currentRepo: string;
+    fetchWorkspaceTree: (sid: string) => Promise<void>;
 }
 
 const INITIAL_STATE: GitState = {
@@ -43,6 +46,10 @@ export const useGitData = (sessionId: string): GitDataHook => {
     const [serverState, setServerState] = useState<GitState | null>(null);
     const [pullRequests, setPullRequests] = useState<PullRequest[]>([]);
     const [showAllCommits, setShowAllCommits] = useState<boolean>(false);
+
+    // Workspace Tree State
+    const [workspaceTree, setWorkspaceTree] = useState<DirectoryNode[]>([]);
+    const [currentRepo, setCurrentRepo] = useState<string>('');
 
     // Session specific storage for output/counts to persist across user switches
     const [sessionOutputs, setSessionOutputs] = useState<Record<string, string[]>>({});
@@ -123,6 +130,17 @@ export const useGitData = (sessionId: string): GitDataHook => {
         setShowAllCommits(prev => !prev);
     }, []);
 
+    const fetchWorkspaceTree = useCallback(async (sid: string) => {
+        if (!sid) return;
+        try {
+            const data = await gitService.getWorkspaceTree(sid);
+            setWorkspaceTree(data.tree);
+            setCurrentRepo(data.currentRepo);
+        } catch (e) {
+            console.error("Failed to fetch workspace tree", e);
+        }
+    }, []);
+
     // Re-fetch when showAllCommits changes
     useEffect(() => {
         if (sessionId) {
@@ -142,6 +160,9 @@ export const useGitData = (sessionId: string): GitDataHook => {
         setState,
         setServerState,
         updateCommandOutput,
-        incrementCommandCount
+        incrementCommandCount,
+        workspaceTree,
+        currentRepo,
+        fetchWorkspaceTree
     };
 };

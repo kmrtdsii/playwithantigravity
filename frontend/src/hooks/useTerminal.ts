@@ -109,6 +109,10 @@ export const useTerminal = (
             const welcomeLines = [
                 `\x1b[1;36m${t('terminal.welcome')}\x1b[0m`,
                 t('terminal.instructions'),
+                '  \x1b[33mmkdir project\x1b[0m',
+                '  \x1b[33mcd project\x1b[0m',
+                '  \x1b[33mgit init\x1b[0m',
+                '  -- or --',
                 '  \x1b[33mgit clone <url>\x1b[0m',
                 '',
                 `\x1b[32m${t('terminal.help')}\x1b[0m`,

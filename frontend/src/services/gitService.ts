@@ -179,5 +179,25 @@ export const gitService = {
             throw new Error(errText || 'Failed to create repository');
         }
         return res.json();
+    },
+
+    async getWorkspaceTree(sessionId: string): Promise<{
+        tree: DirectoryNode[];
+        currentPath: string;
+        currentRepo: string;
+    }> {
+        const res = await fetch(`/api/workspace/tree?session=${sessionId}&t=${Date.now()}`);
+        if (!res.ok) throw new Error('Failed to fetch workspace tree');
+        return res.json();
     }
 };
+
+// Types for workspace tree
+export interface DirectoryNode {
+    path: string;
+    name: string;
+    isDir: boolean;
+    isRepo: boolean;
+    branch?: string;
+    children?: DirectoryNode[];
+}
