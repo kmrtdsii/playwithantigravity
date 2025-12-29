@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useMission, VerificationResult } from '../../context/MissionContext';
+import { useMission, type VerificationResult } from '../../context/MissionContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface MissionInfo {
