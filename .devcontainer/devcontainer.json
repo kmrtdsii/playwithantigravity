@@ -44,7 +44,7 @@
         }
     },
     // Use 'postCreateCommand' to run commands after the container is created.
-    "postCreateCommand": "cd backend && go mod download && cd ../frontend && npm install && npx playwright install --with-deps && cd .. && /bin/bash scripts/check-git-config.sh",
+    "postCreateCommand": "cd backend && go mod download && cd ../frontend && npm install && echo \"$(uname -s)-$(uname -m)\" > node_modules/.platform && npx playwright install --with-deps && cd .. && /bin/bash scripts/check-git-config.sh",
     "mounts": [
         "source=${env:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
     ],
