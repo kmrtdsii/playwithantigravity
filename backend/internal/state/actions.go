@@ -196,10 +196,6 @@ func (sm *SessionManager) IngestRemote(ctx context.Context, name, url string, de
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	// Reset maps to ensure cleanup of old remotes in memory
-	sm.SharedRemotes = make(map[string]*gogit.Repository)
-	sm.SharedRemotePaths = make(map[string]string)
-
 	// Store under Name
 	sm.SharedRemotes[name] = repo
 	sm.SharedRemotePaths[name] = repoPath
@@ -233,8 +229,14 @@ func (sm *SessionManager) RemoveRemote(name string) error {
 	sm.SharedRemotes = make(map[string]*gogit.Repository)
 	sm.SharedRemotePaths = make(map[string]string)
 
-	// Clear associated pull requests
-	sm.PullRequests = []*PullRequest{}
+	// Clear associated pull requests ONLY for this remote
+	var keptPRs []*PullRequest
+	for _, pr := range sm.PullRequests {
+		if pr.RemoteName != name {
+			keptPRs = append(keptPRs, pr)
+		}
+	}
+	sm.PullRequests = keptPRs
 
 	return nil
 }
@@ -253,7 +255,7 @@ func (sm *SessionManager) GetPullRequests() []*PullRequest {
 }
 
 // CreatePullRequest creates a new pull request
-func (sm *SessionManager) CreatePullRequest(title, description, sourceBranch, targetBranch, creator string) (*PullRequest, error) {
+func (sm *SessionManager) CreatePullRequest(title, description, sourceBranch, targetBranch, creator, remoteName string) (*PullRequest, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
@@ -268,6 +270,7 @@ func (sm *SessionManager) CreatePullRequest(title, description, sourceBranch, ta
 		Description: description,
 		Creator:     creator,
 		CreatedAt:   time.Now(),
+		RemoteName:  remoteName,
 	}
 	sm.PullRequests = append(sm.PullRequests, pr)
 	return pr, nil
@@ -399,9 +402,6 @@ func (sm *SessionManager) CreateBareRepository(ctx context.Context, sessionID, n
 
 	// 4. Update Session Manager State
 	sm.mu.Lock()
-	// Reset maps
-	sm.SharedRemotes = make(map[string]*gogit.Repository)
-	sm.SharedRemotePaths = make(map[string]string)
 
 	// Register under Name, PseudoURL, and Path
 	sm.SharedRemotes[name] = repo

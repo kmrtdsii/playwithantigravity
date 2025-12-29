@@ -52,4 +52,5 @@ export interface PullRequest {
     status: PullRequestStatus;
     creator: string;
     createdAt: string;
+    remoteName?: string;
 }

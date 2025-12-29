@@ -62,7 +62,7 @@ func TestMergePRCommand(t *testing.T) {
 	}
 
 	// Create PR in SessionManager
-	pr, _ := sm.CreatePullRequest("Feat", "Desc", "feature", "master", "Dev")
+	pr, _ := sm.CreatePullRequest("Feat", "Desc", "feature", "master", "Dev", "origin")
 
 	// Execute Merge
 	session, _ := sm.CreateSession("test-session")

@@ -146,7 +146,7 @@ export const gitService = {
         return res.json();
     },
 
-    async createPullRequest(pr: { title: string; description: string; sourceBranch: string; targetBranch: string; creator: string }): Promise<PullRequest> {
+    async createPullRequest(pr: { title: string; description: string; sourceBranch: string; targetBranch: string; creator: string; remoteName: string }): Promise<PullRequest> {
         const res = await fetch('/api/remote/pull-requests/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

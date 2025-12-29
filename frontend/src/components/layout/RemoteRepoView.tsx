@@ -6,6 +6,7 @@ import { RemoteHeader, PullRequestSection, CloneProgress, containerStyle } from 
 import EmptyState from './remote/EmptyState';
 import { useRemoteClone } from '../../hooks/useRemoteClone';
 import { useAutoDiscovery } from '../../hooks/useAutoDiscovery';
+import { gitService } from '../../services/gitService';
 
 // Default remote URL for the GitGym application
 // This repository is automatically available for cloning
@@ -30,6 +31,8 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         createPullRequest,
         deletePullRequest,
         resetRemote,
+        activeRemoteView,
+        setActiveRemoteView,
     } = useGit();
 
     // Custom Hooks
@@ -51,6 +54,22 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
     // Auto Discovery
     useAutoDiscovery({ setupUrl, setSetupUrl, cloneStatus, performClone });
+
+    // Multi-Remote List
+    const [remoteList, setRemoteList] = useState<string[]>([]);
+    const updateRemoteList = async () => {
+        try {
+            const list = await gitService.listRemotes();
+            setRemoteList(list);
+        } catch (e) {
+            console.error("Failed to list remotes", e);
+        }
+    };
+
+    // Update list on mount and when serverState changes (e.g. added/removed remote)
+    useEffect(() => {
+        updateRemoteList();
+    }, [serverState]);
 
     // Initial Load - Auto-clone default remote on first render
     useEffect(() => {
@@ -148,6 +167,24 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     const hasSharedRemotes = !!serverState;
     const isSettingUp = cloneStatus === 'fetching_info' || cloneStatus === 'cloning';
 
+    // Filter PRs by active remote
+    const filteredPRs = useMemo(() => {
+        const target = activeRemoteView || 'origin';
+        return pullRequests.filter(pr => (pr.remoteName || 'origin') === target);
+    }, [pullRequests, activeRemoteView]);
+
+    const handleCreatePR = async (title: string, desc: string, source: string, target: string) => {
+        // activeRemoteView is injected in GitAPIContext, but we can explicity pass it here if needed.
+        // Actually GitAPIContext implementation uses activeRemoteView inside createPullRequest wrapper.
+        // So we just call createPullRequest directly!
+        // Wait, PullRequestSection expects a function with 4 args. GitAPIContext wrapper matches that.
+        // So we don't need to wrap it here IF GitAPIContext handles it properly.
+        // GitAPIContext Step 2414 change:
+        // createPullRequest = (title, desc, source, target) => service.createPR(..., remoteName: active...)
+        // So direct pass is fine.
+        await createPullRequest(title, desc, source, target);
+    };
+
     return (
         <div style={containerStyle} data-testid="remote-repo-view">
             {/* TOP SPLIT: Info & Graph */}
@@ -163,6 +200,10 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                     onDisconnect={handleDisconnect}
                     onCancelEdit={handleCancelEdit}
                     onSubmit={onCloneSubmit}
+                    // Multi-remote
+                    remotes={remoteList}
+                    activeRemote={activeRemoteView}
+                    onSelectRemote={setActiveRemoteView}
                 />
 
                 {/* Clone Progress Display */}
@@ -212,9 +253,9 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                 {/* Pull Requests - only show when remote exists AND has branches */}
                 {hasSharedRemotes && Object.keys(remoteGraphState.branches).length > 0 && (
                     <PullRequestSection
-                        pullRequests={pullRequests}
+                        pullRequests={filteredPRs}
                         branches={remoteGraphState.branches}
-                        onCreatePR={createPullRequest}
+                        onCreatePR={handleCreatePR}
                         onMergePR={mergePullRequest}
                         onDeletePR={deletePullRequest}
                     />

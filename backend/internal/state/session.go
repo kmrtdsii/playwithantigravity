@@ -62,6 +62,7 @@ type PullRequest struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	State       string    `json:"status"`       // "OPEN", "CLOSED", "MERGED"
+	RemoteName  string    `json:"remoteName"`   // The shared remote this PR belongs to
 	HeadRepo    string    `json:"headRepo"`     // simulating fork
 	HeadRef     string    `json:"sourceBranch"` // branch
 	BaseRepo    string    `json:"baseRepo"`

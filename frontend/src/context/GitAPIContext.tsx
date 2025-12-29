@@ -10,6 +10,8 @@ interface GitContextType {
     state: GitState;
     sessionId: string;
     setSessionId: (id: string) => void;
+    activeRemoteView: string;
+    setActiveRemoteView: (name: string) => void;
     runCommand: (cmd: string, options?: { silent?: boolean; skipRefresh?: boolean }) => Promise<string[]>;
     // Terminal Recording API
     appendToTranscript: (text: string, hasNewline?: boolean) => void;
@@ -55,6 +57,28 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         removeDeveloper,
     } = useGitSession();
 
+    // Multi-Remote View State
+    const [activeRemoteView, setActiveRemoteView] = React.useState<string>('origin');
+
+    // Initial setup for active remote view
+    React.useEffect(() => {
+        const initRemoteView = async () => {
+            try {
+                const remotes = await gitService.listRemotes();
+                if (remotes.length > 0) {
+                    setActiveRemoteView(prev => {
+                        if (!remotes.includes(prev) && prev === 'origin') return remotes[0];
+                        return prev;
+                    });
+                }
+            } catch (e) {
+                console.warn("Failed to list remotes for init", e);
+            }
+        };
+        initRemoteView();
+        initRemoteView();
+    }, []);
+
     // 2. Data Management (State, PRs, Server)
     const gitData = useGitData(sessionId);
     const {
@@ -71,6 +95,13 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentRepo,
         fetchWorkspaceTree,
     } = gitData;
+
+    // Fetch server state when active view changes
+    React.useEffect(() => {
+        if (activeRemoteView) {
+            fetchServerState(activeRemoteView).catch(console.error);
+        }
+    }, [activeRemoteView, fetchServerState]);
 
     // 3. Command Execution
     const { runCommand } = useGitCommand({ sessionId, gitData });
@@ -119,19 +150,20 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             description: desc,
             sourceBranch: source,
             targetBranch: target,
-            creator: activeDeveloper
+            creator: activeDeveloper,
+            remoteName: activeRemoteView || 'origin'
         });
         await refreshPullRequests();
-    }, [activeDeveloper, refreshPullRequests]);
+    }, [activeDeveloper, refreshPullRequests, activeRemoteView]);
 
     const mergePullRequest = useCallback(async (id: number) => {
-        // Get current remote name from backend
-        const remoteName = await gitService.getActiveRemoteName();
+        // Use activeRemoteView for the target remote
+        const remoteName = activeRemoteView || 'origin';
         await gitService.mergePullRequest(id, remoteName);
         await refreshPullRequests();
         await fetchServerState(remoteName);
         if (sessionId) await fetchState(sessionId);
-    }, [sessionId, refreshPullRequests, fetchServerState, fetchState]);
+    }, [sessionId, refreshPullRequests, fetchServerState, fetchState, activeRemoteView]);
 
     const deletePullRequest = useCallback(async (id: number) => {
         await gitService.deletePullRequest(id);
@@ -151,10 +183,15 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (sessionId) await fetchState(sessionId);
     }, [sessionId, fetchState]);
 
+
+
+
     const contextValue = React.useMemo(() => ({
         state,
         sessionId,
         setSessionId,
+        activeRemoteView,
+        setActiveRemoteView,
         runCommand,
         appendToTranscript,
         terminalTranscripts,
@@ -185,6 +222,8 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         state,
         sessionId,
         setSessionId,
+        activeRemoteView,
+        setActiveRemoteView,
         runCommand,
         appendToTranscript,
         terminalTranscripts,

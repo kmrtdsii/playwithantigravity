@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cloud, Database, Copy, Check, LogOut } from 'lucide-react';
+import { Cloud, Database, Copy, Check, LogOut, Plus } from 'lucide-react';
 import { headerStyle, inputStyle, cancelButtonStyle, submitButtonStyle } from './remoteStyles';
 
 interface RemoteHeaderProps {
@@ -14,6 +14,10 @@ interface RemoteHeaderProps {
     onDisconnect?: () => void;
     onCancelEdit: () => void;
     onSubmit: (e: React.FormEvent) => void;
+    // Multi-remote Props
+    remotes?: string[];
+    activeRemote?: string;
+    onSelectRemote?: (name: string) => void;
 }
 
 /**
@@ -31,6 +35,9 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
     onDisconnect,
     onCancelEdit,
     onSubmit,
+    remotes = [],
+    activeRemote,
+    onSelectRemote,
 }) => {
     const { t } = useTranslation('common');
     const [isCopied, setIsCopied] = useState(false);
@@ -81,6 +88,49 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
 
     return (
         <div style={headerStyle}>
+            {/* Multi-Remote Tabs */}
+            {remotes.length > 0 && (
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', borderBottom: '1px solid var(--border-subtle)', overflowX: 'auto' }}>
+                    {remotes.map(r => (
+                        <button
+                            key={r}
+                            onClick={() => onSelectRemote?.(r)}
+                            style={{
+                                padding: '6px 12px',
+                                borderBottom: activeRemote === r ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                                fontWeight: activeRemote === r ? 600 : 400,
+                                fontSize: 'var(--text-sm)',
+                                cursor: 'pointer',
+                                background: 'transparent',
+                                borderTop: 'none',
+                                borderLeft: 'none',
+                                borderRight: 'none',
+                                color: activeRemote === r ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                transition: 'all 0.2s'
+                            }}
+                        >
+                            {r}
+                        </button>
+                    ))}
+                    {/* New Remote Button (Triggers Edit/Add) */}
+                    <button
+                        onClick={onEditRemote}
+                        title="Add Remote (Enter new URL)"
+                        style={{
+                            padding: '6px 12px',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--text-tertiary)',
+                            display: 'flex',
+                            alignItems: 'center'
+                        }}
+                    >
+                        <Plus size={14} />
+                    </button>
+                </div>
+            )}
+
             {/* Title row with Configure button */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ fontWeight: 700, fontSize: 'var(--text-md)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--text-primary)' }}>
