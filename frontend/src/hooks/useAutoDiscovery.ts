@@ -22,6 +22,11 @@ export const useAutoDiscovery = ({
         if (localOrigin && localOrigin.urls.length > 0) {
             const detectedUrl = localOrigin.urls[0];
 
+            // Skip internal URLs (created repositories) - they don't need cloning
+            if (detectedUrl.startsWith('remote://')) {
+                return;
+            }
+
             // Only auto-configure if disconnected, no setup url manually typed, and not currently cloning
             if (!serverState && !setupUrl && cloneStatus === 'idle') {
                 console.log('Auto-detected remote origin:', detectedUrl);

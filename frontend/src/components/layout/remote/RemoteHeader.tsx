@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cloud, Database, Copy, Check } from 'lucide-react';
+import { Cloud, Database, Copy, Check, LogOut } from 'lucide-react';
 import { headerStyle, inputStyle, cancelButtonStyle, submitButtonStyle } from './remoteStyles';
 
 interface RemoteHeaderProps {
@@ -11,6 +11,7 @@ interface RemoteHeaderProps {
     setupUrl: string;
     onSetupUrlChange: (url: string) => void;
     onEditRemote: () => void;
+    onDisconnect?: () => void;
     onCancelEdit: () => void;
     onSubmit: (e: React.FormEvent) => void;
 }
@@ -27,6 +28,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
     setupUrl,
     onSetupUrlChange,
     onEditRemote,
+    onDisconnect,
     onCancelEdit,
     onSubmit,
 }) => {
@@ -95,7 +97,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                 {/* Configure button */}
                 {remoteUrl && (
                     <button
-                        onClick={onEditRemote}
+                        onClick={remoteUrl.startsWith('remote://') ? onDisconnect : onEditRemote}
                         style={{
                             padding: '3px 10px',
                             fontSize: 'var(--text-sm)',
@@ -105,11 +107,21 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                             color: 'var(--text-secondary)',
                             cursor: 'pointer',
                             fontWeight: 600,
-                            whiteSpace: 'nowrap'
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
                         }}
                         data-testid="remote-configure-btn"
                     >
-                        {t('remote.configure')}
+                        {remoteUrl.startsWith('remote://') ? (
+                            <>
+                                <LogOut size={12} />
+                                {t('remote.disconnect')}
+                            </>
+                        ) : (
+                            t('remote.configure')
+                        )}
                     </button>
                 )}
             </div>

@@ -55,6 +55,14 @@ func TestCreateBareRepository(t *testing.T) {
 		// 4. Check if session filesystem has the directory
 		_, err = session.Filesystem.Stat(repoName)
 		assert.NoError(t, err, "Directory should be created in session filesystem")
+
+		// 5. Check if repo is initialized in session and has remote
+		sessionRepo, ok := session.Repos[repoName]
+		assert.True(t, ok, "Session repo should be cached")
+		remotes, err := sessionRepo.Remotes()
+		assert.NoError(t, err)
+		assert.Len(t, remotes, 1)
+		assert.Equal(t, "origin", remotes[0].Config().Name)
 	})
 
 	t.Run("Invalid Name", func(t *testing.T) {

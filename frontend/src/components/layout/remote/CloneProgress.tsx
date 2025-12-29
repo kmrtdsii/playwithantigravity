@@ -120,12 +120,12 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
                     <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                         {onRetry && (
                             <Button size="sm" variant="primary" onClick={onRetry}>
-                                <RefreshCw size={14} /> Retry
+                                <RefreshCw size={14} /> {t('remote.retry')}
                             </Button>
                         )}
                         {onCancel && (
                             <Button size="sm" variant="secondary" onClick={onCancel}>
-                                <XCircle size={14} /> Cancel
+                                <XCircle size={14} /> {t('remote.cancel')}
                             </Button>
                         )}
                     </div>

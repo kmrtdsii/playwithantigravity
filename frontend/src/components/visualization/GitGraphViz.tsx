@@ -160,6 +160,19 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
         );
     }
 
+    // Processed empty state (Converted from initialized check)
+    if (state.initialized && nodes.length === 0) {
+        return (
+            <div data-testid="git-graph-empty-commits" className="flex h-full flex-col items-center justify-center text-gray-500 gap-4" style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', gap: '16px' }}>
+                <div style={{ fontSize: '48px', opacity: 0.2 }}>📭</div>
+                <div style={{ fontSize: '14px', textAlign: 'center' }}>
+                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>{t('visualization.emptyRepo.title', { defaultValue: 'Repository is empty' })}</div>
+                    <div style={{ fontSize: '12px', opacity: 0.7 }}>{t('visualization.emptyRepo.description', { defaultValue: 'Push your first commit to see the graph.' })}</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div
             ref={containerRef}

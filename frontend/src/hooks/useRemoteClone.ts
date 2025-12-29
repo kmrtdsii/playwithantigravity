@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useGit } from '../context/GitAPIContext';
+import { useTranslation } from 'react-i18next';
 import type { CloneStatus } from '../components/layout/remote/CloneProgress';
 import { gitService } from '../services/gitService';
 
@@ -11,6 +12,7 @@ export interface RepoInfo {
 
 export const useRemoteClone = () => {
     const { ingestRemote, fetchServerState, sessionId } = useGit();
+    const { t } = useTranslation('common');
 
     const [cloneStatus, setCloneStatus] = useState<CloneStatus>('idle');
     const [estimatedSeconds, setEstimatedSeconds] = useState<number>(0);
@@ -112,7 +114,7 @@ export const useRemoteClone = () => {
 
         if (!name.trim()) {
             setCloneStatus('error');
-            setErrorMessage('Repository name is required');
+            setErrorMessage(t('remote.empty.repoNameRequired'));
             return;
         }
 
@@ -127,9 +129,8 @@ export const useRemoteClone = () => {
             await gitService.createRemote(name, sessionId);
 
             // Fetch state to reflect the directory switch on backend
-            // We use 'origin' remote name just to refresh common things, 
-            // but fetching general state is key here.
-            await fetchServerState('origin');
+            // We use the actual repo name because 'origin' alias is not set in SharedRemotes for created repos
+            await fetchServerState(name);
 
             if (timerRef.current) {
                 clearInterval(timerRef.current);

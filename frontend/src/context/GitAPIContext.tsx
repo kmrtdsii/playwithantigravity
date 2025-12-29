@@ -61,6 +61,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fetchState,
         refreshPullRequests,
         fetchServerState,
+        setServerState,
     } = gitData;
 
     // 3. Command Execution
@@ -136,7 +137,8 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const { gitService } = await import('../services/gitService');
         await gitService.resetRemote(name);
         await fetchState(sessionId);
-    }, [sessionId, fetchState]);
+        setServerState(null);
+    }, [sessionId, fetchState, setServerState]);
 
     const refreshStateWrapper = useCallback(async () => {
         if (sessionId) await fetchState(sessionId);

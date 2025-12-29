@@ -14,7 +14,11 @@
         "tags": "タグ"
     },
     "visualization": {
-        "emptyState": "\"git init\" と入力して開始してください。"
+        "emptyState": "\"git init\" と入力して開始してください。",
+        "emptyRepo": {
+            "title": "リポジトリは空です",
+            "description": "最初のコミットをプッシュしてグラフを表示しましょう。"
+        }
     },
     "common": {
         "showAll": "全表示",
@@ -46,9 +50,11 @@
         "configure": "設定",
         "update": "更新",
         "updating": "更新中...",
+        "retry": "再試行",
         "cancel": "キャンセル",
+        "disconnect": "切断",
         "noConfigured": "リモート未設定",
-        "cloneUrlLabel": "GitHub URL",
+        "cloneUrlLabel": "リモートURL",
         "branches": "リモートブランチ",
         "pullRequests": "プルリクエスト",
         "newPR": "新規プルリクエスト",
@@ -96,7 +102,8 @@
             "creating": "リポジトリを作成中...",
             "created": "リポジトリを作成しました！",
             "connecting": "リポジトリに接続中...",
-            "or": "または"
+            "or": "または",
+            "repoNameRequired": "リポジトリ名は必須です"
         }
     },
     "developer": {

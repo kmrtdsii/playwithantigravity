@@ -13,6 +13,7 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 // IngestRemote creates a new shared remote repository from a URL (simulated clone)
@@ -413,6 +414,33 @@ func (sm *SessionManager) CreateBareRepository(ctx context.Context, sessionID, n
 			if err := session.Filesystem.MkdirAll(dirName, 0755); err != nil {
 				log.Printf("Warning: failed to mkdir in session: %v", err)
 			}
+
+			// Initialize repository in session (git init)
+			// We need a chroot fs for the worktree
+			if worktreeFs, err := session.Filesystem.Chroot(dirName); err == nil {
+				// Create ephemeral storage for session repo
+				storer := memory.NewStorage()
+
+				// Init repo
+				r, err := gogit.Init(storer, worktreeFs)
+				if err != nil {
+					log.Printf("Warning: failed to git init in session: %v", err)
+				} else {
+					// Add remote (git remote add origin ...)
+					_, err = r.CreateRemote(&config.RemoteConfig{
+						Name: "origin",
+						URLs: []string{pseudoURL},
+					})
+					if err != nil {
+						log.Printf("Warning: failed to add remote origin: %v", err)
+					}
+
+					// Update session cache
+					session.Repos[name] = r
+					log.Printf("Initialized session repo %s with remote %s", name, pseudoURL)
+				}
+			}
+
 			// Switch current dir
 			session.CurrentDir = "/" + dirName
 			session.Unlock()

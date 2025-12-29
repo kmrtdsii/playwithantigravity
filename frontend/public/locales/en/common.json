@@ -14,7 +14,11 @@
         "tags": "Tags"
     },
     "visualization": {
-        "emptyState": "Type \"git init\" to start."
+        "emptyState": "Type \"git init\" to start.",
+        "emptyRepo": {
+            "title": "Repository is empty",
+            "description": "Push your first commit to see the graph."
+        }
     },
     "common": {
         "showAll": "SHOW ALL",
@@ -46,9 +50,11 @@
         "configure": "Configure",
         "update": "UPDATE",
         "updating": "UPDATING...",
+        "retry": "Retry",
         "cancel": "Cancel",
+        "disconnect": "Disconnect",
         "noConfigured": "No Remote Configured",
-        "cloneUrlLabel": "GitHub URL",
+        "cloneUrlLabel": "Remote URL",
         "branches": "REMOTE BRANCHES",
         "pullRequests": "PULL REQUESTS",
         "newPR": "New Pull Request",
@@ -96,7 +102,8 @@
             "creating": "Creating repository...",
             "created": "Repository Created!",
             "connecting": "Connecting to repository...",
-            "or": "OR"
+            "or": "OR",
+            "repoNameRequired": "Repository name is required"
         }
     },
     "developer": {

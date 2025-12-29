@@ -29,6 +29,7 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         refreshPullRequests,
         createPullRequest,
         deletePullRequest,
+        resetRemote,
     } = useGit();
 
     // Custom Hooks
@@ -54,12 +55,6 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     // Initial Load - Auto-clone default remote on first render
     useEffect(() => {
         refreshPullRequests();
-
-        // Auto-load default remote removed
-        /* if (!serverState && setupUrl && cloneStatus === 'idle') {
-            console.log('Auto-loading default remote:', setupUrl);
-            performClone(setupUrl, 0);
-        } */
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -95,6 +90,20 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     };
 
     // Computed Values
+    const remoteUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || '';
+    const projectName = remoteUrl.split('/').pop()?.replace('.git', '') || 'Remote Repository';
+
+    const handleDisconnect = async () => {
+        try {
+            await resetRemote(projectName);
+        } catch (e) {
+            console.warn('Reset remote failed, continuing with cleanup:', e);
+        }
+        // Clear all local state to return to initial view
+        setSetupUrl('');
+        cancelClone(); // This resets cloneStatus to 'idle' and clears error state
+    };
+
     const remoteGraphState: GitState = useMemo(() => {
         if (!serverState) {
             return createEmptyGitState();
@@ -136,9 +145,6 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         };
     }, [serverState]);
 
-    // const remoteBranches = remoteGraphState.remoteBranches || {};
-    const remoteUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || '';
-    const projectName = remoteUrl.split('/').pop()?.replace('.git', '') || 'Remote Repository';
     const hasSharedRemotes = !!serverState;
     const isSettingUp = cloneStatus === 'fetching_info' || cloneStatus === 'cloning';
 
@@ -154,6 +160,7 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                     setupUrl={setupUrl}
                     onSetupUrlChange={setSetupUrl}
                     onEditRemote={handleEditRemote}
+                    onDisconnect={handleDisconnect}
                     onCancelEdit={handleCancelEdit}
                     onSubmit={onCloneSubmit}
                 />

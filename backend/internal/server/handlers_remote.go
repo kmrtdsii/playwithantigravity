@@ -59,8 +59,18 @@ func (s *Server) handleGetRemoteState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Only show local branches (simulated as server branches) and tags.
-	stateObj.Remotes = []state.Remote{}               // Clear remotes
+	// stateObj.Remotes = []state.Remote{}               // Do not clear.
 	stateObj.RemoteBranches = make(map[string]string) // Clear remote tracking branches
+
+	// If no remotes (created bare repo), inject self as origin for UI display
+	if len(stateObj.Remotes) == 0 {
+		stateObj.Remotes = []state.Remote{
+			{
+				Name: "origin", // UI expects 'origin' or first remote
+				URLs: []string{fmt.Sprintf("remote://gitgym/%s.git", name)},
+			},
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(stateObj)
@@ -236,6 +246,10 @@ func (s *Server) handleCreateRemote(w http.ResponseWriter, r *http.Request) {
 
 	// 2. Create Repository
 	if err := s.SessionManager.CreateBareRepository(r.Context(), sessionID, req.Name); err != nil {
+		if err.Error() == "invalid repository name: only alphanumeric, hyphen and underscore allowed" {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 		// Differentiate error types if possible, but 500 is safe for now
 		http.Error(w, fmt.Sprintf("Failed to create repository: %v", err), http.StatusInternalServerError)
 		return
