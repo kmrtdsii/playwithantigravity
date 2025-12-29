@@ -103,6 +103,7 @@
             "createPlaceholder": "Repository name...",
             "validation": "Only alphanumeric characters, hyphens, and underscores allowed.",
             "createButton": "Create",
+            "connectButton": "Connect",
             "creating": "Creating repository...",
             "created": "Repository Created!",
             "connecting": "Connecting to repository...",

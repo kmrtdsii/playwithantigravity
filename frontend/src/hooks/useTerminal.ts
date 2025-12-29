@@ -285,7 +285,7 @@ export const useTerminal = (
                     let showAutoPrefixMsg = false;
 
                     const firstWord = cmd.split(' ')[0];
-                    const shellCommands = ['ls', 'cd', 'pwd', 'touch', 'rm'];
+                    const shellCommands = ['ls', 'cd', 'pwd', 'touch', 'rm', 'mkdir'];
 
                     // Determine if we need auto-prefix
                     if (!cmd.startsWith('git')) {

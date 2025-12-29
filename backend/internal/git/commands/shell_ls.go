@@ -23,7 +23,9 @@ type LsCommand struct{}
 var _ git.Command = (*LsCommand)(nil)
 
 type LsOptions struct {
-	Path string
+	Path     string
+	ShowAll  bool // -a flag: show hidden files
+	LongList bool // -l flag: long listing (not fully implemented)
 }
 
 func (c *LsCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
@@ -42,9 +44,25 @@ func (c *LsCommand) parseArgs(args []string, currentDir string) (*LsOptions, err
 	opts := &LsOptions{}
 	cmdArgs := args[1:]
 
-	if len(cmdArgs) > 0 {
-		// Only supporting first arg as path for now
-		path := cmdArgs[0]
+	// Parse flags and find path argument
+	var path string
+	for _, arg := range cmdArgs {
+		if strings.HasPrefix(arg, "-") {
+			// Parse flags
+			for _, ch := range arg[1:] {
+				switch ch {
+				case 'a':
+					opts.ShowAll = true
+				case 'l':
+					opts.LongList = true
+				}
+			}
+		} else {
+			path = arg
+		}
+	}
+
+	if path != "" {
 		// Normalize
 		if !strings.HasPrefix(path, "/") {
 			if currentDir == "/" {
@@ -62,7 +80,6 @@ func (c *LsCommand) parseArgs(args []string, currentDir string) (*LsOptions, err
 		}
 	}
 	// Removing trailing slash if present (except proper root)?
-	// s.Filesystem usage usually tolerant but clean path is better.
 	if len(opts.Path) > 1 && strings.HasSuffix(opts.Path, "/") {
 		opts.Path = strings.TrimSuffix(opts.Path, "/")
 	}
@@ -71,17 +88,6 @@ func (c *LsCommand) parseArgs(args []string, currentDir string) (*LsOptions, err
 }
 
 func (c *LsCommand) executeLs(s *git.Session, opts *LsOptions) (string, error) {
-	// Handle root specially if needed, but assuming path is valid for ReadDir
-	// Note: s.Filesystem.ReadDir on "repo" vs "/repo" works differently in memfs?
-	// Usually absolute path logic handled by Billy or user.
-	// Our session manager "CurrentDir" uses absolute paths like "/repo".
-
-	// Strip leading slash for billy if needed?
-	// memfs usually handles root paths or relative?
-	// Previous code:
-	// path = s.CurrentDir; if path[0] == '/' { path = path[1:] }
-	// So it strips leading slash.
-
 	readPath := opts.Path
 	if len(readPath) > 0 && readPath[0] == '/' {
 		readPath = readPath[1:]
@@ -98,6 +104,12 @@ func (c *LsCommand) executeLs(s *git.Session, opts *LsOptions) (string, error) {
 	var output []string
 	for _, info := range infos {
 		name := info.Name()
+
+		// Skip hidden files unless -a flag is set
+		if !opts.ShowAll && strings.HasPrefix(name, ".") {
+			continue
+		}
+
 		if info.IsDir() {
 			name = name + "/"
 		}
@@ -117,10 +129,17 @@ func (c *LsCommand) Help() string {
     ・現在のフォルダにあるファイルやフォルダの一覧を表示する
 
  📋 SYNOPSIS
-    ls [<path>]
+    ls [-la] [<path>]
+
+ 🛠  OPTIONS
+    -a    隠しファイル（.で始まるファイル）も表示
+    -l    詳細表示（未実装）
 
  🛠  EXAMPLES
     1. 現在の場所を表示
        $ ls
+
+    2. 隠しファイルも表示
+       $ ls -a
 `
 }

@@ -2,26 +2,21 @@ import React, { useState } from 'react';
 import type { CloneStatus } from './CloneProgress';
 import { actionButtonStyle } from './remoteStyles';
 import CreateRepoDialog from './CreateRepoDialog';
-import { Plus } from 'lucide-react';
+import ConnectRepoDialog from './ConnectRepoDialog';
+import { Plus, Link2 } from 'lucide-react';
 
 interface EmptyStateProps {
-    isEditMode: boolean;
+    isEditMode?: boolean;
     cloneStatus?: CloneStatus;
-    onConnect: () => void;
+    onConnect?: () => void;
 }
 
 import { useTranslation } from 'react-i18next';
 
-const EmptyState: React.FC<EmptyStateProps> = ({ isEditMode, cloneStatus, onConnect }) => {
+const EmptyState: React.FC<EmptyStateProps> = ({ cloneStatus }) => {
     const { t } = useTranslation('common');
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-
-    // If cloning/creating is in progress (visible in parent), maybe hide buttons?
-    // But parent handles "Connecting..." status via cloneStatus prop.
-    // If Creating happens inside Dialog, cloneStatus might be updated there if logic is shared?
-    // No, CreateRepoDialog uses its own useRemoteClone instance. 
-    // The parent's RemoteRepoView uses another instance. 
-    // This separation is OK because successful create will fetch state globally, updating parent.
+    const [isConnectDialogOpen, setIsConnectDialogOpen] = useState(false);
 
     return (
         <div style={{
@@ -35,14 +30,14 @@ const EmptyState: React.FC<EmptyStateProps> = ({ isEditMode, cloneStatus, onConn
             padding: '20px',
             textAlign: 'center'
         }}>
-            {!isEditMode && cloneStatus === 'idle' && (
+            {cloneStatus === 'idle' && (
                 <>
                     <div style={{ fontSize: '24px', opacity: 0.3 }}>🌐</div>
                     <div style={{ fontSize: '0.85rem' }}>{t('remote.empty.title')}</div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%', maxWidth: '240px', marginTop: '10px' }}>
                         <button
-                            onClick={onConnect}
+                            onClick={() => setIsConnectDialogOpen(true)}
                             style={{
                                 ...actionButtonStyle,
                                 background: 'var(--bg-tertiary)',
@@ -56,6 +51,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({ isEditMode, cloneStatus, onConn
                                 gap: '8px'
                             }}
                         >
+                            <Link2 size={14} />
                             {t('remote.empty.connect')}
                         </button>
 
@@ -96,6 +92,10 @@ const EmptyState: React.FC<EmptyStateProps> = ({ isEditMode, cloneStatus, onConn
             <CreateRepoDialog
                 isOpen={isCreateDialogOpen}
                 onClose={() => setIsCreateDialogOpen(false)}
+            />
+            <ConnectRepoDialog
+                isOpen={isConnectDialogOpen}
+                onClose={() => setIsConnectDialogOpen(false)}
             />
         </div>
     );

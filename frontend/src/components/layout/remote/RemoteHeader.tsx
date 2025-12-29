@@ -195,15 +195,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         )}
                     </div>
                 </div>
-            ) : (
-                <div style={{
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--text-tertiary)',
-                    marginTop: 'var(--space-1)'
-                }}>
-                    {t('remote.header.description')}
-                </div>
-            )}
+            ) : null}
         </div>
     );
 };

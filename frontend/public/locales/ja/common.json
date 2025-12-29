@@ -103,6 +103,7 @@
             "createPlaceholder": "リポジトリ名...",
             "validation": "英数字、ハイフン、アンダースコアのみ使用できます。",
             "createButton": "作成",
+            "connectButton": "接続",
             "creating": "リポジトリを作成中...",
             "created": "リポジトリを作成しました！",
             "connecting": "リポジトリに接続中...",

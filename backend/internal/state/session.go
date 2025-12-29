@@ -7,6 +7,7 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
@@ -237,10 +238,22 @@ func (s *Session) InitRepo(name string) (*gogit.Repository, error) {
 		return nil, err
 	}
 
-	repo, err := gogit.Init(memory.NewStorage(), fs)
+	storer := memory.NewStorage()
+	repo, err := gogit.Init(storer, fs)
 	if err != nil {
 		return nil, err
 	}
+
+	// Set default branch to 'main' instead of 'master'
+	headRef := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main"))
+	if err := storer.SetReference(headRef); err != nil {
+		// Ignore error, fallback to master
+		_ = err
+	}
+
+	// Create .git placeholder directory so users can see it with ls -a
+	_ = fs.MkdirAll(".git", 0755)
+
 	s.Repos[path] = repo
 	return repo, nil
 }

@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
@@ -17,20 +18,30 @@ type InitCommand struct{}
 var _ git.Command = (*InitCommand)(nil)
 
 func (c *InitCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
-	// Initialize repo in current directory ("." relative to session root or current dir)
-	path := ""
+	s.Lock()
+	defer s.Unlock()
+
+	var path string
 	if len(args) > 1 {
 		path = args[1]
-		// Note: args[0] is "init". args[1] might be directory name.
-		// If "git init", args=["init"].
-		// If "git init foo", args=["init", "foo"].
+	}
+
+	// If no path provided, init in current directory
+	if path == "" {
+		// Get the directory name from currentDir
+		if s.CurrentDir == "/" {
+			return "", fmt.Errorf("cannot init repository at root. Run 'mkdir <name>' first, then 'cd <name>' and 'git init'")
+		}
+		// Current dir is like "/kurobon", strip leading slash
+		path = strings.TrimPrefix(s.CurrentDir, "/")
 	}
 
 	_, err := s.InitRepo(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to init repo: %w", err)
 	}
-	return fmt.Sprintf("Initialized empty Git repository in %s", path), nil
+
+	return fmt.Sprintf("Initialized empty Git repository in /%s/.git/", path), nil
 }
 
 func (c *InitCommand) Help() string {
