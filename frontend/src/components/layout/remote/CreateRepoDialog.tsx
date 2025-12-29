@@ -96,7 +96,8 @@ const CreateRepoDialog: React.FC<CreateRepoDialogProps> = ({ isOpen, onClose, on
                 width: '100%',
                 maxWidth: '450px',
                 boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                backdropFilter: 'blur(5px)'
+                backdropFilter: 'blur(5px)',
+                overflow: 'hidden'
             }}
             className="backdrop:bg-black/50 backdrop:backdrop-blur-sm"
         >
