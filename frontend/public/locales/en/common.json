@@ -53,6 +53,10 @@
         "retry": "Retry",
         "cancel": "Cancel",
         "disconnect": "Disconnect",
+        "validation": {
+            "urlRequired": "Please enter a URL",
+            "invalidUrl": "URL must start with https:// or git@"
+        },
         "noConfigured": "No Remote Configured",
         "cloneUrlLabel": "Remote URL",
         "branches": "REMOTE BRANCHES",
@@ -90,7 +94,7 @@
             "creating": "Creating repository..."
         },
         "header": {
-            "description": "Connect a GitHub repository to visualize remote history."
+            "description": "Connect a Git repository to visualize remote history."
         },
         "empty": {
             "title": "No Remote Configured",

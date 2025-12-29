@@ -54,7 +54,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                 <form onSubmit={onSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
                     <input
                         type="text"
-                        placeholder="https://github.com/..."
+                        placeholder="https://github.com/... or git@..."
                         value={setupUrl}
                         onChange={(e) => onSetupUrlChange(e.target.value)}
                         style={{ ...inputStyle, flex: 3 }}

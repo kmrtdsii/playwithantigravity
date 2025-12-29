@@ -53,6 +53,10 @@
         "retry": "再試行",
         "cancel": "キャンセル",
         "disconnect": "切断",
+        "validation": {
+            "urlRequired": "URLを入力してください",
+            "invalidUrl": "https:// または git@ で始まるURLを入力してください"
+        },
         "noConfigured": "リモート未設定",
         "cloneUrlLabel": "リモートURL",
         "branches": "リモートブランチ",
@@ -90,7 +94,7 @@
             "creating": "リポジトリを作成中..."
         },
         "header": {
-            "description": "GitHubリポジトリに接続してリモート履歴を可視化しましょう。"
+            "description": "Gitリポジトリに接続してリモート履歴を可視化しましょう。"
         },
         "empty": {
             "title": "リモート未設定",

@@ -33,8 +33,11 @@ export const useRemoteClone = () => {
     }, []);
 
     const validateUrl = (url: string): string | null => {
-        if (!url.trim()) return 'URLを入力してください';
-        if (!url.startsWith('https://github.com')) return 'https://github.com で始まる必要があります';
+        if (!url.trim()) return t('remote.validation.urlRequired', { defaultValue: 'URLを入力してください' });
+        // Accept https:// URLs and git@ URLs (SSH)
+        if (!url.startsWith('https://') && !url.startsWith('git@')) {
+            return t('remote.validation.invalidUrl', { defaultValue: 'https:// または git@ で始まるURLを入力してください' });
+        }
         return null;
     };
 
