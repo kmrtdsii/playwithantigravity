@@ -11,6 +11,7 @@ import DeveloperTabs from './DeveloperTabs';
 import BottomPanel from './BottomPanel';
 import { Resizer } from '../common';
 import AddDeveloperModal from './AddDeveloperModal';
+import MissionPanel from './MissionPanel';
 import { Sun, Moon } from 'lucide-react';
 
 import type { SelectedObject } from '../../types/layoutTypes';
@@ -308,6 +309,8 @@ const AppLayout = () => {
                     isOpen={isSkillRadarOpen}
                     onClose={() => setIsSkillRadarOpen(false)}
                 />
+
+                <MissionPanel />
             </div>
         </div>
     );

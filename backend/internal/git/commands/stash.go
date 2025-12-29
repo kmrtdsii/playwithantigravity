@@ -55,7 +55,7 @@ func (c *StashCommand) Execute(ctx context.Context, s *git.Session, args []strin
 	}
 }
 
-func (c *StashCommand) executePush(repo *gogit.Repository, args []string) (string, error) {
+func (c *StashCommand) executePush(repo *gogit.Repository, _ []string) (string, error) {
 	w, err := repo.Worktree()
 	if err != nil {
 		return "", err

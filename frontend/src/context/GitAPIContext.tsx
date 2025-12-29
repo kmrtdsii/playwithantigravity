@@ -8,6 +8,7 @@ import { useGitCommand } from '../hooks/useGitCommand';
 interface GitContextType {
     state: GitState;
     sessionId: string;
+    setSessionId: (id: string) => void;
     runCommand: (cmd: string, options?: { silent?: boolean; skipRefresh?: boolean }) => Promise<string[]>;
     // Terminal Recording API
     appendToTranscript: (text: string, hasNewline?: boolean) => void;
@@ -41,12 +42,12 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 1. Session Management
     const {
         sessionId,
+        setSessionId, // Expose for Mission Context
         developers,
         activeDeveloper,
         switchDeveloper: rawSwitchDeveloper,
         addDeveloper: rawAddDeveloper,
         removeDeveloper,
-        // no need to expose setSessionId directly
     } = useGitSession();
 
     // 2. Data Management (State, PRs, Server)
@@ -60,7 +61,6 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         fetchState,
         refreshPullRequests,
         fetchServerState,
-        // exposed setters not needed here
     } = gitData;
 
     // 3. Command Execution
@@ -145,6 +145,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const contextValue = React.useMemo(() => ({
         state,
         sessionId,
+        setSessionId,
         runCommand,
         appendToTranscript,
         terminalTranscripts,
@@ -171,6 +172,7 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }), [
         state,
         sessionId,
+        setSessionId,
         runCommand,
         appendToTranscript,
         terminalTranscripts,

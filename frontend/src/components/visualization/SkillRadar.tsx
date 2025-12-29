@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SKILL_TREE, type SkillCommand } from '../../data/skillTree';
 import { Modal } from '../common';
+import { useMission } from '../../context/MissionContext';
 
 interface SkillRadarProps {
     isOpen: boolean;
@@ -9,6 +10,7 @@ interface SkillRadarProps {
 }
 
 const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
+    const { startMission } = useMission();
     const [selectedCommand, setSelectedCommand] = useState<SkillCommand | null>(null);
     const [hoveredCommand, setHoveredCommand] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -471,7 +473,14 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
                                     alignItems: 'center',
                                     gap: '8px'
                                 }}
-                                onClick={() => alert(`Launching Scenario: ${selectedCommand.name}...`)}
+                                onClick={() => {
+                                    if (selectedCommand && selectedCommand.missionId) {
+                                        startMission(selectedCommand.missionId);
+                                        onClose();
+                                    } else {
+                                        alert("Mission not yet implemented for this skill.");
+                                    }
+                                }}
                             >
                                 <span>Start Practice</span>
                                 <span>→</span>
@@ -480,7 +489,7 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
                     )}
                 </AnimatePresence>
             </div>
-        </Modal>
+        </Modal >
     );
 };
 

@@ -2,6 +2,7 @@ export interface SkillCommand {
     id: string;
     name: string;
     description: string;
+    missionId?: string;
     disabled?: boolean;
 }
 
@@ -42,7 +43,7 @@ export const SKILL_TREE: SkillLevel[] = [
             { id: 'branch', name: 'git branch', description: 'List/Create branches. Use "git branch -d" to delete merged branches.' },
             { id: 'switch', name: 'git switch', description: 'Switch branches. Use "git switch -c <name>" to create and switch instantly.' },
             { id: 'checkout', name: 'git checkout', description: 'Switch branches or restore files using "git checkout -- <file>".' },
-            { id: 'merge', name: 'git merge', description: 'Join branches. Use "git merge --no-ff" to preserve the merge history.' },
+            { id: 'merge', name: 'git merge', description: 'Join branches. Use "git merge --no-ff" to preserve the merge history.', missionId: '001-conflict-crisis' },
             { id: 'fetch', name: 'git fetch', description: 'Download remote info. Use "git fetch --prune" to clean up deleted branches.' },
             { id: 'diff', name: 'git diff', description: 'Show changes. "git diff --staged" shows what you are about to commit.' },
             { id: 'log', name: 'git log', description: 'Show history. Try "git log --oneline --graph" for a visual tree.' },

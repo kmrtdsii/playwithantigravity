@@ -15,7 +15,7 @@ import (
 func TestServerEndpoints(t *testing.T) {
 	// Setup
 	sm := git.NewSessionManager()
-	srv := NewServer(sm)
+	srv := NewServer(sm, nil)
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
 

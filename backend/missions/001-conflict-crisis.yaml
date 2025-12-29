@@ -1,0 +1,47 @@
+id: "001-conflict-crisis"
+title: "The Conflict Crisis"
+description: "Bob and Alice edited the same file. The repository is in a broken merge state. Fix it so that both changes are preserved."
+difficulty:
+  level: "basic"
+  stars: 2
+skill: "merge"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'Line 1: Shared content' > README.md"
+  - "git add README.md"
+  - "git commit -m 'Initial commit'"
+  - "git checkout -b feature" 
+  - "echo 'Line 2: Feature work' >> README.md"
+  - "git add README.md"
+  - "git commit -m 'Add feature work'"
+  - "git checkout master"
+  - "echo 'Line 2: Main work' >> README.md"
+  - "git add README.md"
+  - "git commit -m 'Add main work'"
+  - "git merge feature" # This causes a conflict and exit code 1 (allowed by engine)
+
+validation:
+  checks:
+    - type: "no_conflict"
+      description: "No merge conflicts remain"
+    - type: "commit_exists"
+      message_pattern: "Merge branch 'feature'"
+      description: "A merge commit was created"
+    - type: "file_content"
+      path: "README.md"
+      contains:
+        - "Line 2: Feature work"
+        - "Line 2: Main work"
+      description: "Both changes are preserved"
+
+hints:
+  - "Run `git status` to see which files are in conflict."
+  - "Edit README.md to remove the `<<<<` markers and keep both lines."
+  - "After fixing the file, don't forget to `git add README.md` and `git commit`."
+
+scoring:
+  time_bonus: true
+  hint_penalty: 10

@@ -9,6 +9,7 @@ import (
 
 	"github.com/kurobon/gitgym/backend/internal/git"
 	_ "github.com/kurobon/gitgym/backend/internal/git/commands" // Register commands
+	"github.com/kurobon/gitgym/backend/internal/mission"
 	"github.com/kurobon/gitgym/backend/internal/server"
 )
 
@@ -40,6 +41,12 @@ func main() {
 	// Initialize Core Dependencies
 	sessionManager := git.NewSessionManager()
 
+	// Initialize Mission Engine
+	// We put missions in "missions" directory relative to binary? Or distinct dir.
+	// Assume "missions" dir in CWD (backend root).
+	missionLoader := mission.NewLoader("missions")
+	missionEngine := mission.NewEngine(missionLoader, sessionManager)
+
 	// Pre-ingest default remote repository asynchronously
 	go func() {
 		log.Printf("Initializing default remote: %s", DefaultRemoteURL)
@@ -52,7 +59,7 @@ func main() {
 	}()
 
 	// Initialize HTTP Server
-	srv := server.NewServer(sessionManager)
+	srv := server.NewServer(sessionManager, missionEngine)
 
 	// Security: Use http.Server with timeouts (G114)
 	httpServer := &http.Server{

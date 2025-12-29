@@ -77,9 +77,10 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	// MOVE
 	if opts.Move {
-		if opts.BranchName == "" {
-			return "", fmt.Errorf("branch name required")
-		}
+		// If explicit old name not provided, we resolve "current" inside moveBranch
+		// So we don't enforce opts.BranchName != "" here if we support current branch rename.
+		// However, parseArgs sets BranchName="" for implicit case.
+		// So we should allow it.
 		return c.moveBranch(repo, opts)
 	}
 
@@ -278,7 +279,23 @@ func (c *BranchCommand) moveBranch(repo *gogit.Repository, opts *BranchOptions) 
 	oldName := opts.BranchName
 	newName := opts.NewName
 
-	oldRefName := plumbing.ReferenceName("refs/heads/" + oldName)
+	var oldRefName plumbing.ReferenceName
+
+	if oldName == "" {
+		// Renaming current branch
+		head, err := repo.Head()
+		if err != nil {
+			return "", fmt.Errorf("cannot rename current branch: failed to resolve HEAD: %w", err)
+		}
+		if !head.Name().IsBranch() {
+			return "", fmt.Errorf("cannot rename detached HEAD")
+		}
+		oldRefName = head.Name()
+		oldName = oldRefName.Short()
+	} else {
+		oldRefName = plumbing.ReferenceName("refs/heads/" + oldName)
+	}
+
 	oldRef, err := repo.Reference(oldRefName, true)
 	if err != nil {
 		return "", fmt.Errorf("branch '%s' not found", oldName)
