@@ -8,49 +8,122 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/kurobon/gitgym/backend/internal/git"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestInitCommand_Execute(t *testing.T) {
-	// Setup
-	fs := memfs.New()
-	session := &git.Session{
-		Filesystem: fs,
+// newTestSession creates a fresh session for testing
+func newTestSession() *git.Session {
+	return &git.Session{
+		Filesystem: memfs.New(),
 		Repos:      make(map[string]*gogit.Repository),
 		CurrentDir: "/",
 	}
+}
+
+func TestInitCommand_Execute(t *testing.T) {
 	cmd := &InitCommand{}
 	ctx := context.Background()
 
-	// Test 1: Init in root should fail
-	_, err := cmd.Execute(ctx, session, []string{"init"})
-	assert.Error(t, err)
+	t.Run("InitInRootShouldFail", func(t *testing.T) {
+		session := newTestSession()
+		_, err := cmd.Execute(ctx, session, []string{"init"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot init repository at root")
+	})
 
-	// Test 2: Init basic
-	_, err = cmd.Execute(ctx, session, []string{"init", "repo1"})
-	assert.NoError(t, err)
-	// Check if repo1 exists in root
-	_, exists := session.Repos["repo1"]
-	assert.True(t, exists, "repo1 should exist")
+	t.Run("InitWithNameFromRoot", func(t *testing.T) {
+		session := newTestSession()
+		result, err := cmd.Execute(ctx, session, []string{"init", "myrepo"})
+		require.NoError(t, err)
+		assert.Contains(t, result, "Initialized empty Git repository")
 
-	// Test 3: Change dir and init relative
-	session.CurrentDir = "/repo1"
-	// Create subdir manually first as mkdir would do
-	fs.MkdirAll("sub", 0755)
+		_, exists := session.Repos["myrepo"]
+		assert.True(t, exists, "myrepo should exist in session.Repos")
+	})
 
-	// Try to init nested repo (should fail due to nested check)
-	_, err = cmd.Execute(ctx, session, []string{"init", "sub"})
-	assert.Error(t, err, "Should fail verifying nested repo")
-	assert.Contains(t, err.Error(), "nested repo exists")
+	t.Run("InitRelativePathFromSubdirectory", func(t *testing.T) {
+		session := newTestSession()
+		// First create a folder structure
+		require.NoError(t, session.Filesystem.MkdirAll("projects", 0755))
+		session.CurrentDir = "/projects"
 
-	// Test 4: Init non-nested relative path
-	// Go back to root
-	session.CurrentDir = "/"
-	fs.MkdirAll("folder", 0755)
-	session.CurrentDir = "/folder"
+		result, err := cmd.Execute(ctx, session, []string{"init", "webapp"})
+		require.NoError(t, err)
+		assert.Contains(t, result, "/projects/webapp/.git/")
 
-	_, err = cmd.Execute(ctx, session, []string{"init", "repo2"})
-	assert.NoError(t, err)
-	// Check if repo2 exists at folder/repo2
-	_, exists = session.Repos["folder/repo2"]
-	assert.True(t, exists, "folder/repo2 should exist")
+		_, exists := session.Repos["projects/webapp"]
+		assert.True(t, exists, "projects/webapp should exist")
+	})
+
+	t.Run("InitAbsolutePath", func(t *testing.T) {
+		session := newTestSession()
+		session.CurrentDir = "/somedir"
+
+		result, err := cmd.Execute(ctx, session, []string{"init", "/absoluterepo"})
+		require.NoError(t, err)
+		assert.Contains(t, result, "/absoluterepo/.git/")
+
+		_, exists := session.Repos["absoluterepo"]
+		assert.True(t, exists, "absoluterepo should exist")
+	})
+
+	t.Run("NestedRepoInsideExistingShouldFail", func(t *testing.T) {
+		session := newTestSession()
+		// Create parent repo first
+		_, err := cmd.Execute(ctx, session, []string{"init", "parent"})
+		require.NoError(t, err)
+
+		// Try to create nested repo
+		session.CurrentDir = "/parent"
+		_, err = cmd.Execute(ctx, session, []string{"init", "child"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "cannot init repository inside existing repo")
+	})
+
+	t.Run("ParentOfExistingRepoShouldFail", func(t *testing.T) {
+		session := newTestSession()
+		// Create child repo first
+		require.NoError(t, session.Filesystem.MkdirAll("outer/inner", 0755))
+		session.CurrentDir = "/outer/inner"
+		_, err := cmd.Execute(ctx, session, []string{"init"})
+		require.NoError(t, err)
+
+		// Try to create parent repo that would contain child
+		session.CurrentDir = "/"
+		_, err = cmd.Execute(ctx, session, []string{"init", "outer"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "nested repo exists")
+	})
+
+	t.Run("ReinitExistingRepoShouldFail", func(t *testing.T) {
+		session := newTestSession()
+		_, err := cmd.Execute(ctx, session, []string{"init", "samerepo"})
+		require.NoError(t, err)
+
+		// Try to reinitialize
+		_, err = cmd.Execute(ctx, session, []string{"init", "samerepo"})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "repository already exists")
+	})
+
+	t.Run("PathWithDotDot", func(t *testing.T) {
+		session := newTestSession()
+		require.NoError(t, session.Filesystem.MkdirAll("a/b", 0755))
+		session.CurrentDir = "/a/b"
+
+		// ../c should resolve to /a/c
+		result, err := cmd.Execute(ctx, session, []string{"init", "../c"})
+		require.NoError(t, err)
+		assert.Contains(t, result, "/a/c/.git/")
+
+		_, exists := session.Repos["a/c"]
+		assert.True(t, exists, "a/c should exist")
+	})
+}
+
+func TestInitCommand_Help(t *testing.T) {
+	cmd := &InitCommand{}
+	help := cmd.Help()
+	assert.Contains(t, help, "git init")
+	assert.Contains(t, help, "directory")
 }

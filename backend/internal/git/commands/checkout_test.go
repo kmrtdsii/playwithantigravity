@@ -71,6 +71,19 @@ func TestCheckoutCommand(t *testing.T) {
 	})
 
 	t.Run("Checkout Force", func(t *testing.T) {
+		// Determine default branch name again or use hardcoded if known
+		var defaultBranch string
+		refs, _ := repo.References()
+		refs.ForEach(func(r *plumbing.Reference) error {
+			if r.Name().IsBranch() && r.Name().Short() != "feature" {
+				defaultBranch = r.Name().Short()
+			}
+			return nil
+		})
+		if defaultBranch == "" {
+			defaultBranch = "master"
+		}
+
 		// Create a dirty state
 		f, _ := w.Filesystem.Create("file.txt")
 		f.Write([]byte("dirty"))
@@ -80,11 +93,11 @@ func TestCheckoutCommand(t *testing.T) {
 		// If we switch to 'master' (which has 'base'), it should conflict/fail.
 
 		// However, with memfs and our simplistic implementation, let's verify -f overwrites.
-		res, err := cmd.Execute(context.Background(), s, []string{"checkout", "-f", "master"})
+		res, err := cmd.Execute(context.Background(), s, []string{"checkout", "-f", defaultBranch})
 		if err != nil {
 			t.Fatalf("Checkout -f failed: %v", err)
 		}
-		if !strings.Contains(res, "Switched to branch 'master'") {
+		if !strings.Contains(res, fmt.Sprintf("Switched to branch '%s'", defaultBranch)) {
 			t.Errorf("Unexpected output: %s", res)
 		}
 

@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
@@ -21,48 +22,44 @@ func (c *InitCommand) Execute(ctx context.Context, s *git.Session, args []string
 	s.Lock()
 	defer s.Unlock()
 
-	// Determine path
-	var rawPath string
+	// Parse optional path argument
+	var argPath string
 	if len(args) > 1 {
-		rawPath = args[1]
+		argPath = args[1]
 	}
 
-	var path string // Resolved path without leading slash
-
+	// Resolve target path (always absolute, starting with /)
 	var targetPath string
-	if rawPath == "" {
+	if argPath == "" {
+		// No argument: init in current directory
 		targetPath = s.CurrentDir
+	} else if strings.HasPrefix(argPath, "/") {
+		// Absolute path provided
+		targetPath = path.Clean(argPath)
 	} else {
-		if strings.HasPrefix(rawPath, "/") {
-			targetPath = rawPath
-		} else {
-			// Join handles cleaning and expected separators for logical paths
-			if s.CurrentDir == "/" {
-				targetPath = "/" + rawPath
-			} else {
-				targetPath = s.CurrentDir + "/" + rawPath
-			}
-		}
+		// Relative path: join with current directory
+		targetPath = path.Clean(path.Join(s.CurrentDir, argPath))
 	}
 
+	// Validate: cannot init at root
 	if targetPath == "/" {
 		return "", fmt.Errorf("cannot init repository at root. Run 'mkdir <name>' first, then 'cd <name>' and 'git init'")
 	}
 
-	// Remove leading slash for internal handling
-	path = strings.TrimPrefix(targetPath, "/")
+	// Convert to internal path format (without leading slash)
+	internalPath := strings.TrimPrefix(targetPath, "/")
 
 	// Check for nested repository conflicts
-	if err := c.checkNestedRepoConflicts(s, path); err != nil {
+	if err := c.checkNestedRepoConflicts(s, internalPath); err != nil {
 		return "", err
 	}
 
-	_, err := s.InitRepo(path)
+	_, err := s.InitRepo(internalPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to init repo: %w", err)
 	}
 
-	return fmt.Sprintf("Initialized empty Git repository in /%s/.git/", path), nil
+	return fmt.Sprintf("Initialized empty Git repository in /%s/.git/", internalPath), nil
 }
 
 // checkNestedRepoConflicts checks if the target path would create a nested repository
