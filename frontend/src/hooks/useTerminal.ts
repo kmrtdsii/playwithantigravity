@@ -32,7 +32,7 @@ export const useTerminal = (
         terminalTranscripts,
         clearTranscript
     } = useGit();
-    const { getOutput, version: outputVersion } = useTerminalOutput();
+    const { getOutput } = useTerminalOutput();
 
     // State Tracking Refs
     const lastOutputLengthRef = useRef(0);
@@ -165,7 +165,7 @@ export const useTerminal = (
 
     // --- SYNC EXTERNAL & LOCAL COMMANDS ---
     useEffect(() => {
-        const currentOutput = getOutput(sessionId); // Get fresh output
+        const currentOutput = state.output; // Use state.output directly
         const currentLength = currentOutput.length;
         const prevLength = lastOutputLengthRef.current;
         const hasNewOutput = currentLength > prevLength;
@@ -217,7 +217,7 @@ export const useTerminal = (
             lastHeadRef.current = state.HEAD?.id;
             lastPromptTriggerRef.current = promptTrigger;
         }
-    }, [getOutput, sessionId, state.currentPath, state.HEAD, promptTrigger, state, outputVersion]);
+    }, [sessionId, state.currentPath, state.HEAD, promptTrigger, state.output, state]);
 
     // --- SETUP XTERM ---
     useEffect(() => {
