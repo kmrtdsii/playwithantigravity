@@ -37,20 +37,9 @@ func (sm *SessionManager) IngestRemote(ctx context.Context, name, url string, de
 	sm.ingestMu.Lock()
 	defer sm.ingestMu.Unlock()
 
-	// 1. Enforce Single Residency: Delete everything in baseDir that isn't our target
-	// Create baseDir if not exists
+	// 1. Ensure Base Directory exists
 	if err := os.MkdirAll(baseDir, 0750); err != nil {
 		return fmt.Errorf("failed to create base dir: %w", err)
-	}
-
-	entries, err := os.ReadDir(baseDir)
-	if err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() && entry.Name() != dirName {
-				// Remove old remote
-				_ = os.RemoveAll(filepath.Join(baseDir, entry.Name()))
-			}
-		}
 	}
 
 	// 1.5. Capture Old Paths for Pruning Stale Workspaces - DISABLED
@@ -219,41 +208,32 @@ func (sm *SessionManager) RemoveRemote(name string) error {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
-	// 1. Clean up disk for ALL shared remotes
-	for _, path := range sm.SharedRemotePaths {
-		if path != "" {
-			err := os.RemoveAll(path)
-			if err != nil {
-				log.Printf("RemoveRemote: Failed to delete path %s: %v", path, err)
-			} else {
-				log.Printf("RemoveRemote: Deleted path %s", path)
-			}
+	// 1. Resolve Path and Clean up disk if it exists
+	path, ok := sm.SharedRemotePaths[name]
+	if ok && path != "" {
+		err := os.RemoveAll(path)
+		if err != nil {
+			log.Printf("RemoveRemote: Failed to delete path %s: %v", path, err)
+		} else {
+			log.Printf("RemoveRemote: Deleted path %s", path)
 		}
 	}
 
-	// 2. Clear all entries in SharedRemotes (Single Residency cleanup)
-	sm.SharedRemotes = make(map[string]*gogit.Repository)
-	sm.SharedRemotePaths = make(map[string]string)
+	// 2. Clear specific entries in SharedRemotes
+	delete(sm.SharedRemotes, name)
+	delete(sm.SharedRemotePaths, name)
+
+	// Clean up related mappings (URL, Path aliases)
+	for k, v := range sm.SharedRemotePaths {
+		if v == path {
+			delete(sm.SharedRemotes, k)
+			delete(sm.SharedRemotePaths, k)
+		}
+	}
 
 	// 3. Clear associated pull requests
-	// Since we are clearing ALL remotes, we should clear ALL PRs that belonged to them.
-	// But let's stick to the previous safe logic of "keep if not matching name" just in case?
-	// Actually, if we wipe all remotes, we should wipe all PRs that have a RemoteName.
-	// But existing logic filtered by name. Let's keep strict "clearing" logic.
-	// If Single Residency is true, we should probably clear all PRs?
-	// Let's filter out ANY PR that has a RemoteName (assuming it was shared).
-	// If PR has no RemoteName (local?), keep it.
-
-	// Revert to simple logic: Clear key if exists, but we are nuking anyway.
-
-	// Logic from before:
 	var keptPRs []*PullRequest
 	for _, pr := range sm.PullRequests {
-		// Only keep PRs that do NOT belong to the removed remote.
-		// Since we are effectively removing ALL remotes now, maybe we should remove all PRs?
-		// User requested simple "Reset".
-		// Let's be aggressive: Remove PRs matching `name` OR if we are nuking.
-		// To match previous behavior but ignore "not found" error:
 		if pr.RemoteName != name {
 			keptPRs = append(keptPRs, pr)
 		}
@@ -397,17 +377,9 @@ func (sm *SessionManager) CreateBareRepository(ctx context.Context, sessionID, n
 	sm.ingestMu.Lock()
 	defer sm.ingestMu.Unlock()
 
-	// 2. Cleanup existing (Single Residency)
+	// 2. Ensure Base Directory exists
 	if err := os.MkdirAll(baseDir, 0750); err != nil {
 		return fmt.Errorf("failed to create base dir: %w", err)
-	}
-	entries, err := os.ReadDir(baseDir)
-	if err == nil {
-		for _, entry := range entries {
-			if entry.IsDir() && entry.Name() != dirName {
-				_ = os.RemoveAll(filepath.Join(baseDir, entry.Name()))
-			}
-		}
 	}
 
 	// 3. Init Bare Repository
