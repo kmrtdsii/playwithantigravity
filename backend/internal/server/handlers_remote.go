@@ -64,14 +64,16 @@ func (s *Server) handleGetRemoteState(w http.ResponseWriter, r *http.Request) {
 	stateObj.RemoteBranches = make(map[string]string) // Clear remote tracking branches
 
 	// If no remotes (created bare repo), inject self as origin for UI display
-	if len(stateObj.Remotes) == 0 {
-		stateObj.Remotes = []state.Remote{
-			{
-				Name: "origin", // UI expects 'origin' or first remote
-				URLs: []string{fmt.Sprintf("remote://gitgym/%s.git", name)},
-			},
-		}
-	}
+	// [FIX] Do NOT auto-inject 'origin' with pseudo-URL. This confuses users into thinking
+	// 'git remote add' succeeded with a default URL.
+	// if len(stateObj.Remotes) == 0 {
+	// 	stateObj.Remotes = []state.Remote{
+	// 		{
+	// 			Name: "origin", // UI expects 'origin' or first remote
+	// 			URLs: []string{fmt.Sprintf("remote://gitgym/%s.git", name)},
+	// 		},
+	// 	}
+	// }
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(stateObj)

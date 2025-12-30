@@ -33,7 +33,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     searchQuery
 }) => {
     const { state: contextState } = useGit();
-    const { t } = useTranslation('common');
+    const { t, i18n } = useTranslation('common');
     const state = propState || contextState;
     const { commits, potentialCommits, branches, references, remoteBranches, tags, HEAD } = state;
 
@@ -90,7 +90,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
 
         const query = searchQuery.toLowerCase();
         return nodes.map(node => {
-            const formattedDate = new Date(node.timestamp).toLocaleString('ja-JP', {
+            const formattedDate = new Date(node.timestamp).toLocaleString(i18n.language, {
                 year: 'numeric', month: '2-digit', day: '2-digit',
                 hour: '2-digit', minute: '2-digit', second: '2-digit'
             });
@@ -272,7 +272,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                     boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                     zIndex: 20
                 }}>
-                    <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>Simulation Mode</div>
+                    <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>{t('visualization.simulation.title')}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-tertiary)' }}>
                         <span style={{
                             width: '10px',
@@ -281,7 +281,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                             border: '2px dashed var(--text-tertiary)',
                             display: 'inline-block'
                         }}></span>
-                        <span>Potential Commit</span>
+                        <span>{t('visualization.simulation.potentialCommit')}</span>
                     </div>
                 </div>
             )}

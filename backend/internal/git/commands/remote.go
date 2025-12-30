@@ -50,9 +50,6 @@ func (c *RemoteCommand) parseArgs(args []string) (*RemoteOptions, error) {
 	opts := &RemoteOptions{}
 	cmdArgs := args[1:]
 
-	// Logging for debugging auto-add behavior
-	// fmt.Printf("DEBUG: remote command args: %v\n", args)
-
 	// Pre-scan structure: git remote [-v] [subcmd [args]]
 	var positional []string
 	for _, arg := range cmdArgs {
@@ -76,9 +73,9 @@ func (c *RemoteCommand) parseArgs(args []string) (*RemoteOptions, error) {
 	}
 
 	// For debugging: if it's 'add' but URL is missing, log the positional args
-	if opts.SubCmd == "add" && opts.URL == "" {
-		// fmt.Printf("DEBUG: remote add detected with missing URL. Positional: %v\n", positional)
-	}
+	// if opts.SubCmd == "add" && opts.URL == "" {
+	// 	fmt.Printf("DEBUG: remote add detected with missing URL. Positional: %v\n", positional)
+	// }
 
 	return opts, nil
 }

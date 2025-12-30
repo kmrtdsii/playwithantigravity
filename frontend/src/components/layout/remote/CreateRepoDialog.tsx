@@ -44,7 +44,7 @@ const CreateRepoDialog: React.FC<CreateRepoDialogProps> = ({ isOpen, onClose, on
         // Or if we are creating a repo with name X, and we already have a remote named X.
         const isDuplicateLocalName = existingRemotes.some(r => r.name === repoName);
         if (isDuplicateLocalName) {
-            setError('既に同じ名前のリモートリポジトリが存在します。');
+            setError(t('remote.empty.duplicateName'));
             return;
         }
 
@@ -150,7 +150,7 @@ const CreateRepoDialog: React.FC<CreateRepoDialogProps> = ({ isOpen, onClose, on
                             errorMessage={errorMessage}
                             onRetry={() => performCreate(repoName)}
                             onCancel={onClose}
-                            successMessage={t('remote.status.created') || '作成しました'}
+                            successMessage={t('remote.status.created')}
                             hideCancelButton
                             customErrorTitle={t('remote.status.createFailed')}
                         />

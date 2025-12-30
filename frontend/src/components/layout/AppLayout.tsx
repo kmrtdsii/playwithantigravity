@@ -150,8 +150,7 @@ const AppLayout = () => {
                                     padding: '4px 12px',
                                     fontSize: '11px',
                                     cursor: 'pointer',
-                                    fontWeight: 600,
-                                    textTransform: 'capitalize'
+                                    fontWeight: 600
                                 }}
                                 data-testid={`view-mode-${mode}`}
                             >
@@ -178,7 +177,7 @@ const AppLayout = () => {
                             }}
                             title="Open Git Skill Tree"
                         >
-                            <span>🎯 Skills</span>
+                            <span>{t('app.skills')}</span>
                         </button>
                     </div>
 

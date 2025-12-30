@@ -33,10 +33,10 @@ export const useRemoteClone = () => {
     }, []);
 
     const validateUrl = (url: string): string | null => {
-        if (!url.trim()) return t('remote.validation.urlRequired', { defaultValue: 'URLを入力してください' });
+        if (!url.trim()) return t('remote.validation.urlRequired');
         // Accept https:// URLs and git@ URLs (SSH)
         if (!url.startsWith('https://') && !url.startsWith('git@')) {
-            return t('remote.validation.invalidUrl', { defaultValue: 'https:// または git@ で始まるURLを入力してください' });
+            return t('remote.validation.invalidUrl');
         }
         return null;
     };
@@ -121,7 +121,7 @@ export const useRemoteClone = () => {
 
             const errorMsg = err instanceof Error ? err.message : 'Unknown error';
             if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.toLowerCase().includes('failed')) {
-                setErrorMessage(`無効なリポジトリです。URLが正しいか確認してください (${errorMsg})`);
+                setErrorMessage(t('remote.status.invalidRepo', { error: errorMsg }));
             } else {
                 setErrorMessage(errorMsg);
             }
@@ -174,7 +174,7 @@ export const useRemoteClone = () => {
             const msg = err instanceof Error ? err.message : 'Failed to create repository';
             // Translate generic fetch errors to something friendlier
             if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
-                setErrorMessage('サーバーへの接続に失敗しました。');
+                setErrorMessage(t('remote.status.serverError'));
             } else {
                 setErrorMessage(msg);
             }

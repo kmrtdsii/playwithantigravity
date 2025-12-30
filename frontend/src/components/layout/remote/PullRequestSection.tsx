@@ -113,11 +113,11 @@ const PullRequestSection: React.FC<PullRequestSectionProps> = ({
             <Modal
                 isOpen={isDeleteModalOpen}
                 onClose={() => !isDeletingPR && setIsDeleteModalOpen(false)}
-                title="プルリクエスト削除"
+                title={t('remote.list.deletePRTitle')}
                 hideCloseButton
             >
                 <div style={{ padding: '8px 0' }}>
-                    このプルリクエストを削除してもよろしいですか？
+                    {t('remote.list.deletePRConfirm')}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px' }}>
                     <Button

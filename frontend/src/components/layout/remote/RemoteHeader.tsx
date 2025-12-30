@@ -103,7 +103,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                 {!isSettingsOpen && (
                     <button
                         onClick={onEditRemote}
-                        title="リポジトリ設定"
+                        title={t('remote.header.settings')}
                         style={{
                             display: 'flex',
                             alignItems: 'center',
@@ -120,7 +120,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         className="hover:bg-bg-tertiary transition-colors"
                     >
                         <Settings size={14} />
-                        <span>{remoteUrl ? t('remote.header.settings') || 'リポジトリ設定' : t('remote.header.setup') || 'リモートを設定'}</span>
+                        <span>{remoteUrl ? t('remote.header.settings') : t('remote.header.setup')}</span>
                     </button>
                 )}
             </div>
@@ -142,7 +142,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                             color: 'var(--text-secondary)',
                             whiteSpace: 'nowrap'
                         }}>
-                            リモートURL
+                            {t('remote.header.label')}
                         </span>
                         <div style={{
                             flex: 1,
@@ -187,16 +187,11 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         {/* Automatically generated build information */}
                         <div style={{
                             fontSize: '9px',
-                            color: 'var(--text-tertiary)',
-                            opacity: 0.5,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'flex-end',
-                            lineHeight: 1.1,
+                            color: 'var(--text-secondary)',
+                            opacity: 0.8,
                             fontFamily: 'monospace'
                         }}>
-                            <span>v{__APP_VERSION__}</span>
-                            <span>Built: {__BUILD_TIME__}</span>
+                            Built: {__BUILD_TIME__}
                         </div>
                     </div>
                 )}

@@ -170,7 +170,7 @@ const WorkspaceTree: React.FC<WorkspaceTreeProps> = ({
                 color: 'var(--text-tertiary)',
                 fontSize: '13px',
             }}>
-                {t('workspace.empty', { defaultValue: 'ワークスペースが空です' })}
+                {t('workspace.empty')}
             </div>
         );
     }
@@ -189,10 +189,10 @@ const WorkspaceTree: React.FC<WorkspaceTreeProps> = ({
                 lineHeight: '1.6'
             }}>
                 <div style={{ marginBottom: '8px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                    {t('workspace.noProjects', { defaultValue: 'ワークスペースは空です' })}
+                    {t('workspace.noProjects')}
                 </div>
                 <div style={{ fontSize: '12px', opacity: 0.8, lineHeight: '1.5' }}>
-                    {t('workspace.createHint', { defaultValue: 'mkdir でフォルダを作るか、git clone しましょう。' })}
+                    {t('workspace.createHint')}
                 </div>
             </div>
         );

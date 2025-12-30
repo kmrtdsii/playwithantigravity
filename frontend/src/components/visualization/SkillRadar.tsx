@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import { SKILL_TREE, type SkillCommand } from '../../data/skillTree';
 import { Modal } from '../common';
 import { useMission } from '../../context/MissionContext';
@@ -10,6 +11,7 @@ interface SkillRadarProps {
 }
 
 const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
+    const { t } = useTranslation('common');
     const { startMission } = useMission();
     const [selectedCommand, setSelectedCommand] = useState<SkillCommand | null>(null);
     const [hoveredCommand, setHoveredCommand] = useState<string | null>(null);
@@ -227,7 +229,7 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Git Skill Radar" size="fullscreen" resizable disableBackdropClose>
+        <Modal isOpen={isOpen} onClose={onClose} title={t('app.skillRadarTitle')} size="fullscreen" resizable disableBackdropClose>
             <div
                 ref={containerRef}
                 style={{
@@ -344,7 +346,7 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
                                             fontWeight={isHovered ? 700 : 500}
                                             style={{ pointerEvents: 'none', userSelect: 'none', textShadow: levelIndex >= 2 ? '0 1px 2px rgba(0,0,0,0.3)' : 'none' }}
                                         >
-                                            {isDisabled ? '🔒 ' : ''}{command.name.replace('git ', '')}
+                                            {isDisabled ? '🔒 ' : ''}{t(command.name).replace('git ', '')}
                                         </text>
                                     </g>
                                 );
@@ -385,7 +387,7 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
                                         fontWeight="800"
                                         fill="#0f172a"
                                     >
-                                        {level.name.replace('Git ', '')}
+                                        {t(level.name).replace('Git ', '')}
                                     </text>
                                 </g>
                             );
@@ -417,7 +419,7 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
                                 <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#1e293b' }}>
-                                    {selectedCommand.name}
+                                    {t(selectedCommand.name)}
                                 </h2>
                                 <button
                                     onClick={() => setSelectedCommand(null)}
@@ -449,10 +451,10 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
                                     fontWeight: 700,
                                     marginBottom: '12px'
                                 }}>
-                                    MISSION BRIEF
+                                    {t('mission.brief')}
                                 </span>
                                 <p style={{ margin: 0, color: '#475569', lineHeight: 1.6, fontSize: '15px' }}>
-                                    {selectedCommand.description}
+                                    {t(selectedCommand.description)}
                                 </p>
                             </div>
 
@@ -478,11 +480,11 @@ const SkillRadar: React.FC<SkillRadarProps> = ({ isOpen, onClose }) => {
                                         startMission(selectedCommand.missionId);
                                         onClose();
                                     } else {
-                                        alert("Mission not yet implemented for this skill.");
+                                        alert(t('mission.notImplemented'));
                                     }
                                 }}
                             >
-                                <span>Start Practice</span>
+                                <span>{t('mission.startPractice')}</span>
                                 <span>→</span>
                             </button>
                         </motion.div>

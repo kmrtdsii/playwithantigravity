@@ -6,7 +6,9 @@
             "dark": "Dark"
         },
         "loading": "Loading GitGym...",
-        "searchPlaceholder": "Search commits..."
+        "searchPlaceholder": "Search commits...",
+        "skills": "🎯 Skills",
+        "skillRadarTitle": "Git Skill Radar"
     },
     "viewMode": {
         "graph": "Graph",
@@ -18,6 +20,10 @@
         "emptyRepo": {
             "title": "Repository is empty",
             "description": "Push your first commit to see the graph."
+        },
+        "simulation": {
+            "title": "Simulation Mode",
+            "potentialCommit": "Potential Commit"
         }
     },
     "common": {
@@ -40,9 +46,11 @@
         "deleteConfirm": "Are you sure you want to delete project <1>{{name}}</1>? This action cannot be undone.",
         "branches": "BRANCHES",
         "stagedChanges": "STAGE",
-        "noProjects": "Projects Not Found. Please clone a repository!",
+        "noProjects": "Workspace is empty",
+        "empty": "Workspace is empty",
         "files": "WORKING TREE",
         "noFiles": "No files found. The directory is empty.",
+        "createHint": "Create a folder with mkdir or git clone something.",
         "currentBranch": "Current branch",
         "checkout": "Checkout {{name}}"
     },
@@ -80,7 +88,10 @@
             "merging": "Merging...",
             "delete": "Delete",
             "deleting": "Deleting...",
-            "deleteConfirm": "Are you sure you want to delete this PR?"
+            "deleteConfirm": "Are you sure you want to delete this PR?",
+            "deleteTitle": "Delete Pull Request",
+            "deletePRConfirm": "Are you sure you want to delete this pull request?",
+            "deletePRTitle": "Delete Pull Request"
         },
         "copyUrl": "Copy URL to clipboard",
         "copied": "Copied!",
@@ -93,12 +104,15 @@
             "almostDone": "Almost done...",
             "creating": "Creating repository...",
             "created": "Repository Created!",
-            "createFailed": "Failed to create repository"
+            "createFailed": "Failed to create repository",
+            "invalidRepo": "Invalid repository. Please check the URL ({{error}})",
+            "serverError": "Failed to connect to the server."
         },
         "header": {
             "description": "Connect a Git repository to visualize remote history.",
             "settings": "Repo Settings",
-            "setup": "Configure Remote"
+            "setup": "Configure Remote",
+            "label": "Remote URL"
         },
         "empty": {
             "title": "No Remote Configured",
@@ -107,6 +121,7 @@
             "create": "Create Repository",
             "createTitle": "Create New Repository",
             "duplicateName": "A remote repository with the same name already exists.",
+            "duplicateUrl": "Already registered remote URL.",
             "createPlaceholder": "Repository name...",
             "validation": "Only alphanumeric characters, hyphens, and underscores allowed.",
             "createButton": "Create",
@@ -115,7 +130,10 @@
             "created": "Repository Created!",
             "connecting": "Connecting to repository...",
             "or": "OR",
-            "repoNameRequired": "Repository name is required"
+            "repoNameRequired": "Repository name is required",
+            "recentTitle": "Recent Remotes",
+            "deleteRemoteTitle": "Delete Remote",
+            "deleteRemoteConfirm": "Are you sure you want to delete remote {{name}} from the list?"
         }
     },
     "developer": {
@@ -140,6 +158,143 @@
         "abort": "Abort",
         "success": "Mission Accomplished!",
         "failed": "Verification Failed",
-        "loading": "Loading mission details..."
+        "loading": "Loading mission details...",
+        "brief": "MISSION BRIEF",
+        "startPractice": "Start Practice",
+        "notImplemented": "Mission not yet implemented for this skill."
+    },
+    "skills": {
+        "basic": {
+            "name": "Git Basic",
+            "desc": "The Essentials: Single-branch workflow"
+        },
+        "intermediate": {
+            "name": "Git Intermediate",
+            "desc": "Branching & Exploration"
+        },
+        "proficient": {
+            "name": "Git Proficient",
+            "desc": "Correction & Management"
+        },
+        "advanced": {
+            "name": "Git Advanced",
+            "desc": "Rewrite & Internals"
+        },
+        "init": {
+            "name": "git init",
+            "desc": "Initialize a new repository. (Usually handled by \"git clone\" or system setup)"
+        },
+        "clone": {
+            "name": "git clone",
+            "desc": "Clone a repository. Try \"git clone <url> <dir>\" to specify a directory name."
+        },
+        "status": {
+            "name": "git status",
+            "desc": "Check which files are changed. Pro tip: Use \"git status -sb\" for a cleaner view."
+        },
+        "help": {
+            "name": "git help",
+            "desc": "Display help. Try \"git help <command>\" to see practical examples."
+        },
+        "add": {
+            "name": "git add",
+            "desc": "Stage changes. Use \"git add .\" for everything or \"git add <file>\" for precision."
+        },
+        "commit": {
+            "name": "git commit",
+            "desc": "Save changes history. Pro tip: \"git commit --amend\" fixes the last commit."
+        },
+        "push": {
+            "name": "git push",
+            "desc": "Upload to remote. Note: GitGym simulates this safely."
+        },
+        "pull": {
+            "name": "git pull",
+            "desc": "Fetch and merge. Try \"git pull --rebase\" to keep history linear."
+        },
+        "branch": {
+            "name": "git branch",
+            "desc": "List/Create branches. Use \"git branch -d\" to delete merged branches."
+        },
+        "switch": {
+            "name": "git switch",
+            "desc": "Switch branches. Use \"git switch -c <name>\" to create and switch instantly."
+        },
+        "checkout": {
+            "name": "git checkout",
+            "desc": "Switch branches or restore files using \"git checkout -- <file>\"."
+        },
+        "merge": {
+            "name": "git merge",
+            "desc": "Join branches. Use \"git merge --no-ff\" to preserve the merge history."
+        },
+        "fetch": {
+            "name": "git fetch",
+            "desc": "Download remote info. Use \"git fetch --prune\" to clean up deleted branches."
+        },
+        "diff": {
+            "name": "git diff",
+            "desc": "Show changes. \"git diff --staged\" shows what you are about to commit."
+        },
+        "log": {
+            "name": "git log",
+            "desc": "Show history. Try \"git log --oneline --graph\" for a visual tree."
+        },
+        "blame": {
+            "name": "git blame",
+            "desc": "Show who changed lines. Useful for debugging specific lines."
+        },
+        "restore": {
+            "name": "git restore",
+            "desc": "Restore working tree files"
+        },
+        "reset": {
+            "name": "git reset",
+            "desc": "Reset current HEAD to the specified state"
+        },
+        "rm": {
+            "name": "git rm",
+            "desc": "Remove files from the working tree"
+        },
+        "clean": {
+            "name": "git clean",
+            "desc": "Remove untracked files"
+        },
+        "tag": {
+            "name": "git tag",
+            "desc": "Create, list, delete or verify tag object"
+        },
+        "remote": {
+            "name": "git remote",
+            "desc": "Manage tracked repositories"
+        },
+        "show": {
+            "name": "git show",
+            "desc": "Show various types of objects"
+        },
+        "stash": {
+            "name": "git stash",
+            "desc": "Stash the changes in a dirty working directory away"
+        },
+        "revert": {
+            "name": "git revert",
+            "desc": "Revert some existing commits"
+        },
+        "rebase": {
+            "name": "git rebase",
+            "desc": "Reapply commits on top of another base tip"
+        },
+        "cherry_pick": {
+            "name": "git cherry-pick",
+            "desc": "Apply changes introduced by some existing commits"
+        },
+        "reflog": {
+            "name": "git reflog",
+            "desc": "Manage reflog information"
+        },
+        "worktree": {
+            "name": "git worktree",
+            "desc": "Manage multiple working trees"
+        }
     }
 }

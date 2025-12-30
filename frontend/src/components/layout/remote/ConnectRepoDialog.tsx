@@ -42,7 +42,7 @@ const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, 
         const isDuplicate = existingRemotes.some(r => r.url === input);
 
         if (isDuplicate) {
-            setError('既に登録済みのリモートURLです。');
+            setError(t('remote.empty.duplicateUrl'));
             return;
         }
 

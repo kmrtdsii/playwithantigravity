@@ -129,7 +129,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
                                 }}
                             >
                                 <Plus size={16} />
-                                新規にリポジトリを作成
+                                {t('remote.empty.create')}
                             </button>
                         </div>
                     </div>
@@ -145,7 +145,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
                                 alignItems: 'center',
                                 gap: '8px'
                             }}>
-                                <span>設定済みのリモート</span>
+                                <span>{t('remote.empty.recentTitle')}</span>
                                 <div style={lineStyle} />
                             </div>
 
@@ -200,7 +200,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
                                                 e.stopPropagation(); // Stop click from triggering selection
                                                 handleDeleteClick(remote.name);
                                             }}
-                                            title="削除"
+                                            title={t('remote.list.delete')}
                                             style={{
                                                 background: 'transparent',
                                                 border: 'none',
@@ -245,7 +245,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
                 <Modal
                     isOpen={!!deleteTarget}
                     onClose={() => setDeleteTarget(null)}
-                    title="リモート削除"
+                    title={t('remote.empty.deleteRemoteTitle')}
                     hideCloseButton
                 >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', padding: '8px 0' }}>
@@ -260,10 +260,10 @@ const EmptyState: React.FC<EmptyStateProps> = ({
                             </div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: '14px', lineHeight: '1.5', color: 'var(--text-primary)' }}>
-                                    リモート <strong>{deleteTarget}</strong> をリストから削除しますか？
+                                    {t('remote.empty.deleteRemoteConfirm', { name: deleteTarget })}
                                 </div>
                                 <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-tertiary)' }}>
-                                    実際のリポジトリやローカルファイルは保持されます。
+                                    {t('remote.empty.deleteRemoteDesc', { defaultValue: 'The actual repository and local files will be preserved.' })}
                                 </div>
                             </div>
                         </div>
@@ -273,7 +273,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
                                 variant="secondary"
                                 onClick={() => setDeleteTarget(null)}
                             >
-                                キャンセル
+                                {t('remote.cancel')}
                             </Button>
                             <Button
                                 variant="primary" // Using primary with error color overriding
@@ -284,7 +284,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
                                     color: 'white'
                                 }}
                             >
-                                削除
+                                {t('remote.list.delete')}
                             </Button>
                         </div>
                     </div>
