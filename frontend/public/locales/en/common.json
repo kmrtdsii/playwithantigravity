@@ -91,15 +91,20 @@
             "failed": "Sync failed",
             "remaining": "remaining",
             "almostDone": "Almost done...",
-            "creating": "Creating repository..."
+            "creating": "Creating repository...",
+            "created": "Repository Created!",
+            "createFailed": "Failed to create repository"
         },
         "header": {
             "description": "Connect a Git repository to visualize remote history."
         },
         "empty": {
             "title": "No Remote Configured",
+            "description": "A remote repository is required to experience push / pull / clone.",
             "connect": "Connect Repository",
             "create": "Create Repository",
+            "createTitle": "Create New Repository",
+            "duplicateName": "A remote repository with the same name already exists.",
             "createPlaceholder": "Repository name...",
             "validation": "Only alphanumeric characters, hyphens, and underscores allowed.",
             "createButton": "Create",

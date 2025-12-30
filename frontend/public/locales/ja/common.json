@@ -92,15 +92,20 @@
             "failed": "同期に失敗しました",
             "remaining": "残り",
             "almostDone": "まもなく完了します...",
-            "creating": "リポジトリを作成中..."
+            "creating": "リポジトリを作成中...",
+            "created": "リポジトリを作成しました！",
+            "createFailed": "リポジトリの作成に失敗しました"
         },
         "header": {
             "description": "Gitリポジトリに接続してリモート履歴を可視化しましょう。"
         },
         "empty": {
             "title": "リモートリポジトリ",
+            "description": "push / pull / clone を体験するにはリモートリポジトリが必要です",
             "connect": "リポジトリに接続",
             "create": "リポジトリを作成",
+            "createTitle": "新規にリポジトリを作成",
+            "duplicateName": "既に同じ名前のリモートリポジトリが存在します。",
             "createPlaceholder": "リポジトリ名...",
             "validation": "英数字、ハイフン、アンダースコアのみ使用できます。",
             "createButton": "作成",

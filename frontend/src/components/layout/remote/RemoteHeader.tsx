@@ -60,7 +60,7 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
             background: 'var(--bg-secondary)', // Same as developer tabs
         }}>
             {/* ROW 1: Title & Main Actions (36px) - Matches DeveloperTabs */}
-            <div style={{ ...toolbarRowStyle, padding: '0 12px', justifyContent: 'space-between', height: remoteUrl ? '36px' : '76px', borderBottom: 'none' }}>
+            <div style={{ ...toolbarRowStyle, padding: '0 12px', justifyContent: 'space-between', height: remoteUrl ? '36px' : '40px', borderBottom: 'none' }}>
                 {/* Left: Project Name */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>

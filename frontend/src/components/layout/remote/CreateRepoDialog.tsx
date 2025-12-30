@@ -107,7 +107,7 @@ const CreateRepoDialog: React.FC<CreateRepoDialogProps> = ({ isOpen, onClose, on
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <h2 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                         <FolderPlus size={20} className="text-accent-primary" />
-                        新規にリポジトリを作成
+                        {t('remote.empty.createTitle')}
                     </h2>
                 </div>
 
@@ -134,7 +134,7 @@ const CreateRepoDialog: React.FC<CreateRepoDialogProps> = ({ isOpen, onClose, on
                         />
                         {error ? (
                             <div style={{ fontSize: '12px', color: 'var(--text-danger)', marginTop: '4px' }}>
-                                {error}
+                                {t('remote.empty.duplicateName')}
                             </div>
                         ) : (
                             <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
@@ -152,7 +152,7 @@ const CreateRepoDialog: React.FC<CreateRepoDialogProps> = ({ isOpen, onClose, on
                             onCancel={onClose}
                             successMessage={t('remote.status.created') || '作成しました'}
                             hideCancelButton
-                            customErrorTitle="作成に失敗しました"
+                            customErrorTitle={t('remote.status.createFailed')}
                         />
                     )}
 

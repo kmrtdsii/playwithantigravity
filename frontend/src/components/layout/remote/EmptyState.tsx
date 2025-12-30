@@ -33,12 +33,11 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        padding: '30px 20px',
         color: 'var(--text-tertiary)',
-        gap: '40px',
-        padding: '20px',
-        textAlign: 'center',
-        background: 'var(--bg-primary)'
+        background: 'var(--bg-primary)',
+        overflowY: 'auto',
+        overflowX: 'hidden'
     };
 
     const textStyle: React.CSSProperties = {
@@ -92,9 +91,9 @@ const EmptyState: React.FC<EmptyStateProps> = ({
         <div style={containerStyle}>
             {cloneStatus === 'idle' && (
                 <>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '400px', width: '100%' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '400px', width: '100%', marginBottom: '40px' }}>
                         <div style={textStyle}>
-                            push / pull / clone を体験するにはリモートリポジトリが必要です
+                            {t('remote.empty.description')}
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '300px' }}>
