@@ -17,6 +17,10 @@ interface CloneProgressProps {
     errorMessage?: string;
     onRetry?: () => void;
     onCancel?: () => void;
+    successMessage?: string;
+    // UI Options
+    hideCancelButton?: boolean;
+    customErrorTitle?: string;
 }
 
 const CloneProgress: React.FC<CloneProgressProps> = ({
@@ -27,6 +31,9 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
     errorMessage,
     onRetry,
     onCancel,
+    successMessage,
+    hideCancelButton = false,
+    customErrorTitle,
 }) => {
     const { t } = useTranslation('common');
 
@@ -38,8 +45,6 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
     const progress = estimatedSeconds > 0 && elapsedSeconds >= 0
         ? Math.min(100, (elapsedSeconds / estimatedSeconds) * 100)
         : 0;
-
-
 
     const remainingSeconds = Math.max(0, estimatedSeconds - elapsedSeconds);
     const formatTime = (seconds: number) => {
@@ -79,9 +84,9 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
                             {repoInfo && <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}> ({repoInfo.sizeDisplay})</span>}
                         </span>
                     )}
-                    {status === 'complete' && t('remote.status.synced')}
+                    {status === 'complete' && (successMessage || t('remote.status.synced'))}
                     {status === 'creating' && t('remote.status.creating')}
-                    {status === 'error' && t('remote.status.failed')}
+                    {status === 'error' && (customErrorTitle || t('remote.status.failed'))}
                 </div>
 
                 {/* Progress Bar */}
@@ -117,13 +122,13 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
 
                 {/* Actions */}
                 {status === 'error' && (
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', justifyContent: 'center' }}>
                         {onRetry && (
                             <Button size="sm" variant="primary" onClick={onRetry}>
                                 <RefreshCw size={14} /> {t('remote.retry')}
                             </Button>
                         )}
-                        {onCancel && (
+                        {onCancel && !hideCancelButton && (
                             <Button size="sm" variant="secondary" onClick={onCancel}>
                                 <XCircle size={14} /> {t('remote.cancel')}
                             </Button>

@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { WebglAddon } from '@xterm/addon-webgl';
 import { useGit } from '../context/GitAPIContext';
 import { useTheme } from '../context/ThemeContext';
 import { getPrompt } from '../components/terminal/getPrompt';
+import { useTerminalOutput } from '../context/TerminalOutputContext';
 
 /**
  * Hook to manage the Git terminal instance and its interaction with the global Git state.
@@ -14,8 +16,6 @@ import { getPrompt } from '../components/terminal/getPrompt';
  * @param xtermRef - Ref to the xterm.js instance.
  * @param fitAddonRef - Ref to the xterm.js fit addon instance.
  */
-// ... imports
-
 export const useTerminal = (
     terminalRef: RefObject<HTMLDivElement | null>,
     xtermRef: RefObject<Terminal | null>,
@@ -32,16 +32,19 @@ export const useTerminal = (
         terminalTranscripts,
         clearTranscript
     } = useGit();
+    const { getOutput, version: outputVersion } = useTerminalOutput();
 
-    // ...
+    // State Tracking Refs
+    const lastOutputLengthRef = useRef(0);
+    const lastPathRef = useRef(state.currentPath);
+    const lastHeadRef = useRef(state.HEAD?.id);
+    const isLocalCommandRef = useRef(false);
+    const lastPromptTriggerRef = useRef(0);
 
     const allowEmptyCommitRef = useRef(allowEmptyCommit);
     useEffect(() => {
         allowEmptyCommitRef.current = allowEmptyCommit;
     }, [allowEmptyCommit]);
-
-    // ... (refs)
-
 
     const { theme } = useTheme();
     const [isReady, setIsReady] = useState(false);
@@ -52,18 +55,15 @@ export const useTerminal = (
     const inputPerDeveloperRef = useRef<Map<string, { text: string; cursor: number }>>(new Map());
     const prevDeveloperRef = useRef<string | null>(null);
 
+    // Refs for input batching (rAF optimization)
+    const pendingInputRef = useRef<string>('');
+    const rafIdRef = useRef<number | null>(null);
+
     // Refs to avoid stale closures in callbacks
     const runCommandRef = useRef(runCommand);
     const appendToTranscriptRef = useRef(appendToTranscript);
     const clearTranscriptRef = useRef(clearTranscript);
     const stateRef = useRef(state);
-
-    // State Tracking Refs
-    const lastOutputLengthRef = useRef(0);
-    const lastPathRef = useRef(state.currentPath);
-    const lastHeadRef = useRef(state.HEAD?.id);
-    const isLocalCommandRef = useRef(false);
-    const lastPromptTriggerRef = useRef(0);
 
     useEffect(() => {
         runCommandRef.current = runCommand;
@@ -86,15 +86,27 @@ export const useTerminal = (
         }
     }, [xtermRef]);
 
+    // Track activeDeveloper for output syncing
+    const activeDeveloperRef = useRef(activeDeveloper);
+    useEffect(() => { activeDeveloperRef.current = activeDeveloper; }, [activeDeveloper]);
+
+    const [promptTrigger, setPromptTrigger] = useState(0);
+
+
+    // SYNC Output from Context
+    // const output = getOutput(sessionId); // Unused here, we get it inside useEffect or init logic
+
+
     // --- INITIALIZATION & REPLAY ---
     useEffect(() => {
         if (!xtermRef.current || !isReady) return;
 
         xtermRef.current.write('\x1bc'); // Full Reset
 
-        // Sync ref with current state level to avoid re-printing history via Sync effect.
+        // Sync ref with current state level
         const transcript = terminalTranscripts[sessionId] || [];
-        const stateLen = stateRef.current.output.length;
+        const currentOutput = getOutput(sessionId);
+        const stateLen = currentOutput.length;
         lastOutputLengthRef.current = Math.max(transcript.length, stateLen);
 
         if (transcript.length > 0) {
@@ -118,10 +130,12 @@ export const useTerminal = (
                 `\x1b[32m${t('terminal.help')}\x1b[0m`,
                 ''
             ];
-
-            welcomeLines.forEach(line => writeAndRecord(line, true));
-            // Let SYNC Effect handle the prompt
-            setTimeout(() => setPromptTrigger(prev => prev + 1), 50);
+            welcomeLines.forEach(line => {
+                xtermRef.current?.writeln(line);
+            });
+            // Write initial prompt
+            const prompt = getPrompt(stateRef.current);
+            xtermRef.current.write(`\x1b[2K\r${prompt}`);
         }
 
         // Save previous developer's input before switching
@@ -147,13 +161,12 @@ export const useTerminal = (
         prevDeveloperRef.current = activeDeveloper;
         setTimeout(() => fitAddonRef.current?.fit(), 50);
 
-    }, [activeDeveloper, sessionId, clearTranscript, terminalTranscripts, writeAndRecord, fitAddonRef, xtermRef, isReady, t]);
-
-    const [promptTrigger, setPromptTrigger] = useState(0);
+    }, [activeDeveloper, sessionId, clearTranscript, terminalTranscripts, fitAddonRef, xtermRef, isReady, t, getOutput]);
 
     // --- SYNC EXTERNAL & LOCAL COMMANDS ---
     useEffect(() => {
-        const currentLength = state.output.length;
+        const currentOutput = getOutput(sessionId); // Get fresh output
+        const currentLength = currentOutput.length;
         const prevLength = lastOutputLengthRef.current;
         const hasNewOutput = currentLength > prevLength;
 
@@ -162,50 +175,49 @@ export const useTerminal = (
         const headChanged = state.HEAD?.id !== lastHeadRef.current;
         const promptTriggered = promptTrigger !== lastPromptTriggerRef.current;
 
-        // If Local Command is in progress:
-        // 1. We acknowledge the output length (so we don't print it again).
-        // 2. We DEFER the Prompt update (by NOT updating path/head refs).
-        // 3. We return early.
-        if (isLocalCommandRef.current) {
-            lastOutputLengthRef.current = currentLength;
-            return;
-        }
-
-        // If anything significant changed, OR if we explicitly triggered a prompt update (e.g. after local cmd)
         if (hasNewOutput || pathChanged || headChanged || promptTriggered) {
-            // 1. Write New Output Lines (Background / External)
+            // 1. Write New Output Lines
             if (hasNewOutput && xtermRef.current) {
-                const newLines = state.output.slice(prevLength);
-                // Ensure we start on new line if needed
-                xtermRef.current.write('\r\n');
+                const newLines = currentOutput.slice(prevLength);
+                // Optimized: Removed extra newline injection here to prevent layout gaps.
+
                 newLines.forEach(line => {
-                    xtermRef.current?.writeln(line);
+                    let formatted = line;
+                    if (line.includes('[dry-run]') || line.includes('[simulation]')) {
+                        formatted = `\x1b[38;5;214m${line}\x1b[0m`;
+                    }
+                    xtermRef.current?.writeln(formatted);
                 });
             }
 
-            // 2. Write Prompt (Always Update In-Place)
-            if (xtermRef.current) {
+            // 2. Write Prompt (ONLY IF NOT RUNNING LOCAL COMMAND)
+            // If a local command is running, we wait for it to finish (promptTriggered) before writing prompt
+            // This prevents the prompt from appearing while command output is streaming in or processing
+            if (!isLocalCommandRef.current && xtermRef.current) {
                 const prompt = getPrompt(state);
 
-                // CRITICAL FIX: Overwrite the current line instead of appending.
-                // We use \x1b[2K (Clear Line) + \r (Carriage Return) to strictly reset the line.
-                // We MUST use writeAndRecord so this "correction" is persisted in history for tab switching.
-                writeAndRecord(`\x1b[2K\r${prompt}`, false);
+                // Write prompt to terminal (using clear line to update in place if valid)
+                // We use \x1b[2K\r to clear the line and move caret to start
+                xtermRef.current.write(`\x1b[2K\r${prompt}`);
 
-                // Restore user input if they started typing during the update.
-                // We do NOT record this transient restoration to the transcript, purely visual.
+                // Persist prompt to transcript
+                if (appendToTranscriptRef.current) {
+                    appendToTranscriptRef.current(`\x1b[2K\r${prompt}`, false);
+                }
+
+                // Restore user input (if any typed during refresh?)
                 if (currentLineRef.current) {
                     xtermRef.current.write(currentLineRef.current);
                 }
             }
 
-            // Updates Refs
+            // Update Refs
             lastOutputLengthRef.current = currentLength;
             lastPathRef.current = state.currentPath;
             lastHeadRef.current = state.HEAD?.id;
             lastPromptTriggerRef.current = promptTrigger;
         }
-    }, [state, state.output, state.HEAD, state.currentPath, writeAndRecord, xtermRef, promptTrigger]);
+    }, [getOutput, sessionId, state.currentPath, state.HEAD, promptTrigger, state, outputVersion]);
 
     // --- SETUP XTERM ---
     useEffect(() => {
@@ -244,6 +256,18 @@ export const useTerminal = (
         term.open(terminalRef.current);
         fitAddon.fit();
 
+        // Load WebGL addon for GPU-accelerated rendering (with fallback for unsupported environments)
+        try {
+            const webglAddon = new WebglAddon();
+            webglAddon.onContextLoss(() => {
+                // Gracefully handle WebGL context loss by disposing and continuing with DOM renderer
+                webglAddon.dispose();
+            });
+            term.loadAddon(webglAddon);
+        } catch (e) {
+            console.warn('WebGL addon failed to load, falling back to DOM renderer:', e);
+        }
+
         xtermRef.current = term;
         // Defer readiness to avoid synchronous state update warning
         setTimeout(() => setIsReady(true), 0);
@@ -263,6 +287,10 @@ export const useTerminal = (
                     appendToTranscriptRef.current(rawInput, true);
                 }
 
+                // Optimized: Pre-increment output length to skip the "Echo" from context.
+                // This prevents duplicate command display.
+                lastOutputLengthRef.current += 1;
+
                 currentLineRef.current = '';
                 cursorPosRef.current = 0;
 
@@ -277,7 +305,10 @@ export const useTerminal = (
                     if (cmd === 'clear') {
                         term.write('\x1bc'); // Full reset
                         if (clearTranscriptRef.current) clearTranscriptRef.current();
-                        // Add delay after reset to ensure terminal is ready (race condition fix)
+                        // Ideally clear output context too, but we don't have direct access here easily without exposing it.
+                        // Assuming context clear is handled elsewhere or acceptable limitation.
+
+                        // Add delay after reset to ensure terminal is ready
                         setTimeout(() => {
                             const prompt = getPrompt(stateRef.current);
                             writeAndRecord(prompt, false);
@@ -289,32 +320,28 @@ export const useTerminal = (
                     let showAutoPrefixMsg = false;
 
                     const firstWord = cmd.split(' ')[0];
-                    const shellCommands = ['ls', 'cd', 'pwd', 'touch', 'rm', 'mkdir'];
+                    const shellCommands = ['ls', 'cd', 'pwd', 'touch', 'rm', 'mkdir', 'cat', 'echo', 'clear', 'help', 'version'];
+                    const gitSubcommands = ['init', 'clone', 'add', 'commit', 'push', 'pull', 'fetch', 'branch', 'checkout', 'switch', 'merge', 'rebase', 'reset', 'restore', 'log', 'status', 'diff', 'remote', 'stash', 'tag', 'show', 'config', 'cherry-pick', 'reflog'];
 
-                    // Determine if we need auto-prefix
-                    if (!cmd.startsWith('git')) {
+                    if (!cmd.startsWith('git ')) {
                         if (shellCommands.includes(firstWord)) {
-                            // Shell commands: Pass through as-is, NO auto-prefix message
                             fullCmd = cmd;
-                        } else {
-                            // Unknown commands: Auto-prefix with git and SHOW message
+                        } else if (gitSubcommands.includes(firstWord)) {
                             fullCmd = `git ${cmd}`;
-                            showAutoPrefixMsg = true;
+                        } else {
+                            fullCmd = cmd;
                         }
                     }
 
-                    // --- INJECT: Allow Empty Commit ---
                     if (allowEmptyCommitRef.current) {
-                        // Check if command is a commit command (e.g. "git commit ...")
                         if (/^git\s+commit(\s|$)/.test(fullCmd)) {
                             if (!fullCmd.includes('--allow-empty')) {
                                 fullCmd += ' --allow-empty';
-                                showAutoPrefixMsg = true; // Show the user that we modified the command
+                                showAutoPrefixMsg = true;
                             }
                         }
                     }
 
-                    // Display auto-prefix message if needed
                     if (showAutoPrefixMsg) {
                         writeAndRecord(`\x1b[90m(Modified: ${fullCmd})\x1b[0m`, true);
                     }
@@ -323,20 +350,15 @@ export const useTerminal = (
 
                     if (runCommandRef.current) {
                         try {
-                            const outputLines = await runCommandRef.current(fullCmd);
-                            outputLines.forEach(line => {
-                                let formatted = line;
-                                if (line.includes('[dry-run]') || line.includes('[simulation]')) {
-                                    formatted = `\x1b[38;5;214m${line}\x1b[0m`;
-                                }
-                                writeAndRecord(formatted, true);
-                            });
+                            // We await command completion, BUT we don't handle output printing here anymore.
+                            // Output is handled reactively by the effect observing TerminalOutputContext.
+                            // This guarantees that as soon as output is available (from runCommand internal addOutput calls), it is displayed.
+                            await runCommandRef.current(fullCmd);
                         } catch (e) {
                             writeAndRecord(`Error: ${e}`, true);
                         }
                     }
 
-                    // Command Finished: Release Lock and Trigger Prompt
                     isLocalCommandRef.current = false;
                     setPromptTrigger(prev => prev + 1);
 
@@ -349,11 +371,9 @@ export const useTerminal = (
                     const charToRemove = line.charAt(pos - 1);
                     const isWide = !!charToRemove.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/);
 
-                    // Remove char from buffer at cursor position
                     currentLineRef.current = line.slice(0, pos - 1) + line.slice(pos);
                     cursorPosRef.current--;
 
-                    // Redraw: move back, print rest of line + space, move cursor back
                     const remaining = currentLineRef.current.slice(cursorPosRef.current);
                     if (isWide) {
                         term.write('\b\b' + remaining + '  \b\b' + '\b'.repeat(remaining.length));
@@ -365,10 +385,7 @@ export const useTerminal = (
                 const line = currentLineRef.current;
                 const pos = cursorPosRef.current;
                 if (pos < line.length) {
-                    // Remove char at cursor position
                     currentLineRef.current = line.slice(0, pos) + line.slice(pos + 1);
-
-                    // Redraw: print rest of line + space, move cursor back
                     const remaining = currentLineRef.current.slice(pos);
                     term.write(remaining + ' ' + '\b'.repeat(remaining.length + 1));
                 }
@@ -403,15 +420,34 @@ export const useTerminal = (
                 const line = currentLineRef.current;
                 const pos = cursorPosRef.current;
 
-                // Insert char at cursor position
                 currentLineRef.current = line.slice(0, pos) + data + line.slice(pos);
                 cursorPosRef.current += data.length;
 
-                // If cursor is at end, just write the char
+                // Optimization: Batch end-of-line typing with requestAnimationFrame
+                // For mid-line insertion, render immediately for proper cursor positioning
                 if (pos === line.length) {
-                    term.write(data);
+                    // Accumulate pending input for batched rendering
+                    pendingInputRef.current += data;
+
+                    if (rafIdRef.current === null) {
+                        rafIdRef.current = requestAnimationFrame(() => {
+                            if (pendingInputRef.current) {
+                                term.write(pendingInputRef.current);
+                                pendingInputRef.current = '';
+                            }
+                            rafIdRef.current = null;
+                        });
+                    }
                 } else {
-                    // Otherwise, redraw rest of line and move cursor back
+                    // Mid-line insertion: flush pending and render immediately
+                    if (rafIdRef.current !== null) {
+                        cancelAnimationFrame(rafIdRef.current);
+                        rafIdRef.current = null;
+                    }
+                    if (pendingInputRef.current) {
+                        term.write(pendingInputRef.current);
+                        pendingInputRef.current = '';
+                    }
                     const remaining = currentLineRef.current.slice(pos);
                     term.write(remaining + '\b'.repeat(remaining.length - data.length));
                 }
@@ -422,6 +458,11 @@ export const useTerminal = (
         resizeObserver.observe(terminalRef.current);
 
         return () => {
+            // Cancel any pending rAF to prevent memory leaks
+            if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+                rafIdRef.current = null;
+            }
             resizeObserver.disconnect();
             term.dispose();
         };

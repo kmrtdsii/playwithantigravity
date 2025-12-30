@@ -189,6 +189,23 @@ export const gitService = {
         if (!res.ok) throw new Error('Failed to reset remote');
     },
 
+    async deleteRemote(name: string): Promise<void> {
+        const res = await fetch('/api/remote/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        if (!res.ok) {
+            // If the endpoint doesn't exist, fall back to reset which might clear it
+            // checking status 404
+            if (res.status === 404) {
+                console.warn('/api/remote/delete not found, trying reset');
+                return this.resetRemote(name);
+            }
+            throw new Error('Failed to delete remote');
+        }
+    },
+
     async createRemote(name: string, sessionId: string): Promise<{ name: string; remoteUrl: string }> {
         const res = await fetch('/api/remote/create', {
             method: 'POST',

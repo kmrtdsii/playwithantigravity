@@ -5,6 +5,7 @@ import { useGitSession } from '../hooks/useGitSession';
 import { useGitData } from '../hooks/useGitData';
 import { useGitCommand } from '../hooks/useGitCommand';
 import { gitService, type DirectoryNode } from '../services/gitService';
+import { TerminalOutputProvider } from './TerminalOutputContext';
 
 interface GitContextType {
     state: GitState;
@@ -254,7 +255,9 @@ export const GitProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     return (
         <GitContext.Provider value={contextValue}>
-            {children}
+            <TerminalOutputProvider>
+                {children}
+            </TerminalOutputProvider>
         </GitContext.Provider>
     );
 };

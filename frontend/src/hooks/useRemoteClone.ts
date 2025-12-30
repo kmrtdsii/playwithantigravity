@@ -79,8 +79,29 @@ export const useRemoteClone = () => {
                 setElapsedSeconds((Date.now() - startTime) / 1000);
             }, 500);
 
-            await ingestRemote('origin', url, depth);
-            await fetchServerState('origin');
+            // Derive a friendly name from the URL for the list
+            // e.g. https://github.com/user/repo.git -> repo
+            // e.g. https://github.com/user/repo/ -> repo
+            let remoteName = 'origin';
+            try {
+                // Remove trailing slash if present
+                const cleanUrl = url.replace(/\/$/, '');
+                const parts = cleanUrl.split('/');
+                const lastPart = parts[parts.length - 1];
+                // Remove .git extension if present
+                const candidate = lastPart.replace(/\.git$/, '');
+                if (candidate && candidate.trim() !== '') {
+                    remoteName = candidate;
+                }
+            } catch (e) {
+                console.warn('Failed to parse remote name from URL', e);
+            }
+
+            console.log('Ingesting remote with name:', remoteName, 'URL:', url);
+
+            // Use derived name instead of 'origin' so it shows up in the backend list (which filters out 'origin')
+            await ingestRemote(remoteName, url, depth);
+            await fetchServerState(remoteName);
 
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -150,7 +171,13 @@ export const useRemoteClone = () => {
                 timerRef.current = null;
             }
             setCloneStatus('error');
-            setErrorMessage(err instanceof Error ? err.message : 'Failed to create repository');
+            const msg = err instanceof Error ? err.message : 'Failed to create repository';
+            // Translate generic fetch errors to something friendlier
+            if (msg.includes('Failed to fetch') || msg.includes('Network request failed')) {
+                setErrorMessage('サーバーへの接続に失敗しました。');
+            } else {
+                setErrorMessage(msg);
+            }
         }
     }, [fetchServerState, sessionId]);
 

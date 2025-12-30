@@ -98,7 +98,7 @@
             "description": "Gitリポジトリに接続してリモート履歴を可視化しましょう。"
         },
         "empty": {
-            "title": "リモート未設定",
+            "title": "リモートリポジトリ",
             "connect": "リポジトリに接続",
             "create": "リポジトリを作成",
             "createPlaceholder": "リポジトリ名...",

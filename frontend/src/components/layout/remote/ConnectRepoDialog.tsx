@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../common/Button';
-import { Link2, X } from 'lucide-react';
+import { Link2 } from 'lucide-react';
 import { useRemoteClone } from '../../../hooks/useRemoteClone';
 import CloneProgress from './CloneProgress';
 
@@ -9,12 +9,15 @@ interface ConnectRepoDialogProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess?: () => void;
+    existingRemotes?: Array<{ name: string, url: string }>;
 }
 
-const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, onSuccess }) => {
+const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, onSuccess, existingRemotes = [] }) => {
     const { t } = useTranslation('common');
     const dialogRef = useRef<HTMLDialogElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const [repoUrl, setRepoUrl] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
     // Use the hook for logic
     const {
@@ -27,6 +30,28 @@ const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, 
         repoInfo
     } = useRemoteClone();
 
+    // Check availability
+    useEffect(() => {
+        if (!repoUrl.trim()) {
+            setError(null);
+            return;
+        }
+
+        // Check if URL matches existing
+        const input = repoUrl.trim();
+        const isDuplicate = existingRemotes.some(r => r.url === input);
+
+        if (isDuplicate) {
+            setError('既に登録済みのリモートURLです。');
+            return;
+        }
+
+        // Also check by name if possible? e.g. extraction. 
+        // For now preventing strict URL duplication is enough as requested "same domain is duplicated".
+
+        setError(null);
+    }, [repoUrl, existingRemotes]);
+
     // Dialog Control
     useEffect(() => {
         const dialog = dialogRef.current;
@@ -35,7 +60,12 @@ const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, 
         if (isOpen) {
             dialog.showModal();
             setRepoUrl('');
+            setError(null);
             cancelClone(); // Reset any previous state
+            // Focus input after a short delay to ensure modal is open
+            setTimeout(() => {
+                inputRef.current?.focus();
+            }, 50);
         } else {
             dialog.close();
         }
@@ -110,18 +140,13 @@ const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, 
                         <Link2 size={20} className="text-accent-primary" />
                         {t('remote.empty.connect')}
                     </h2>
-                    <button
-                        onClick={onClose}
-                        disabled={isCloning}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}
-                    >
-                        <X size={20} />
-                    </button>
+                    {/* Close button removed as requested */}
                 </div>
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div>
                         <input
+                            ref={inputRef}
                             type="text"
                             value={repoUrl}
                             onChange={(e) => setRepoUrl(e.target.value)}
@@ -139,6 +164,11 @@ const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, 
                             }}
                             autoFocus
                         />
+                        {error && (
+                            <div style={{ fontSize: '12px', color: 'var(--text-danger)', marginTop: '4px' }}>
+                                {error}
+                            </div>
+                        )}
                     </div>
 
                     {(cloneStatus !== 'idle') && (
@@ -150,6 +180,7 @@ const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, 
                             errorMessage={errorMessage}
                             onRetry={() => performClone(repoUrl)}
                             onCancel={cancelClone}
+                            hideCancelButton={true}
                         />
                     )}
 
@@ -165,7 +196,7 @@ const ConnectRepoDialog: React.FC<ConnectRepoDialogProps> = ({ isOpen, onClose, 
                         <Button
                             type="submit"
                             variant="primary"
-                            disabled={!repoUrl.trim() || isCloning || cloneStatus === 'complete'}
+                            disabled={!repoUrl.trim() || !!error || isCloning || cloneStatus === 'complete'}
                         >
                             {isCloning ? t('remote.status.connecting') : t('remote.empty.connectButton')}
                         </Button>

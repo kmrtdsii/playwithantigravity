@@ -40,3 +40,4 @@ backend/cmd/cli/cli
 *.test
 *.out
 coverage.txt
+frontend/test-results/*

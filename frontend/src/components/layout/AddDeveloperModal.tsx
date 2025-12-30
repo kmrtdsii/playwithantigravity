@@ -26,6 +26,7 @@ const AddDeveloperModal: React.FC<AddDeveloperModalProps> = ({ isOpen, onClose, 
             isOpen={isOpen}
             onClose={onClose}
             title={t('developer.addTitle')}
+            hideCloseButton
         >
             <form
                 onSubmit={handleSubmit}

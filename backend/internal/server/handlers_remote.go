@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
 	"github.com/kurobon/gitgym/backend/internal/state"
@@ -278,10 +279,12 @@ func (s *Server) handleListRemotes(w http.ResponseWriter, r *http.Request) {
 	for key := range s.SessionManager.SharedRemotes {
 		// Only include simple names (no paths, no URLs)
 		if key != "" && key[0] != '/' && len(key) < 50 && key != "origin" {
-			// Assume repo names are short, paths are long
-			if _, dup := seen[key]; !dup {
-				seen[key] = true
-				names = append(names, key)
+			// Filter out keys that look like URLs or paths (contain : or /)
+			if !strings.Contains(key, ":") && !strings.Contains(key, "/") {
+				if _, dup := seen[key]; !dup {
+					seen[key] = true
+					names = append(names, key)
+				}
 			}
 		}
 	}

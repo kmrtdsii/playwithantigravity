@@ -8,6 +8,7 @@ interface ModalProps {
     size?: 'default' | 'large' | 'fullscreen';
     resizable?: boolean;
     disableBackdropClose?: boolean;
+    hideCloseButton?: boolean;
 }
 
 // Visual styles for the dialog box itself
@@ -45,7 +46,8 @@ const Modal: React.FC<ModalProps> = ({
     children,
     size = 'default',
     resizable = false,
-    disableBackdropClose = false
+    disableBackdropClose = false,
+    hideCloseButton = false
 }) => {
     const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -118,33 +120,35 @@ const Modal: React.FC<ModalProps> = ({
                     marginBottom: '8px'
                 }}>
                     <div id="modal-title" style={modalHeaderStyle}>{title}</div>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            background: 'transparent',
-                            color: 'var(--text-secondary, #6b7280)',
-                            fontSize: '18px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.15s ease'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#ef4444';
-                            e.currentTarget.style.color = 'white';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                            e.currentTarget.style.color = 'var(--text-secondary, #6b7280)';
-                        }}
-                    >
-                        ✕
-                    </button>
+                    {!hideCloseButton && (
+                        <button
+                            onClick={onClose}
+                            style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: 'transparent',
+                                color: 'var(--text-secondary, #6b7280)',
+                                fontSize: '18px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#ef4444';
+                                e.currentTarget.style.color = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = 'var(--text-secondary, #6b7280)';
+                            }}
+                        >
+                            ✕
+                        </button>
+                    )}
                 </div>
                 {children}
                 {/* Resize handle indicator */}
