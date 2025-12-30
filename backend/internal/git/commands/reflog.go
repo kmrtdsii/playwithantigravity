@@ -14,6 +14,9 @@ func init() {
 
 type ReflogCommand struct{}
 
+// Ensure ReflogCommand implements git.Command
+var _ git.Command = (*ReflogCommand)(nil)
+
 func (c *ReflogCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -25,8 +28,7 @@ func (c *ReflogCommand) Execute(ctx context.Context, s *git.Session, args []stri
 
 	// Parse flags
 	cmdArgs := args[1:]
-	for i := 0; i < len(cmdArgs); i++ {
-		arg := cmdArgs[i]
+	for _, arg := range cmdArgs {
 		switch arg {
 		case "-h", "--help":
 			return c.Help(), nil
@@ -45,5 +47,20 @@ func (c *ReflogCommand) Execute(ctx context.Context, s *git.Session, args []stri
 }
 
 func (c *ReflogCommand) Help() string {
-	return "usage: git reflog\n\nShow reflog entries."
+	return `📘 GIT-REFLOG (1)                                       Git Manual
+
+ 💡 DESCRIPTION
+    ・HEAD（現在の場所）の移動履歴を表示する
+    ・間違ってリセットしてしまった場合の復元ポイントを探す
+
+ 📋 SYNOPSIS
+    git reflog
+
+ 🛠  EXAMPLES
+    1. HEADの履歴を表示
+       $ git reflog
+
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-reflog
+`
 }

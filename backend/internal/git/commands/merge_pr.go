@@ -3,9 +3,11 @@ package commands
 import (
 	"context"
 	"fmt"
+	"log"
 	"strconv"
 	"time"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/kurobon/gitgym/backend/internal/git"
@@ -15,112 +17,165 @@ func init() {
 	git.RegisterCommand("merge-pr", func() git.Command { return &MergePRCommand{} })
 }
 
-type MergePRCommand struct{}
+type MergePRCommand struct {
+	prID       int
+	remoteName string
+
+	pr     *git.PullRequest
+	repo   *gogit.Repository
+	engine *git.Session
+}
 
 func (c *MergePRCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
-	// Usage: merge-pr <pr-id> <remote-name>
-	// args[0] is "merge-pr"
+	c.engine = s
 
+	if err := c.parseArgs(args); err != nil {
+		return "", err
+	}
+
+	if err := c.resolveContext(ctx); err != nil {
+		return "", err
+	}
+
+	return c.performAction(ctx)
+}
+
+func (c *MergePRCommand) parseArgs(args []string) error {
 	if len(args) < 3 {
-		return "", fmt.Errorf("usage: merge-pr <pr-id> <remote-name>")
+		return fmt.Errorf("usage: merge-pr <pr-id> <remote-name>")
 	}
 
-	prIDStr := args[1]
-	remoteName := args[2]
-
-	prID, err := strconv.Atoi(prIDStr)
+	prID, err := strconv.Atoi(args[1])
 	if err != nil {
-		return "", fmt.Errorf("invalid pr id: %v", err)
+		return fmt.Errorf("invalid PR ID %q: %w", args[1], err)
 	}
 
-	// Access SessionManager via Session
-	sm := s.Manager
+	c.prID = prID
+	c.remoteName = args[2]
+	return nil
+}
 
-	// Logic moved from actions.go
-	sm.Lock() // safe to lock whole manager for this operation
-	defer sm.Unlock()
+func (c *MergePRCommand) resolveContext(_ context.Context) error {
+	sm := c.engine.Manager
+	sm.RLock()
+	defer sm.RUnlock()
 
-	var pr *git.PullRequest
+	// 1. Find Pull Request
+	var foundPR *git.PullRequest
 	for _, p := range sm.PullRequests {
-		if p.ID == prID {
-			pr = p
+		if p.ID == c.prID {
+			foundPR = p
 			break
 		}
 	}
-	if pr == nil {
-		return "", fmt.Errorf("pull request %d not found", prID)
+	if foundPR == nil {
+		return fmt.Errorf("pull request #%d not found", c.prID)
 	}
 
-	if pr.State != "OPEN" {
-		return "", fmt.Errorf("pull request is not open")
+	if foundPR.State != "OPEN" {
+		return fmt.Errorf("pull request #%d is not OPEN (current state: %s)", c.prID, foundPR.State)
+	}
+	c.pr = foundPR
+
+	// 2. Resolve Remote Repository
+	// Use the remote name from the PR itself as the source of truth if available and not "origin"
+	targetRemote := c.remoteName
+	if c.pr.RemoteName != "" && c.pr.RemoteName != "origin" {
+		targetRemote = c.pr.RemoteName
 	}
 
-	repo, ok := sm.SharedRemotes[remoteName]
+	repo, ok := sm.SharedRemotes[targetRemote]
 	if !ok {
-		return "", fmt.Errorf("remote %s not found", remoteName)
+		// Fallback to the requested one if PR remote not found? No, let's be strict if we have a mismatch.
+		repo, ok = sm.SharedRemotes[c.remoteName]
+		if !ok {
+			return fmt.Errorf("remote repository %q not found (PR expected %q)", c.remoteName, c.pr.RemoteName)
+		}
 	}
+	c.repo = repo
+	c.remoteName = targetRemote // Sync back for logging
+
+	return nil
+}
+
+func (c *MergePRCommand) performAction(_ context.Context) (string, error) {
+	log.Printf("MergePRCommand: Merging PR #%d (%s -> %s) on remote %q", c.prID, c.pr.HeadRef, c.pr.BaseRef, c.remoteName)
 
 	// Resolve references
-	baseRefName := plumbing.ReferenceName("refs/heads/" + pr.BaseRef)
-	headRefName := plumbing.ReferenceName("refs/heads/" + pr.HeadRef)
+	baseRefName := plumbing.ReferenceName("refs/heads/" + c.pr.BaseRef)
+	headRefName := plumbing.ReferenceName("refs/heads/" + c.pr.HeadRef)
 
-	baseRef, err := repo.Reference(baseRefName, true)
+	log.Printf("MergePRCommand: Resolving base ref: %s", baseRefName)
+	baseRef, err := c.repo.Reference(baseRefName, true)
 	if err != nil {
-		return "", fmt.Errorf("base branch %s not found: %w", pr.BaseRef, err)
-	}
-	headRef, err := repo.Reference(headRefName, true)
-	if err != nil {
-		return "", fmt.Errorf("head branch %s not found: %w", pr.HeadRef, err)
+		log.Printf("MergePRCommand: Base branch %q NOT found: %v", c.pr.BaseRef, err)
+		return "", fmt.Errorf("base branch %q not found in remote: %w", c.pr.BaseRef, err)
 	}
 
-	// 1. Get HEAD Commit (from Base)
-	baseCommit, err := repo.CommitObject(baseRef.Hash())
+	log.Printf("MergePRCommand: Resolving source ref: %s", headRefName)
+	headRef, err := c.repo.Reference(headRefName, true)
 	if err != nil {
-		return "", err
-	}
-	// 2. Get Merge Commit (from Head)
-	headCommit, err := repo.CommitObject(headRef.Hash())
-	if err != nil {
-		return "", err
+		log.Printf("MergePRCommand: Source branch %q NOT found: %v", c.pr.HeadRef, err)
+		return "", fmt.Errorf("source branch %q not found in remote: %w", c.pr.HeadRef, err)
 	}
 
-	// 3. Create Merge Commit using "Theirs" tree (Head's tree)
+	log.Printf("MergePRCommand: Found base %s and head %s", baseRef.Hash(), headRef.Hash())
+
+	// 1. Get Base Commit
+	baseCommit, err := c.repo.CommitObject(baseRef.Hash())
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve base commit %s: %w", baseRef.Hash(), err)
+	}
+	// 2. Get Head Commit
+	headCommit, err := c.repo.CommitObject(headRef.Hash())
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve source commit %s: %w", headRef.Hash(), err)
+	}
+
+	// 3. Create Merge Commit using "Theirs" tree (Head's tree snapshot)
 	mergeCommit := &object.Commit{
 		Author: object.Signature{
-			Name:  "Merge Bot",
+			Name:  "GitGym Merge Bot",
 			Email: "bot@gitgym.com",
 			When:  time.Now(),
 		},
 		Committer: object.Signature{
-			Name:  "Merge Bot",
+			Name:  "GitGym Merge Bot",
 			Email: "bot@gitgym.com",
 			When:  time.Now(),
 		},
-		Message:  fmt.Sprintf("Merge pull request #%d from %s\n\n%s", prID, pr.HeadRef, pr.Title),
-		TreeHash: headCommit.TreeHash, // Taking the tree from the feature branch
+		Message:  fmt.Sprintf("Merge pull request #%d from %s\n\n%s", c.prID, c.pr.HeadRef, c.pr.Title),
+		TreeHash: headCommit.TreeHash,
 		ParentHashes: []plumbing.Hash{
 			baseCommit.Hash,
 			headCommit.Hash,
 		},
 	}
 
-	obj := repo.Storer.NewEncodedObject()
-	if encodeErr := mergeCommit.Encode(obj); encodeErr != nil {
-		return "", encodeErr
+	obj := c.repo.Storer.NewEncodedObject()
+	if err := mergeCommit.Encode(obj); err != nil {
+		return "", fmt.Errorf("failed to encode merge commit: %w", err)
 	}
-	newHash, err := repo.Storer.SetEncodedObject(obj)
+
+	newHash, err := c.repo.Storer.SetEncodedObject(obj)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to store merge commit: %w", err)
 	}
 
-	// Update Base Ref to point to new commit
+	// 4. Update Remote Reference
+	log.Printf("MergePRCommand: Updating %s to %s", baseRefName, newHash)
 	newRef := plumbing.NewHashReference(baseRefName, newHash)
-	if err := repo.Storer.SetReference(newRef); err != nil {
-		return "", err
+	if err := c.repo.Storer.SetReference(newRef); err != nil {
+		return "", fmt.Errorf("failed to update remote branch %q: %w", c.pr.BaseRef, err)
 	}
 
-	pr.State = "MERGED"
-	return fmt.Sprintf("Merged PR #%d into %s", prID, pr.BaseRef), nil
+	// 5. Update PR State
+	c.engine.Manager.Lock()
+	c.pr.State = "MERGED"
+	c.engine.Manager.Unlock()
+
+	log.Printf("MergePRCommand: PR #%d merged successfully", c.prID)
+	return fmt.Sprintf("Successfully merged PR #%d into %s", c.prID, c.pr.BaseRef), nil
 }
 
 func (c *MergePRCommand) Help() string {

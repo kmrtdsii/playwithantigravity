@@ -19,84 +19,140 @@ func init() {
 
 type RmCommand struct{}
 
+// Ensure RmCommand implements git.Command
+var _ git.Command = (*RmCommand)(nil)
+
+type RmOptions struct {
+	Recursive bool
+	Force     bool
+	Paths     []string
+}
+
 func (c *RmCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	if len(args) < 2 {
-		return "", fmt.Errorf("usage: rm [-rf] <path>")
-	}
-
-	// Simple flag parsing
-	path := args[len(args)-1]
-
-	// Safety check: Don't allow deleting root or critical paths if possible, though FS is isolated.
-	if path == "/" || path == "." || path == ".." {
-		return "", fmt.Errorf("refusing to remove root or current directory")
-	}
-
-	// Normalize path
-	targetPath := path
-	if !strings.HasPrefix(targetPath, "/") {
-		// Relative path, but for projects at root we usually expect them at root
-		// If s.CurrentDir is /, then payload is just the name.
-		if s.CurrentDir == "/" {
-			targetPath = "/" + targetPath
-		} else {
-			// Handle relative paths properly if needed, but for project deletion
-			// we assume we are likely at root or refer to it by name.
-			// For now, let's just assume we are deleting a folder in current dir.
-			targetPath = s.CurrentDir
-			if targetPath == "/" {
-				targetPath = ""
-			}
-			targetPath = targetPath + "/" + path
-		}
-	}
-
-	// Check if it exists
-	fi, err := s.Filesystem.Stat(targetPath)
+	opts, err := c.parseArgs(args)
 	if err != nil {
-		return "", fmt.Errorf("path not found: %s", path)
+		return "", err
 	}
 
-	// Check if it is a directory representing a repo
-	if fi.IsDir() {
-		// Remove from Repos map if it exists there
-		// Name in Repos map is usually the relative name from root (e.g. "json-server")
-		// targetPath might be "/json-server"
-		repoName := strings.TrimPrefix(targetPath, "/")
-		delete(s.Repos, repoName)
+	return c.executeRm(s, opts)
+}
 
-		// Remove from Filesystem
-		// standard Remove might not be recursive for billy?
-		// simple-git-fs usually supports Remove (which might be recursive depending on impl)
-		// or we need to implement walk delete.
-		// memfs usually requires empty dir for Remove.
-		// But let's see if there is RemoveAll.
-		// Billy interface usually has Remove.
-		// Note: memfs might not verify non-empty?
-		// Actually billy's basic Remove often mimics 'rm' which fails on non-empty directories.
-		// But we need 'rm -rf'.
-		// Let's try attempting a recursive delete helper if needed, or assume library support.
-		// checking billy docs (memory): it usually errors on non-empty Remove.
-		// We might need to walk it.
+func (c *RmCommand) parseArgs(args []string) (*RmOptions, error) {
+	opts := &RmOptions{
+		Recursive: true, // Defaulting to implied -rf as per existing behavior
+		Force:     true,
+	}
+	cmdArgs := args[1:]
 
-		err = s.RemoveAll(targetPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to remove: %v", err)
-		}
-	} else {
-		// File
-		err = s.Filesystem.Remove(targetPath)
-		if err != nil {
-			return "", fmt.Errorf("failed to remove file: %v", err)
+	for _, arg := range cmdArgs {
+		if strings.HasPrefix(arg, "-") {
+			// Parse flags if provided, though defaults are already true.
+			// This enables standard usage patterns to be valid.
+			if strings.Contains(arg, "r") || strings.Contains(arg, "R") {
+				opts.Recursive = true
+			}
+			if strings.Contains(arg, "f") {
+				opts.Force = true
+			}
+			// Should we support disabling? No standard flag for that.
+		} else {
+			opts.Paths = append(opts.Paths, arg)
 		}
 	}
 
-	return fmt.Sprintf("Removed '%s'", path), nil
+	if len(opts.Paths) == 0 {
+		return nil, fmt.Errorf("usage: rm [-rf] <path>")
+	}
+	return opts, nil
+}
+
+func (c *RmCommand) executeRm(s *git.Session, opts *RmOptions) (string, error) {
+	var removed []string
+
+	for _, path := range opts.Paths {
+		// Safety check: Don't allow deleting root or critical paths if possible
+		if path == "/" || path == "." || path == ".." {
+			continue
+		}
+
+		// Normalize path
+		targetPath := path
+		if !strings.HasPrefix(targetPath, "/") {
+			if s.CurrentDir == "/" {
+				targetPath = "/" + targetPath
+			} else {
+				targetPath = s.CurrentDir + "/" + path
+			}
+		}
+
+		// Check if it exists
+		fi, err := s.Filesystem.Stat(targetPath)
+		if err != nil {
+			if opts.Force {
+				continue // rm -f ignores missing files
+			}
+			return "", fmt.Errorf("cannot remove '%s': No such file or directory", path)
+		}
+
+		// Check if it is a directory representing a repo
+		if fi.IsDir() {
+			if !opts.Recursive {
+				return "", fmt.Errorf("cannot remove '%s': Is a directory", path)
+			}
+
+			repoName := strings.TrimPrefix(targetPath, "/")
+			delete(s.Repos, repoName) // Remove from Repos map
+
+			// Remove from Filesystem
+			err = s.RemoveAll(targetPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to remove %s: %v", path, err)
+			}
+		} else {
+			// File
+			err = s.Filesystem.Remove(targetPath)
+			if err != nil {
+				return "", fmt.Errorf("failed to remove file %s: %v", path, err)
+			}
+		}
+		removed = append(removed, path)
+	}
+
+	if len(removed) == 0 && !opts.Force {
+		return "", fmt.Errorf("no files removed")
+	}
+
+	if len(removed) > 0 {
+		return fmt.Sprintf("Removed %s", strings.Join(removed, ", ")), nil
+	}
+	return "", nil
 }
 
 func (c *RmCommand) Help() string {
-	return "usage: rm [-rf] <path>\n\nRemove files or directories."
+	return `📘 RM (1)                                               Shell Manual
+
+ 💡 DESCRIPTION
+    ・ファイルやフォルダを削除する（復元できません）
+    
+    ⚠️ 注意: これは ` + "`git rm`" + ` ではなく、シェルの ` + "`rm`" + ` コマンド相当です。
+    インデックス（ステージングエリア）からの削除は行われません。
+    追跡対象のファイルを削除した場合は、その後 ` + "`git add`" + ` で削除を記録する必要があります。
+
+ 📋 SYNOPSIS
+    rm [-rf] <path>
+
+ ⚙️  COMMON OPTIONS
+    (暗黙的) -rf
+        ディレクトリの場合は再帰的に、強制的に削除します。
+
+ 🛠  EXAMPLES
+    1. ファイルを削除
+       $ rm file.txt
+    
+    2. ディレクトリを削除
+       $ rm dir/
+`
 }

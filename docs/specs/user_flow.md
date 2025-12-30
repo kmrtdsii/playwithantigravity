@@ -5,6 +5,8 @@ This document defines the core user journey for verifying the multi-user simulat
 ## 1. Remote Repository Setup (Pre-condition)
 **Objective**: Connect the local GitGym instance to a real remote repository to enable simulation features (`clone`, `fetch`, `push`).
 
+### Option A: Connect Existing Repository
+
 - **Action**:
   1. Navigate to the **Remote Repository** panel (Left Pane).
   2. Click "Connect Repository" or "Configure".
@@ -14,6 +16,15 @@ This document defines the core user journey for verifying the multi-user simulat
   - [ ] The "No Remote Configured" placeholder disappears.
   - [ ] The header displays the repository name (`gitgym`) and an "origin" badge.
   - [ ] Remote branches are listed in the "Remote Branches" section.
+
+### Option B: Create New Repository
+- **Action**:
+  1. Click "Create Repository" in the Remote Repository panel.
+  2. Enter a name (e.g., `my-project`).
+  3. Click "Create".
+- **Verification**:
+  - [ ] Terminal directory switches to `/my-project`.
+  - [ ] User can run `git init`, `git add`, etc.
 
 ## 2. Multi-User Simulation Flow (The "Bob & Alice" Scenario)
 

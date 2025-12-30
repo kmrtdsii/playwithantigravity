@@ -1,15 +1,16 @@
 import React, { useMemo, useState, useEffect } from 'react';
+
 import { useGit } from '../../context/GitAPIContext';
 import GitGraphViz from '../visualization/GitGraphViz';
 import type { GitState } from '../../types/gitTypes';
-import { RemoteHeader, RemoteBranchList, PullRequestSection, CloneProgress, containerStyle } from './remote';
+import { RemoteHeader, PullRequestSection, CloneProgress, containerStyle } from './remote';
 import EmptyState from './remote/EmptyState';
 import { useRemoteClone } from '../../hooks/useRemoteClone';
 import { useAutoDiscovery } from '../../hooks/useAutoDiscovery';
+import { gitService } from '../../services/gitService';
 
-// Default remote URL for the GitGym application
-// This repository is automatically available for cloning
-const DEFAULT_REMOTE_URL = 'https://github.com/git-fixtures/basic.git';
+// Default remote URL removed
+const DEFAULT_REMOTE_URL = '';
 
 interface RemoteRepoViewProps {
     topHeight: number;
@@ -27,6 +28,10 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         mergePullRequest,
         refreshPullRequests,
         createPullRequest,
+        deletePullRequest,
+        resetRemote,
+        activeRemoteView,
+        setActiveRemoteView,
     } = useGit();
 
     // Custom Hooks
@@ -41,24 +46,43 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
         cancelClone
     } = useRemoteClone();
 
-    // Local UI State - Initialize with default URL
+    // Local UI State
     const [setupUrl, setSetupUrl] = useState(DEFAULT_REMOTE_URL);
-    const [originalUrl, setOriginalUrl] = useState(DEFAULT_REMOTE_URL); // Store URL before editing
-    const [isEditMode, setIsEditMode] = useState(false);
+    // Control for showing the configuration/settings view (EmptyState used as config panel)
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
     // Auto Discovery
     useAutoDiscovery({ setupUrl, setSetupUrl, cloneStatus, performClone });
 
+    // Multi-Remote List - now stores objects with name and url
+    const [remoteList, setRemoteList] = useState<Array<{ name: string, url: string }>>([]);
+    const updateRemoteList = async () => {
+        try {
+            const names = await gitService.listRemotes();
+            const details = await Promise.all(names.map(async (name) => {
+                try {
+                    // Fetch state to get origin URL
+                    const state = await gitService.getRemoteState(name);
+                    const origin = state.remotes?.find(r => r.name === 'origin');
+                    return { name, url: origin?.urls[0] || '' };
+                } catch (e) {
+                    return { name, url: '' };
+                }
+            }));
+            setRemoteList(details);
+        } catch (e) {
+            console.error("Failed to list remotes", e);
+        }
+    };
+
+    // Update list on mount and when serverState changes (e.g. added/removed remote)
+    useEffect(() => {
+        updateRemoteList();
+    }, [serverState]);
+
     // Initial Load - Auto-clone default remote on first render
     useEffect(() => {
         refreshPullRequests();
-
-        // Auto-load the default remote repository graph on startup
-        // Only if not already loaded and we have a default URL
-        if (!serverState && setupUrl && cloneStatus === 'idle') {
-            console.log('Auto-loading default remote:', setupUrl);
-            performClone(setupUrl);
-        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -66,47 +90,54 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
     const onCloneSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!setupUrl) return;
-        await performClone(setupUrl);
+        await performClone(setupUrl, 0);
     };
 
-    // Close edit mode on success
+    // Close settings/edit mode on success
     useEffect(() => {
         if (cloneStatus === 'complete') {
-            setIsEditMode(false);
+            setIsSettingsOpen(false);
         }
     }, [cloneStatus]);
 
     const handleRetry = () => {
-        if (setupUrl) performClone(setupUrl);
+        if (setupUrl) performClone(setupUrl, 0);
     };
 
-    const handleEditRemote = () => {
-        const currentUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || DEFAULT_REMOTE_URL;
-        setOriginalUrl(currentUrl); // Save current URL before editing
-        setSetupUrl(currentUrl);
-        setIsEditMode(true);
+    // Open settings view
+    const handleOpenSettings = () => {
+        setIsSettingsOpen(true);
     };
 
     const handleCancelEdit = () => {
-        setSetupUrl(originalUrl); // Restore the URL to pre-edit value
-        setIsEditMode(false);
+        setIsSettingsOpen(false);
         setCloneStatus('idle');
     };
 
     // Computed Values
+    const remoteUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || '';
+    const projectName = remoteUrl.split('/').pop()?.replace('.git', '') || 'Remote Repository';
+
+    const handleDisconnect = async () => {
+        try {
+            await resetRemote(projectName);
+        } catch (e) {
+            console.warn('Reset remote failed, continuing with cleanup:', e);
+        }
+        // Clear all local state to return to initial view
+        setSetupUrl('');
+        cancelClone();
+        setIsSettingsOpen(false);
+    };
+
     const remoteGraphState: GitState = useMemo(() => {
         if (!serverState) {
             return createEmptyGitState();
         }
 
-        // Since serverState represents the remote repo itself, its local branches (refs/heads/*) 
-        // are what we want to display. backend/handlers_remote.go explicitly clears remoteBranches.
         const mappedBranches = serverState.branches || {};
-
-        // Determine HEAD
         let newHEAD = serverState.HEAD;
 
-        // Fallback for HEAD if missing (common in bare repos if HEAD ref is missing or detached)
         if (!newHEAD || newHEAD.type === 'none') {
             if (mappedBranches['main']) {
                 newHEAD = { type: 'branch', ref: 'main' };
@@ -115,46 +146,58 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
             }
         }
 
-        // Construct the synthetic state representing the remote
         const syntheticState: GitState = {
             ...serverState,
             branches: mappedBranches,
             remoteBranches: {},
             HEAD: newHEAD,
-            // Clear workstation specific state
             staging: [],
             modified: [],
             untracked: [],
         };
 
-        // For remote repository, show ALL commits (no filtering)
-        // This includes all branches, tags, and any orphan commits
         return {
             ...syntheticState,
-            commits: serverState.commits  // All commits from server
+            commits: serverState.commits
         };
     }, [serverState]);
 
-    // const remoteBranches = remoteGraphState.remoteBranches || {};
-    const remoteUrl = setupUrl || (serverState?.remotes?.[0]?.urls?.[0]) || '';
-    const projectName = remoteUrl.split('/').pop()?.replace('.git', '') || 'Remote Repository';
     const hasSharedRemotes = !!serverState;
     const isSettingUp = cloneStatus === 'fetching_info' || cloneStatus === 'cloning';
+    const showSettings = !hasSharedRemotes || isSettingsOpen;
+
+    // Filter PRs
+    const filteredPRs = useMemo(() => {
+        const target = activeRemoteView || 'origin';
+        return pullRequests.filter(pr => (pr.remoteName || 'origin') === target);
+    }, [pullRequests, activeRemoteView]);
+
+    const handleCreatePR = async (title: string, desc: string, source: string, target: string) => {
+        await createPullRequest(title, desc, source, target);
+    };
 
     return (
         <div style={containerStyle} data-testid="remote-repo-view">
             {/* TOP SPLIT: Info & Graph */}
             <div style={{ height: topHeight, display: 'flex', flexDirection: 'column', flexShrink: 0, minHeight: 0 }}>
+                {/* Header is always visible */}
                 <RemoteHeader
-                    remoteUrl={remoteUrl}
-                    projectName={projectName}
-                    isEditMode={isEditMode}
+                    remoteUrl={showSettings ? '' : remoteUrl}
+                    projectName={showSettings ? '' : projectName}
+                    isEditMode={false} // Deprecated
                     isSettingUp={isSettingUp}
                     setupUrl={setupUrl}
                     onSetupUrlChange={setSetupUrl}
-                    onEditRemote={handleEditRemote}
+                    onEditRemote={handleOpenSettings} // Trigger settings view
+                    onDisconnect={handleDisconnect}
                     onCancelEdit={handleCancelEdit}
                     onSubmit={onCloneSubmit}
+                    // Multi-remote - pass names only for compatibility if needed, or update Header?
+                    // Header expects string[], so mapping names is correct.
+                    remotes={remoteList.map(r => r.name)}
+                    activeRemote={activeRemoteView}
+                    onSelectRemote={setActiveRemoteView}
+                    isSettingsOpen={isSettingsOpen}
                 />
 
                 {/* Clone Progress Display */}
@@ -172,15 +215,37 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
                     </div>
                 )}
 
-                {/* Graph Area */}
+                {/* Graph Area / Settings Area */}
                 <div style={{ flex: 1, minHeight: 0, position: 'relative', background: 'var(--bg-primary)' }}>
-                    {hasSharedRemotes ? (
+                    {!showSettings ? (
                         <GitGraphViz state={remoteGraphState} />
                     ) : (
                         <EmptyState
-                            isEditMode={isEditMode}
+                            isEditMode={true} // Always usable in settings view
                             cloneStatus={cloneStatus}
-                            onConnect={handleEditRemote}
+                            onConnect={handleOpenSettings}
+                            // Pass full objects for the new UI
+                            recentRemotes={remoteList}
+                            onSelectRemote={(name) => {
+                                setActiveRemoteView(name);
+                                setIsSettingsOpen(false); // Close settings when selecting a remote from list
+                            }}
+                            onDeleteRemote={async (name) => {
+                                try {
+                                    await gitService.deleteRemote(name);
+                                    await updateRemoteList();
+                                    // If the deleted one was active or being viewed, reset?
+                                    if (name === activeRemoteView) {
+                                        setActiveRemoteView('origin'); // fallback
+                                    }
+                                    // Also if it matches current setupUrl/project, disconnect?
+                                    if (name === projectName) {
+                                        handleDisconnect();
+                                    }
+                                } catch (e) {
+                                    console.error('Failed to delete remote:', e);
+                                }
+                            }}
                         />
                     )}
                 </div>
@@ -201,13 +266,16 @@ const RemoteRepoView: React.FC<RemoteRepoViewProps> = ({ topHeight, onResizeStar
 
             {/* BOTTOM SPLIT: Remote Operations */}
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', background: 'var(--bg-primary)' }}>
-                <PullRequestSection
-                    pullRequests={pullRequests}
-                    branches={remoteGraphState.branches}
-                    onCreatePR={createPullRequest}
-                    onMergePR={mergePullRequest}
-                />
-                <RemoteBranchList remoteBranches={remoteGraphState.branches} />
+                {/* Pull Requests - only show when remote exists AND has branches */}
+                {hasSharedRemotes && Object.keys(remoteGraphState.branches).length > 0 && (
+                    <PullRequestSection
+                        pullRequests={filteredPRs}
+                        branches={remoteGraphState.branches}
+                        onCreatePR={handleCreatePR}
+                        onMergePR={mergePullRequest}
+                        onDeletePR={deletePullRequest}
+                    />
+                )}
             </div>
         </div>
     );

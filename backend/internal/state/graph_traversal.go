@@ -7,13 +7,25 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage"
 )
+
+// localStorerProvider is an interface to detect HybridStorer.
+// HybridStorer shares object storage with the remote, so we must avoid
+// iterating ALL objects (which would include remote-only commits).
+type localStorerProvider interface {
+	LocalStorer() storage.Storer
+}
 
 func populateCommits(repo *gogit.Repository, state *GraphState, showAll bool) {
 	var collectedCommits []*object.Commit
 
-	if showAll {
-		// Scan ALL objects to find every commit
+	// Check if this repo uses HybridStorer (which shares objects with remote).
+	// If so, we CANNOT use CommitObjects() as it would include remote-only commits.
+	_, isHybrid := repo.Storer.(localStorerProvider)
+
+	if showAll && !isHybrid {
+		// Scan ALL objects - only safe for non-hybrid repos (e.g., shared bare repo)
 		cIter, err := repo.CommitObjects()
 		if err == nil {
 			_ = cIter.ForEach(func(c *object.Commit) error {

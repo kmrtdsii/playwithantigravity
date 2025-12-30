@@ -55,11 +55,9 @@ func TestPull_Merge(t *testing.T) {
 
 	// Clone first involves adding the remote. But `git clone` does that.
 	// Let's manually setup the local repo to be in a "cloned" state.
-	localFs := memfs.New()
-	localStore := memory.NewStorage()
-	localRepo, _ := gogit.Clone(localStore, localFs, &gogit.CloneOptions{
-		URL: remoteURL, // This won't work with go-git Clone unless we mock it or use file path
-	})
+	// Manual setup not needed as CloneCommand below handles it
+	// localFs := memfs.New()
+	// localStore := memory.NewStorage()
 	// Wait, standard go-git Clone requires network.
 	// Our `CloneCommand` handles the simulation logic!
 	// So we should use `CloneCommand`.
@@ -75,7 +73,7 @@ func TestPull_Merge(t *testing.T) {
 	// The repo name is "repo" (basename of URL)
 	// session.CurrentDir is "/repo"
 
-	localRepo = session.GetRepo()
+	localRepo := session.GetRepo()
 	if localRepo == nil {
 		t.Fatal("local repo not found in session")
 	}

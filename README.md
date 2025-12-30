@@ -17,8 +17,11 @@ GitGym is an interactive, visual sandbox for learning and experimenting with Git
   - `git branch`, `checkout`, `switch`
   - `git log`, `diff`
   - `git tag`, `reset`, `clean`, `revert`, `cherry-pick`
+  - `git stash`, `models`, `blame`, `help`
   - `git merge`, `rebase` (basic support)
   - `git clone`, `fetch`, `pull`, `push` (Simulated Remote)
+
+- **Skill Radar**: Visual progression system tracking your mastery of Git commands from Basic to Advanced.
 
 - **Remote Simulation**: 
     - **Multi-Developer Support**: Simulate "Alice" and "Bob" working on the same repo with independent sessions.

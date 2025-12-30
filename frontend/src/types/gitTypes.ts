@@ -5,6 +5,7 @@ export interface Commit {
     secondParentId: string | null;
     branch: string;
     timestamp: string;
+    author: string;
 }
 
 
@@ -51,4 +52,5 @@ export interface PullRequest {
     status: PullRequestStatus;
     creator: string;
     createdAt: string;
+    remoteName?: string;
 }

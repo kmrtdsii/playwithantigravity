@@ -14,8 +14,8 @@ import (
 func TestMergeCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-merge")
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	s.InitRepo("repo")
+	s.CurrentDir = "/repo"
 	repo := s.GetRepo()
 	w, _ := repo.Worktree()
 
@@ -68,8 +68,8 @@ func TestMergeCommand(t *testing.T) {
 func TestRebaseCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-rebase")
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	s.InitRepo("repo")
+	s.CurrentDir = "/repo"
 	repo := s.GetRepo()
 	w, _ := repo.Worktree()
 

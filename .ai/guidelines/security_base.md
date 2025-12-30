@@ -26,3 +26,20 @@
 ## 5. Dependency Safety
 *   **Review Imports**: When adding new libraries, verify they are reputable and maintained.
 *   **Lockfiles**: Always commit `package-lock.json` or `go.sum` to ensure deterministic builds.
+
+## 6. History Remediation
+*   **Scenario**: Changes needing removal from the entire history (e.g., secrets, large binaries).
+*   **Tool**: Use `git-filter-repo` (Python-based). It is significantly faster and safer than `git filter-branch`.
+*   **Prerequisite**: `brew install git-filter-repo` (requires `python3`).
+*   **Procedure**:
+    1.  **Backup**: Create a local backup branch: `git checkout -b backup/pre-filter`.
+    2.  **Execute**: Run the filter command (e.g., to remove a file):
+        ```bash
+        git filter-repo --path path/to/secret --invert-paths --force
+        ```
+    3.  **Restore Remote**: The tool automatically removes remotes for safety. Restore it:
+        ```bash
+        git remote add origin <remote_url>
+        ```
+    4.  **Verification**: Check log: `git log --all --name-status -- path/to/secret`.
+    5.  **Finalize**: Force push the rewritten branch: `git push origin main --force`.

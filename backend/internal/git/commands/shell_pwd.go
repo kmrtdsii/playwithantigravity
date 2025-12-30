@@ -12,6 +12,9 @@ func init() {
 
 type PwdCommand struct{}
 
+// Ensure PwdCommand implements git.Command
+var _ git.Command = (*PwdCommand)(nil)
+
 func (c *PwdCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.RLock()
 	defer s.RUnlock()
@@ -24,5 +27,16 @@ func (c *PwdCommand) Execute(ctx context.Context, s *git.Session, args []string)
 }
 
 func (c *PwdCommand) Help() string {
-	return "usage: pwd\n\nPrint name of current/working directory."
+	return `📘 PWD (1)                                              Shell Manual
+
+ 💡 DESCRIPTION
+    ・「今どこにいるか」（現在のフォルダのパス）を表示する
+
+ 📋 SYNOPSIS
+    pwd
+
+ 🛠  EXAMPLES
+    $ pwd
+    /gitgym/repo
+`
 }

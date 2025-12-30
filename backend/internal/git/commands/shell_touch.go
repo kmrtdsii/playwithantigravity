@@ -8,9 +8,9 @@ package commands
 import (
 	"context"
 	"fmt"
-	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
@@ -21,54 +21,123 @@ func init() {
 
 type TouchCommand struct{}
 
+// Ensure TouchCommand implements git.Command
+var _ git.Command = (*TouchCommand)(nil)
+
+type TouchOptions struct {
+	Files []string
+}
+
 func (c *TouchCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
-	if len(args) < 2 {
-		return "", fmt.Errorf("usage: touch <filename>")
-	}
-
-	filename := args[1]
-
 	s.Lock()
 	defer s.Unlock()
 
-	// Resolve path relative to CurrentDir
-	fullPath := filename
-	if !strings.HasPrefix(filename, "/") {
-		// s.CurrentDir usually starts with /
-		// path.Join handles clean paths
-		fullPath = path.Join(s.CurrentDir, filename)
-	}
-	// ensure no leading double slash if CurrentDir is /
-	if strings.HasPrefix(fullPath, "//") {
-		fullPath = fullPath[1:]
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
 	}
 
-	// Check if file exists
-	_, err := s.Filesystem.Stat(fullPath)
-	if err != nil {
-		// File likely doesn't exist, create it (empty)
-		f, createErr := s.Filesystem.Create(fullPath)
-		if createErr != nil {
-			return "", createErr
+	return c.executeTouch(s, opts)
+}
+
+func (c *TouchCommand) parseArgs(args []string) (*TouchOptions, error) {
+	cmdArgs := args[1:]
+	if len(cmdArgs) == 0 {
+		return nil, fmt.Errorf("usage: touch <file>")
+	}
+	return &TouchOptions{Files: cmdArgs}, nil
+}
+
+func (c *TouchCommand) executeTouch(s *git.Session, opts *TouchOptions) (string, error) {
+	var created []string
+	var updated []string
+
+	for _, filename := range opts.Files {
+		// Resolve path relative to CurrentDir
+		fullPath := filename
+		if !strings.HasPrefix(filename, "/") {
+			fullPath = path.Join(s.CurrentDir, filename)
 		}
-		f.Close()
-		return fmt.Sprintf("Created '%s'", filename), nil
+		// ensure no leading double slash if CurrentDir is /
+		if strings.HasPrefix(fullPath, "//") {
+			fullPath = fullPath[1:]
+		}
+
+		// Check if file exists
+		_, err := s.Filesystem.Stat(fullPath)
+		if err != nil {
+			// File doesn't exist, create it (empty)
+			f, createErr := s.Filesystem.Create(fullPath)
+			if createErr != nil {
+				return "", createErr
+			}
+			_ = f.Close()
+			created = append(created, filename)
+		} else {
+			// File exists, try to update modification time
+			// Try type assertion for Chtimes
+			if changeFs, ok := s.Filesystem.(interface {
+				Chtimes(name string, atime time.Time, mtime time.Time) error
+			}); ok {
+				now := time.Now()
+				if err := changeFs.Chtimes(fullPath, now, now); err != nil {
+					return "", err
+				}
+				updated = append(updated, filename)
+			} else {
+				// No Chtimes support (e.g., memfs).
+				// To make Git detect this as a modification, we must change the content.
+				// Read existing content, append a timestamp comment, and write back.
+				f, openErr := s.Filesystem.OpenFile(fullPath, 1, 0644) // O_WRONLY = 1
+				if openErr != nil {
+					return "", fmt.Errorf("failed to open file for update: %w", openErr)
+				}
+
+				// Read existing content
+				stat, _ := s.Filesystem.Stat(fullPath)
+				content := make([]byte, stat.Size())
+				readFile, _ := s.Filesystem.Open(fullPath)
+				_, _ = readFile.Read(content)
+				readFile.Close()
+				f.Close()
+
+				// Append modification marker
+				newContent := append(content, []byte(fmt.Sprintf("\n/* touched: %s */", time.Now().Format(time.RFC3339)))...)
+
+				// Write back
+				writeFile, createErr := s.Filesystem.Create(fullPath)
+				if createErr != nil {
+					return "", fmt.Errorf("failed to write updated file: %w", createErr)
+				}
+				_, _ = writeFile.Write(newContent)
+				writeFile.Close()
+
+				updated = append(updated, filename)
+			}
+		}
 	}
 
-	// File exists, append to it
-	f, err := s.Filesystem.OpenFile(fullPath, os.O_APPEND|os.O_RDWR, 0644)
-	if err != nil {
-		return "", err
+	if len(created) > 0 {
+		return fmt.Sprintf("Created '%s'", strings.Join(created, ", ")), nil
 	}
-	defer f.Close()
-
-	if _, err := f.Write([]byte("\n// Update")); err != nil {
-		return "", err
+	if len(updated) > 0 {
+		return fmt.Sprintf("Updated '%s'", strings.Join(updated, ", ")), nil
 	}
-
-	return fmt.Sprintf("Updated '%s'", filename), nil
+	return "", nil
 }
 
 func (c *TouchCommand) Help() string {
-	return "usage: touch <filename>\n\nUpdate modifications timestamp of a file or create it."
+	return `📘 TOUCH (1)                                            Shell Manual
+
+ 💡 DESCRIPTION
+    ・空のファイルを新規作成する
+    ・ファイルの最終更新日時を更新する
+
+ 📋 SYNOPSIS
+    touch <file>...
+
+ 🛠  EXAMPLES
+    1. 新しいファイルを作成
+       $ touch newfile.txt
+`
 }

@@ -22,11 +22,11 @@ func TestBranchCommand_ForceCreate(t *testing.T) {
 	// Helper to create a commit and return hash
 	createCommit := func(msg string) string {
 		tCmd := &TouchCommand{}
-		tCmd.Execute(ctx, s, []string{"touch", msg})
+		_, _ = tCmd.Execute(ctx, s, []string{"touch", msg})
 		aCmd := &AddCommand{}
-		aCmd.Execute(ctx, s, []string{"add", "."})
+		_, _ = aCmd.Execute(ctx, s, []string{"add", "."})
 		cCmd := &CommitCommand{}
-		cCmd.Execute(ctx, s, []string{"commit", "-m", msg})
+		_, _ = cCmd.Execute(ctx, s, []string{"commit", "-m", msg})
 		h, _ := repo.Head()
 		return h.Hash().String()
 	}
@@ -50,7 +50,7 @@ func TestBranchCommand_ForceCreate(t *testing.T) {
 	// But command is: git branch -f branchA  (implies HEAD)
 	// So if we are at secondCommitHash, it just resets to same.
 	// Let's create branchB at initial commit first
-	cmd.Execute(ctx, s, []string{"branch", "branchB", headHash})
+	_, _ = cmd.Execute(ctx, s, []string{"branch", "branchB", headHash})
 	// Now force branchB to HEAD (secondCommitHash)
 	_, err = cmd.Execute(ctx, s, []string{"branch", "-f", "branchB"})
 	if err != nil {

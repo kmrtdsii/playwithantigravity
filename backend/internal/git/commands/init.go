@@ -3,11 +3,9 @@ package commands
 import (
 	"context"
 	"fmt"
+	"path"
 	"strings"
 
-	gogit "github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -17,95 +15,80 @@ func init() {
 
 type InitCommand struct{}
 
+// Ensure InitCommand implements git.Command
+var _ git.Command = (*InitCommand)(nil)
+
 func (c *InitCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	var dir string
-	isBare := false
-
-	// Parse args
-	for i := 1; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--bare" {
-			isBare = true
-		} else if !strings.HasPrefix(arg, "-") {
-			dir = arg
-		}
+	// Parse optional path argument
+	var argPath string
+	if len(args) > 1 {
+		argPath = args[1]
 	}
 
-	// Resolve target path
-	targetPath := s.CurrentDir
-	if dir != "" {
-		// handle relative/absolute logic simplified
-		if strings.HasPrefix(dir, "/") {
-			targetPath = dir
-		} else {
-			if s.CurrentDir == "/" || s.CurrentDir == "" {
-				targetPath = dir
-			} else {
-				targetPath = s.CurrentDir + "/" + dir
-			}
-		}
-	}
-
-	// Normalize (remove leading slash for map key if needed, or consistent usage)
-	// Our session keys usually don't have leading slash if relative to root of MemFS?
-	// s.CurrentDir normally has leading slash for display, but Filesystem root is "".
-	// Let's ensure proper pathing for chroot.
-	cleanPath := targetPath
-	if len(cleanPath) > 0 && cleanPath[0] == '/' {
-		cleanPath = cleanPath[1:]
-	}
-
-	if cleanPath != "" {
-		if err := s.Filesystem.MkdirAll(cleanPath, 0755); err != nil {
-			return "", err
-		}
-	}
-
-	// Check if registered
-	if _, ok := s.Repos[cleanPath]; ok {
-		return fmt.Sprintf("Git repository already initialized in %s", targetPath), nil
-	}
-
-	repoFS, err := s.Filesystem.Chroot(cleanPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to chroot: %w", err)
-	}
-
-	st := memory.NewStorage()
-	var repo *gogit.Repository
-	if isBare {
-		repo, err = gogit.Init(st, nil) // Bare repo has no worktree (filesystem)
-		// But wait, Init(st, nil) might not use `repoFS` for config?
-		// Actually, standard Init with nil filesystem implies bare?
-		// gogit.Init(st, nil) -> Bare
-		// gogit.Init(st, fs) -> Non-Bare
+	// Resolve target path (always absolute, starting with /)
+	var targetPath string
+	if argPath == "" {
+		// No argument: init in current directory
+		targetPath = s.CurrentDir
+	} else if strings.HasPrefix(argPath, "/") {
+		// Absolute path provided
+		targetPath = path.Clean(argPath)
 	} else {
-		repo, err = gogit.Init(st, repoFS)
+		// Relative path: join with current directory
+		targetPath = path.Clean(path.Join(s.CurrentDir, argPath))
 	}
 
-	if err != nil {
+	// Validate: cannot init at root
+	if targetPath == "/" {
+		return "", fmt.Errorf("cannot init repository at root. Run 'mkdir <name>' first, then 'cd <name>' and 'git init'")
+	}
+
+	// Convert to internal path format (without leading slash)
+	internalPath := strings.TrimPrefix(targetPath, "/")
+
+	// Check for nested repository conflicts
+	if err := c.checkNestedRepoConflicts(s, internalPath); err != nil {
 		return "", err
 	}
-	s.Repos[cleanPath] = repo
 
-	// Set default branch to main
-	headRef := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.ReferenceName("refs/heads/main"))
-	err = repo.Storer.SetReference(headRef)
+	_, err := s.InitRepo(internalPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to init repo: %w", err)
 	}
 
-	typeStr := ""
-	if isBare {
-		typeStr = "bare "
+	return fmt.Sprintf("Initialized empty Git repository in /%s/.git/", internalPath), nil
+}
+
+// checkNestedRepoConflicts checks if the target path would create a nested repository
+func (c *InitCommand) checkNestedRepoConflicts(s *git.Session, targetPath string) error {
+	// Normalize target path (ensure no leading slash for comparison)
+	targetPath = strings.TrimPrefix(targetPath, "/")
+
+	for existingPath := range s.Repos {
+		existingPath = strings.TrimPrefix(existingPath, "/")
+
+		// Check if target is inside an existing repo (parent repo exists)
+		if strings.HasPrefix(targetPath, existingPath+"/") {
+			return fmt.Errorf("cannot init repository inside existing repo '/%s'", existingPath)
+		}
+
+		// Check if existing repo is inside target (child repo would be nested)
+		if strings.HasPrefix(existingPath, targetPath+"/") {
+			return fmt.Errorf("cannot init repository: nested repo exists at '/%s'", existingPath)
+		}
+
+		// Check if same path (reinitializing)
+		if targetPath == existingPath {
+			return fmt.Errorf("repository already exists at '/%s'", existingPath)
+		}
 	}
 
-	return fmt.Sprintf("Initialized empty %sGit repository in /%s", typeStr, cleanPath), nil
+	return nil
 }
 
 func (c *InitCommand) Help() string {
-	return "usage: git init [--bare] [directory]"
+	return "usage: git init [directory]\n\nCreate an empty Git repository or reinitialize an existing one."
 }

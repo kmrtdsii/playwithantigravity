@@ -70,7 +70,7 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) =
     }
 
     return (
-        <div style={{
+        <div data-testid={`git-reference-list-${type}`} style={{
             height: '100%',
             overflow: 'auto',
             background: 'var(--bg-primary)',
@@ -88,42 +88,39 @@ const GitReferenceList: React.FC<GitReferenceListProps> = ({ type, onSelect }) =
                     </tr>
                 </thead>
                 <tbody>
-                    {listItems.map((item) => {
-                        return (
-                            <tr
-                                key={item.name}
-                                onClick={() => item.commit && onSelect && onSelect(item.commit)}
-                                style={{
-                                    cursor: 'pointer',
-                                    borderBottom: '1px solid var(--border-subtle)',
-                                    transition: 'background-color 0.2s',
-                                    ':hover': { backgroundColor: 'var(--bg-secondary)' }
-                                } as React.CSSProperties}
-                                className="hover:bg-opacity-10 hover:bg-white"
-                            >
-                                <td style={{ padding: '8px 16px', fontWeight: 'bold', color: type === 'branches' ? (item.isRemote ? 'var(--text-secondary)' : 'var(--accent-primary)') : 'var(--text-secondary)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {type === 'branches' && (item.isRemote ? <Cloud size={14} /> : <GitBranch size={14} />)}
-                                        {item.name}
-                                    </div>
-                                </td>
-                                <td style={{ padding: '8px 16px', color: 'var(--text-tertiary)' }}>
-                                    {item.commitId.substring(0, 7)}
-                                </td>
-                                <td style={{ padding: '8px 16px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>
-                                    {item.commit?.message || '<unknown commit>'}
-                                </td>
-                                <td style={{ padding: '8px 16px', textAlign: 'right', color: 'var(--text-tertiary)' }}>
-                                    {item.commit ? new Date(item.commit.timestamp).toLocaleString('ja-JP', {
-                                        year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
-                                    }) : '-'}
-                                </td>
-                            </tr>
-                        );
-                    })}
-
-
-                </tbody >
+                    {listItems.map((item) => (
+                        <tr
+                            key={item.name}
+                            onClick={() => item.commit && onSelect && onSelect(item.commit)}
+                            data-testid={`reference-item-${item.name}`}
+                            style={{
+                                cursor: 'pointer',
+                                borderBottom: '1px solid var(--border-subtle)',
+                                transition: 'background-color 0.2s',
+                                ':hover': { backgroundColor: 'var(--bg-secondary)' }
+                            } as React.CSSProperties}
+                            className="hover:bg-opacity-10 hover:bg-white"
+                        >
+                            <td style={{ padding: '8px 16px', fontWeight: 'bold', color: type === 'branches' ? (item.isRemote ? 'var(--text-secondary)' : 'var(--accent-primary)') : 'var(--text-secondary)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {type === 'branches' && (item.isRemote ? <Cloud size={14} /> : <GitBranch size={14} />)}
+                                    {item.name}
+                                </div>
+                            </td>
+                            <td style={{ padding: '8px 16px', color: 'var(--text-tertiary)' }}>
+                                {item.commitId.substring(0, 7)}
+                            </td>
+                            <td style={{ padding: '8px 16px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>
+                                {item.commit?.message || '<unknown commit>'}
+                            </td>
+                            <td style={{ padding: '8px 16px', textAlign: 'right', color: 'var(--text-tertiary)' }}>
+                                {item.commit ? new Date(item.commit.timestamp).toLocaleString('ja-JP', {
+                                    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit'
+                                }) : '-'}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
             </table >
         </div >
     );

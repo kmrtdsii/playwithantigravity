@@ -15,7 +15,7 @@ import (
 func TestServerEndpoints(t *testing.T) {
 	// Setup
 	sm := git.NewSessionManager()
-	srv := NewServer(sm)
+	srv := NewServer(sm, nil)
 	ts := httptest.NewServer(srv)
 	defer ts.Close()
 
@@ -84,12 +84,15 @@ func TestServerEndpoints(t *testing.T) {
 		defer resp.Body.Close()
 
 		var res map[string]string
-		json.NewDecoder(resp.Body).Decode(&res)
+		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+			t.Fatalf("Failed to decode response: %v", err)
+		}
 
 		output := res["output"]
 		if !strings.Contains(output, "On branch main") && !strings.Contains(output, "No commits yet") {
 			// Exact output depends on git version/implementation but checking basics
 			// "On branch main" or "master"
+			t.Logf("Output inspection: %s", output)
 		}
 	})
 

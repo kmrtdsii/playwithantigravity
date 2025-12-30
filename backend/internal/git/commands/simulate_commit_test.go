@@ -26,7 +26,7 @@ func TestSimulateCommitCommand(t *testing.T) {
 	w.Add("readme.txt")
 	w.Commit("Init", &gogit.CommitOptions{Author: &object.Signature{Name: "Me", Email: "me@me.com", When: time.Now()}})
 
-	err := sm.IngestRemote(context.Background(), "origin", remotePath)
+	err := sm.IngestRemote(context.Background(), "origin", remotePath, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,8 +2,6 @@ package commands
 
 import (
 	"context"
-	"fmt"
-	"runtime"
 
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
@@ -14,12 +12,21 @@ func init() {
 
 type VersionCommand struct{}
 
+// Ensure VersionCommand implements git.Command
+var _ git.Command = (*VersionCommand)(nil)
+
 func (c *VersionCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
-	// Imitate git version output
-	// Example: git version 2.51.2
-	return fmt.Sprintf("git version 2.51.2 (%s)", runtime.GOOS), nil
+	// Imitate git version output, explicitly identifying as GitGym
+	return "git version 2.47.1 (GitGym)", nil
 }
 
 func (c *VersionCommand) Help() string {
-	return "usage: git --version\n\nPrint the git version."
+	return `📘 GIT-VERSION (1)                                      Git Manual
+
+ 💡 DESCRIPTION
+    GitGymシミュレータのバージョンを表示します。
+
+ 📋 SYNOPSIS
+    git version
+`
 }

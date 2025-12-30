@@ -291,3 +291,56 @@
 .resize-handle-horizontal[data-resize-handle-state="drag"]::after {
     opacity: 1;
 }
+
+/* Theme Toggle (Segmented Control) */
+.theme-toggle-group {
+    display: flex;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    /* Pill shape */
+    padding: 2px;
+    gap: 0;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.theme-toggle-option {
+    background: transparent;
+    color: var(--text-tertiary);
+    border: none;
+    border-radius: 18px;
+    /* Inner pill */
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+}
+
+.theme-toggle-option:hover {
+    color: var(--text-secondary);
+}
+
+.theme-toggle-option.active {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Light mode specific adjustment for active shadow */
+body.light-mode .theme-toggle-option.active {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Optional: If user prefers Accent Color for active state, uncomment below. 
+   But "Improve design" usually means cleaner, less noisy */
+/* 
+.theme-toggle-option.active {
+    background-color: var(--accent-primary);
+    color: white;
+} 
+*/

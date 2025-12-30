@@ -22,3 +22,10 @@
 - Use `gofmt` style.
 - Error handling: Handle errors explicitly (check `if err != nil`).
 - Short variable names are okay for short scopes (e.g., `i`, `err`).
+
+### Linting & Static Analysis
+- **Execution**: Use `scripts/test-all.sh` as the source of truth.
+- **Test Files**: It is acceptable to disable strict security checks (like `gosec`) for `_test.go` files to reduce noise, provided production code is strictly checked. Use `--tests=false` flag.
+- **Common Fixes**:
+    - `gosec G104` (Unhandled Errors): Explicitly ignore safe-to-ignore errors: `_ = f.Close()`.
+    - `staticcheck ST1005` (Error Strings): Lowercase, no punctuation (e.g., `fmt.Errorf("validation failed")`, not `"Validation failed."`).

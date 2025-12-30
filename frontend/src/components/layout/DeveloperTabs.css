@@ -1,0 +1,101 @@
+.developer-tabs-container {
+    height: 36px;
+    /* Slightly taller for premium feel */
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: flex-end;
+    padding: 0 12px;
+    gap: 4px;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.tab-container {
+    display: flex;
+    height: 100%;
+    align-items: flex-end;
+}
+
+.user-tab-wrapper {
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    margin-right: 2px;
+    background: transparent;
+    transition: background-color 0.2s ease;
+}
+
+.user-tab-wrapper:hover {
+    background: var(--bg-tertiary);
+}
+
+.user-tab-wrapper.active {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-bottom: none;
+}
+
+.user-tab {
+    border: none;
+    background: transparent;
+    padding: 4px 12px;
+    height: 30px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    transition: color 0.2s ease;
+}
+
+.user-tab:hover {
+    color: var(--text-primary);
+}
+
+.user-tab.active {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.tab-close-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 4px;
+    margin-right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    opacity: 0.6;
+}
+
+.tab-close-btn:hover {
+    background: var(--bg-button-inactive);
+    color: var(--color-error);
+    opacity: 1;
+}
+
+.tab-add-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-tertiary);
+    cursor: pointer;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    align-self: center;
+    margin-bottom: 2px;
+}
+
+.tab-add-btn:hover {
+    background: var(--bg-button-inactive);
+    color: var(--text-primary);
+    transform: scale(1.1);
+}

@@ -4,7 +4,13 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/go-git/go-billy/v5/memfs"
+	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -12,46 +18,58 @@ import (
 // - A local repo "localrepo" with one commit
 // - A simulated remote "remoterepo" (bare) registered as shared remote
 // - The local repo configured with remote "origin" pointing to "/remoterepo"
-func setupPushTestSession(t *testing.T, sm *git.SessionManager, id string) *git.Session {
+func setupPushTestSession(_ *testing.T, sm *git.SessionManager, id string) *git.Session {
+	// Create Session first
 	s, _ := sm.CreateSession(id)
-	ctx := context.Background()
 
-	// 1. Create local repo
-	initCmd := &InitCommand{}
-	_, err := initCmd.Execute(ctx, s, []string{"init", "localrepo"})
-	if err != nil {
-		t.Fatalf("setup: init localrepo failed: %v", err)
-	}
+	// 1. Create local repo directly
+	fs := memfs.New()
+	st := memory.NewStorage()
+	r, _ := gogit.Init(st, fs)
+	s.Repos = map[string]*gogit.Repository{"localrepo": r} // Manually register
 	s.CurrentDir = "/localrepo"
+	// Also need to set Filesystem in Session if commands use it?
+	// commands usually use s.GetRepo() -> returns s.Repos[dir]
+	// s.Filesystem is usually the one mounted at s.CurrentDir?
+	// Session has a global Filesystem? No, Session has `Filesystem billy.Filesystem`.
+	// If we use multiple repos in one session, usually we mount them or use chroot?
+	// Simplified: Set s.Filesystem to this repo's fs
+	s.Filesystem = fs
 
 	// Create a file and commit
-	touchCmd := &TouchCommand{}
-	_, _ = touchCmd.Execute(ctx, s, []string{"touch", "file.txt"})
-	addCmd := &AddCommand{}
-	_, _ = addCmd.Execute(ctx, s, []string{"add", "."})
-	commitCmd := &CommitCommand{}
-	_, err = commitCmd.Execute(ctx, s, []string{"commit", "-m", "Initial commit"})
-	if err != nil {
-		t.Fatalf("setup: commit failed: %v", err)
-	}
+	// Use worktree directly to avoid command overhead/restrictions
+	w, _ := r.Worktree()
+	f, _ := w.Filesystem.Create("file.txt")
+	f.Write([]byte("content"))
+	f.Close()
+	w.Add("file.txt")
+	w.Commit("Initial commit", &gogit.CommitOptions{
+		Author: &object.Signature{Name: "Dev", Email: "dev@example.com", When: time.Now()},
+	})
 
 	// 2. Create remote repo (simulated)
-	s.CurrentDir = "/"
-	_, err = initCmd.Execute(ctx, s, []string{"init", "remoterepo"})
-	if err != nil {
-		t.Fatalf("setup: init remoterepo failed: %v", err)
-	}
+	// Just create another memory repo and register in SharedRemotes
+	remoteSt := memory.NewStorage()
+	remoteFs := memfs.New() // Bare usually? Or normal. Push works to bare or non-bare (if configured).
+	// gogit supports pushing to non-bare, but might fail to update checked out branch if not configured.
+	// Let's make it bare for simplicity or just normal.
+	remoteRepo, _ := gogit.Init(remoteSt, remoteFs)
 
-	// Register remoterepo as shared remote for lookup by push command
-	sm.SharedRemotes["remoterepo"] = s.Repos["remoterepo"]
+	// Register remoterepo as shared remote
+	sm.SharedRemotes["remoterepo"] = remoteRepo
+
+	// s.Repos["remoterepo"] is needed if we use internal path resolution?
+	// The original code used s.Repos for "remoterepo" too.
+	s.Repos["remoterepo"] = remoteRepo
 
 	// 3. Add remote to local repo
-	s.CurrentDir = "/localrepo"
-	remoteCmd := &RemoteCommand{}
-	_, err = remoteCmd.Execute(ctx, s, []string{"remote", "add", "origin", "/remoterepo"})
-	if err != nil {
-		t.Fatalf("setup: remote add failed: %v", err)
-	}
+	r.CreateRemote(&config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{"/remoterepo"},
+	})
+
+	// Ensure HEAD is on a branch (master)
+	// gogit.Init creates master by default.
 
 	return s
 }
@@ -66,7 +84,7 @@ func TestPushCommand_Help(t *testing.T) {
 	if err != nil {
 		t.Fatalf("--help failed: %v", err)
 	}
-	if !strings.Contains(res, "usage:") {
+	if !strings.Contains(res, "SYNOPSIS") {
 		t.Errorf("Expected help text, got: %s", res)
 	}
 	if !strings.Contains(res, "--force") {
@@ -126,8 +144,7 @@ func TestPushCommand_NoRemote(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a repo without remote
-	initCmd := &InitCommand{}
-	_, _ = initCmd.Execute(ctx, s, []string{"init", "norepo"})
+	_, _ = s.InitRepo("norepo")
 	s.CurrentDir = "/norepo"
 
 	touchCmd := &TouchCommand{}

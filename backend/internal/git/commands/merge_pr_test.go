@@ -2,8 +2,8 @@ package commands
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -49,17 +49,27 @@ func TestMergePRCommand(t *testing.T) {
 	w.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("master")})
 
 	// Ingest
-	sm.IngestRemote(context.Background(), "origin", remotePath)
+	sm.IngestRemote(context.Background(), "origin", remotePath, 0)
+
+	// FIX: Ensure 'feature' branch exists in SharedRemote (IngestRemote clones so it might only have remote-tracking feature)
+	// We need refs/heads/feature to be present for MergePR locally on server.
+	sharedRepo := sm.SharedRemotes["origin"]
+
+	ref, err := sharedRepo.Reference(plumbing.ReferenceName("refs/remotes/origin/feature"), true)
+	if err == nil {
+		newRef := plumbing.NewHashReference(plumbing.ReferenceName("refs/heads/feature"), ref.Hash())
+		_ = sharedRepo.Storer.SetReference(newRef)
+	}
 
 	// Create PR in SessionManager
-	pr, _ := sm.CreatePullRequest("Feat", "Desc", "feature", "master", "Dev")
+	pr, _ := sm.CreatePullRequest("Feat", "Desc", "feature", "master", "Dev", "origin")
 
 	// Execute Merge
 	session, _ := sm.CreateSession("test-session")
 	cmd := &MergePRCommand{}
 	ctx := context.Background()
 
-	output, err := cmd.Execute(ctx, session, []string{"merge-pr", fmt.Sprintf("%d", pr.ID), "origin"})
+	output, err := cmd.Execute(ctx, session, []string{"merge-pr", strconv.Itoa(pr.ID), "origin"})
 	if err != nil {
 		t.Fatalf("MergePR failed: %v", err)
 	}
@@ -72,7 +82,7 @@ func TestMergePRCommand(t *testing.T) {
 
 	// Verify Commit on Remote 'master'
 	sm.RLock()
-	sharedRepo := sm.SharedRemotes["origin"]
+	sharedRepo = sm.SharedRemotes["origin"]
 	sm.RUnlock()
 
 	// Must fetch refs again from storage

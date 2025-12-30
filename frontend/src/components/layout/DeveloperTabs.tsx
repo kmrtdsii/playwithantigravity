@@ -1,11 +1,13 @@
 import React from 'react';
-import { Monitor } from 'lucide-react';
+import { Monitor, X, Plus } from 'lucide-react';
+import './DeveloperTabs.css';
 
 interface DeveloperTabsProps {
     developers: string[];
     activeDeveloper: string;
     onSwitchDeveloper: (name: string) => void;
     onAddDeveloper: () => void;
+    onRemoveDeveloper?: (name: string) => void;
 }
 
 /**
@@ -17,6 +19,7 @@ const DeveloperTabs: React.FC<DeveloperTabsProps> = ({
     activeDeveloper,
     onSwitchDeveloper,
     onAddDeveloper,
+    onRemoveDeveloper,
 }) => {
     const tabListRef = React.useRef<HTMLDivElement>(null);
 
@@ -39,42 +42,49 @@ const DeveloperTabs: React.FC<DeveloperTabsProps> = ({
     };
 
     return (
-        <div
-            className="developer-tabs-container"
-            style={{
-                height: '32px',
-                background: 'var(--bg-secondary)',
-                display: 'flex',
-                alignItems: 'flex-end',
-                borderBottom: 'none',
-            }}
-        >
+        <div className="developer-tabs-container" data-testid="developer-tabs">
             <div
                 className="tab-container"
                 role="tablist"
                 aria-label="Developer tabs"
+                data-testid="tab-list"
                 ref={tabListRef}
-                style={{ display: 'flex', height: '100%', alignItems: 'flex-end' }}
             >
                 {developers.map((dev, index) => {
                     const isActive = dev === activeDeveloper;
+                    const isRemovable = dev !== 'Alice' && dev !== 'Bob';
+
                     return (
-                        <button
-                            key={dev}
-                            role="tab"
-                            aria-selected={isActive}
-                            aria-controls={`panel-${dev}`}
-                            id={`tab-${dev}`}
-                            tabIndex={isActive ? 0 : -1}
-                            onClick={() => onSwitchDeveloper(dev)}
-                            onKeyDown={(e) => handleKeyDown(e, index)}
-                            className={`user-tab ${isActive ? 'active' : ''}`}
-                        >
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <div key={dev} className={`user-tab-wrapper ${isActive ? 'active' : ''}`}>
+                            <button
+                                role="tab"
+                                aria-selected={isActive}
+                                aria-controls={`panel-${dev}`}
+                                id={`tab-${dev}`}
+                                tabIndex={isActive ? 0 : -1}
+                                onClick={() => onSwitchDeveloper(dev)}
+                                onKeyDown={(e) => handleKeyDown(e, index)}
+                                className={`user-tab ${isActive ? 'active' : ''}`}
+                                data-testid={`tab-${dev}`}
+                            >
                                 <Monitor size={14} />
                                 {dev}
-                            </span>
-                        </button>
+                            </button>
+                            {isRemovable && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (onRemoveDeveloper) onRemoveDeveloper(dev);
+                                    }}
+                                    className="tab-close-btn"
+                                    aria-label={`Remove ${dev}`}
+                                    title={`Remove ${dev}`}
+                                    data-testid={`remove-tab-${dev}`}
+                                >
+                                    <X size={14} />
+                                </button>
+                            )}
+                        </div>
                     );
                 })}
             </div>
@@ -83,8 +93,9 @@ const DeveloperTabs: React.FC<DeveloperTabsProps> = ({
                 title="Add Developer"
                 aria-label="Add new developer"
                 onClick={onAddDeveloper}
+                data-testid="add-developer-btn"
             >
-                +
+                <Plus size={18} />
             </button>
         </div>
     );

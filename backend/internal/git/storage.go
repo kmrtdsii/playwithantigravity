@@ -2,6 +2,7 @@ package git
 
 import (
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/storer"
 	"github.com/go-git/go-git/v5/storage"
 )
 
@@ -51,8 +52,26 @@ func (s *HybridStorer) HasEncodedObject(h plumbing.Hash) (err error) {
 	return s.Shared.HasEncodedObject(h)
 }
 
-// IterEncodedObjects - We likely only want to iterate LOCAL objects for most operations
-// (e.g. GC, Pack). Iterating SHARED objects would be huge.
-// Since we embed storage.Storer, this method is automatically delegated to s.Storer.IterEncodedObjects
-// unless we override it.
-// We DO NOT override it, so it defaults to Local iteration.
+// IterEncodedObjects - Iterate over both Local and Shared objects using MultiEncodedObjectIter
+func (s *HybridStorer) IterEncodedObjects(t plumbing.ObjectType) (storer.EncodedObjectIter, error) {
+	// Local Iterator
+	localIter, err := s.Storer.IterEncodedObjects(t)
+	if err != nil {
+		return nil, err
+	}
+
+	// Shared Iterator
+	sharedIter, err := s.Shared.IterEncodedObjects(t)
+	if err != nil {
+		return nil, err
+	}
+
+	// Combine them
+	return storer.NewMultiEncodedObjectIter([]storer.EncodedObjectIter{localIter, sharedIter}), nil
+}
+
+// LocalStorer returns the underlying local storage without the shared fallback.
+// Use this when you need to iterate only locally-stored objects (e.g., for local graph view).
+func (s *HybridStorer) LocalStorer() storage.Storer {
+	return s.Storer
+}

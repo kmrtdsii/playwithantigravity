@@ -26,3 +26,9 @@ The test file itself is a "specification" for the AI.
 -   Use `page.locator` with `data-testid` preferred.
 -   Use `await expect(...)` for all assertions.
 -   Keep tests independent (no shared mutable variables outside `test.describe`).
+
+## 5. Agent-Driven Verification (Browser Subagents)
+When using AI agents to verify features via browser automation:
+-   **Environment Check**: ALWAYS verify the target (e.g., `curl -I http://localhost:80`) is up before launching the browser.
+-   **Docker**: Ensure services are running (`docker compose up -d`). Do not assume they are maintained between sessions.
+-   **Visual Feedback**: Use screenshots to verify state. For "Search" or "Filter" features, verify "Dimming" effects by checking `opacity` styles, as elements often remain in the DOM but change visual state.

@@ -1,6 +1,7 @@
 package integration_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -17,8 +18,14 @@ func TestGitPhase2Features(t *testing.T) {
 	}
 
 	// Init
-	if _, err := exec("init"); err != nil {
-		t.Fatalf("init failed: %v", err)
+	// Init
+	// "git init" is disabled, so we initialize via internal session method
+	session, err := GetSession(sessionID)
+	if err != nil {
+		t.Fatalf("Failed to get session: %v", err)
+	}
+	if _, err := session.InitRepo(""); err != nil {
+		t.Fatalf("Failed to init repo: %v", err)
 	}
 	if err := TouchFile(sessionID, "README.md"); err != nil {
 		t.Fatalf("touch failed: %v", err)
@@ -130,6 +137,7 @@ func TestGitPhase2Features(t *testing.T) {
 		if !strings.Contains(status, "M README.md") && !strings.Contains(status, "README.md") {
 			// Check later; status format is custom in this engine?
 			// No, it calls w.Status().String().
+			t.Log("Note: status output format check skipped")
 		}
 
 		// Checkout file (restore)
@@ -142,14 +150,14 @@ func TestGitPhase2Features(t *testing.T) {
 	// 5. Test Diff (Commits)
 	t.Run("Diff", func(t *testing.T) {
 		// Need 2 commits
-		exec("commit", "--amend", "-m", "Base") // reset state
+		_, _ = exec("commit", "--amend", "-m", "Base") // reset state
 		// Create new file
 		session, _ := GetSession(sessionID)
 		f_create, _ := session.Filesystem.Create("new.txt")
-		f_create.Write([]byte("hello"))
-		f_create.Close()
-		exec("add", "new.txt")
-		exec("commit", "-m", "Second")
+		_, _ = f_create.Write([]byte("hello"))
+		_ = f_create.Close()
+		_, _ = exec("add", "new.txt")
+		_, _ = exec("commit", "-m", "Second")
 
 		out, err := exec("diff", "HEAD^", "HEAD")
 		if err != nil {
@@ -157,6 +165,7 @@ func TestGitPhase2Features(t *testing.T) {
 		}
 		if !strings.Contains(out, "new.txt") {
 			// Expected diff to show new file
+			t.Log("Warn: diff output missing new.txt")
 		}
 	})
 
@@ -181,9 +190,10 @@ func TestGitPhase2Features(t *testing.T) {
 		if err != nil {
 			t.Fatalf("help failed: %v", err)
 		}
-		if !strings.Contains(out, "Supported commands:") {
-			t.Errorf("help output missing header: %s", out)
+		if !strings.Contains(out, "usage: git") {
+			t.Errorf("help output missing usage format: %s", out)
 		}
+
 		if !strings.Contains(out, "init") || !strings.Contains(out, "commit") {
 			t.Errorf("help output missing commands: %s", out)
 		}
@@ -217,25 +227,25 @@ func TestGitPhase2Features(t *testing.T) {
 
 		// Current state: main has commits.
 		// Let's create new branch 'feature-rebase' from HEAD^ (Base)
-		exec("checkout", "main")
-		exec("branch", "feature-rebase")
-		exec("reset", "--hard", "HEAD^")                       // move main back 1
-		exec("commit", "--allow-empty", "-m", "Main Diverged") // main has Base -> Diverged
+		_, _ = exec("checkout", "main")
+		_, _ = exec("branch", "feature-rebase")
+		_, _ = exec("reset", "--hard", "HEAD^")                       // move main back 1
+		_, _ = exec("commit", "--allow-empty", "-m", "Main Diverged") // main has Base -> Diverged
 
-		exec("checkout", "feature-rebase")
+		_, _ = exec("checkout", "feature-rebase")
 
 		// Let's build explicitly for clarity
-		exec("checkout", "-b", "base-branch")
-		exec("commit", "--allow-empty", "-m", "Base Commit")
+		_, _ = exec("checkout", "-b", "base-branch")
+		_, _ = exec("commit", "--allow-empty", "-m", "Base Commit")
 
-		exec("checkout", "-b", "feat-branch")
-		exec("commit", "--allow-empty", "-m", "Feat Commit")
+		_, _ = exec("checkout", "-b", "feat-branch")
+		_, _ = exec("commit", "--allow-empty", "-m", "Feat Commit")
 
-		exec("checkout", "base-branch")
-		exec("commit", "--allow-empty", "-m", "Upstream Commit")
+		_, _ = exec("checkout", "base-branch")
+		_, _ = exec("commit", "--allow-empty", "-m", "Upstream Commit")
 
 		// Rebase feat-branch on base-branch
-		exec("checkout", "feat-branch")
+		_, _ = exec("checkout", "feat-branch")
 		_, err := exec("rebase", "base-branch")
 		if err != nil {
 			t.Fatalf("rebase failed: %v", err)
@@ -264,4 +274,118 @@ func TestGitPhase2Features(t *testing.T) {
 			t.Errorf("reflog missing checkout entry: %s", out)
 		}
 	})
+}
+
+// TestRemoteWorkflowGoldenPath is an end-to-end integration test for the core remote workflow:
+// Init -> Commit -> Create Remote -> Push -> Fetch -> Reset Remote
+// This test validates the happy path to ensure the main user journey works correctly.
+func TestRemoteWorkflowGoldenPath(t *testing.T) {
+	sessionID := "golden-path-test"
+	if err := InitSession(sessionID); err != nil {
+		t.Fatalf("Failed to init session: %v", err)
+	}
+
+	exec := func(args ...string) (string, error) {
+		return ExecuteGitCommand(sessionID, args)
+	}
+
+	// Step 1: Initialize Repository
+	t.Log("Step 1: Initialize repository")
+	session, err := GetSession(sessionID)
+	if err != nil {
+		t.Fatalf("Failed to get session: %v", err)
+	}
+	if _, err := session.InitRepo("my-project"); err != nil {
+		t.Fatalf("Init repo failed: %v", err)
+	}
+	// Set current directory to the new repo
+	session.CurrentDir = "/my-project"
+
+	// Step 2: Create and commit a file
+	t.Log("Step 2: Create file and commit")
+	f, err := session.Filesystem.Create("my-project/hello.txt")
+	if err != nil {
+		t.Fatalf("Create file failed: %v", err)
+	}
+	_, _ = f.Write([]byte("Hello World"))
+	_ = f.Close()
+
+	if _, err := exec("add", "hello.txt"); err != nil {
+		t.Fatalf("git add failed: %v", err)
+	}
+
+	out, err := exec("commit", "-m", "Initial commit")
+	if err != nil {
+		t.Fatalf("git commit failed: %v", err)
+	}
+	if !strings.Contains(out, "Commit created") {
+		t.Errorf("Commit output missing expected format: %s", out)
+	}
+
+	// Step 3: Create bare remote repository
+	t.Log("Step 3: Create bare remote repository")
+	tmpDir := t.TempDir()
+	t.Setenv("GITGYM_DATA_ROOT", tmpDir)
+
+	sm := session.Manager
+	err = sm.CreateBareRepository(context.TODO(), sessionID, "my-remote")
+	if err != nil {
+		t.Fatalf("Create bare repo failed: %v", err)
+	}
+
+	// Verify remote was created
+	sm.RLock()
+	_, remoteExists := sm.SharedRemotes["my-remote"]
+	sm.RUnlock()
+	if !remoteExists {
+		t.Fatalf("Remote 'my-remote' not found in SharedRemotes")
+	}
+
+	// Step 4: Add remote and push
+	t.Log("Step 4: Add remote and push")
+	_, err = exec("remote", "add", "origin", "remote://gitgym/my-remote.git")
+	if err != nil {
+		t.Fatalf("git remote add failed: %v", err)
+	}
+
+	out, err = exec("push", "origin", "main")
+	if err != nil {
+		// Push might fail if branch is master instead of main
+		out, err = exec("push", "origin", "master")
+		if err != nil {
+			t.Fatalf("git push failed: %v", err)
+		}
+	}
+	t.Logf("Push output: %s", out)
+
+	// Step 5: Fetch from remote
+	t.Log("Step 5: Fetch from remote")
+	out, err = exec("fetch")
+	if err != nil {
+		t.Fatalf("git fetch failed: %v", err)
+	}
+	t.Logf("Fetch output: %s", out)
+
+	// Step 6: Reset remote (Single Residency cleanup)
+	t.Log("Step 6: Reset remote")
+	err = sm.RemoveRemote("my-remote")
+	if err != nil {
+		t.Fatalf("RemoveRemote failed: %v", err)
+	}
+
+	// Verify remote is gone
+	sm.RLock()
+	_, stillExists := sm.SharedRemotes["my-remote"]
+	sm.RUnlock()
+	if stillExists {
+		t.Errorf("Remote 'my-remote' should have been removed")
+	}
+
+	// Verify PRs are also cleared
+	prs := sm.GetPullRequests()
+	if len(prs) != 0 {
+		t.Errorf("PullRequests should be empty after RemoveRemote, got %d", len(prs))
+	}
+
+	t.Log("✅ Golden Path test completed successfully")
 }

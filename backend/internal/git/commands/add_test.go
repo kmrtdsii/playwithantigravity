@@ -14,17 +14,17 @@ func TestAddCommand(t *testing.T) {
 	s, _ := sm.CreateSession("test-add")
 	cmd := &AddCommand{}
 
-	// Init
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	// Init manually since "git init" command is disabled
+	_, _ = s.InitRepo("repo")
+	s.CurrentDir = "/repo"
 
 	repo := s.GetRepo()
 	w, _ := repo.Worktree()
 
 	t.Run("Add File", func(t *testing.T) {
 		f, _ := w.Filesystem.Create("test.txt")
-		f.Write([]byte("content"))
-		f.Close()
+		_, _ = f.Write([]byte("content"))
+		_ = f.Close()
 
 		res, err := cmd.Execute(context.Background(), s, []string{"add", "test.txt"})
 		if err != nil {
@@ -45,8 +45,8 @@ func TestAddCommand(t *testing.T) {
 
 	t.Run("Add All", func(t *testing.T) {
 		f, _ := w.Filesystem.Create("test2.txt")
-		f.Write([]byte("content2"))
-		f.Close()
+		_, _ = f.Write([]byte("content2"))
+		_ = f.Close()
 
 		res, err := cmd.Execute(context.Background(), s, []string{"add", "."})
 		if err != nil {

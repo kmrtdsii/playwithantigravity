@@ -1,8 +1,9 @@
 import React from 'react';
 import { Loader2, AlertCircle, CheckCircle, RefreshCw, XCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../common/Button';
 
-export type CloneStatus = 'idle' | 'fetching_info' | 'cloning' | 'complete' | 'error';
+export type CloneStatus = 'idle' | 'fetching_info' | 'cloning' | 'creating' | 'complete' | 'error';
 
 interface CloneProgressProps {
     status: CloneStatus;
@@ -16,6 +17,10 @@ interface CloneProgressProps {
     errorMessage?: string;
     onRetry?: () => void;
     onCancel?: () => void;
+    successMessage?: string;
+    // UI Options
+    hideCancelButton?: boolean;
+    customErrorTitle?: string;
 }
 
 const CloneProgress: React.FC<CloneProgressProps> = ({
@@ -26,11 +31,18 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
     errorMessage,
     onRetry,
     onCancel,
+    successMessage,
+    hideCancelButton = false,
+    customErrorTitle,
 }) => {
-    if (status === 'idle') return null;
+    const { t } = useTranslation('common');
 
-    // Calculation logic
-    const progress = estimatedSeconds > 0
+    if (status === 'idle') {
+        return null;
+    }
+
+    // Calculation logic - simple linear progress
+    const progress = estimatedSeconds > 0 && elapsedSeconds >= 0
         ? Math.min(100, (elapsedSeconds / estimatedSeconds) * 100)
         : 0;
 
@@ -55,7 +67,7 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
         }}>
             {/* Icon State */}
             <div style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: '2px' }}>
-                {(status === 'fetching_info' || status === 'cloning') && (
+                {(status === 'fetching_info' || status === 'cloning' || status === 'creating') && (
                     <Loader2 size={20} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} />
                 )}
                 {status === 'complete' && <CheckCircle size={20} color="var(--color-success)" />}
@@ -65,15 +77,16 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
             {/* Content Body */}
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text-primary)' }}>
-                    {status === 'fetching_info' && 'Connecting to remote...'}
+                    {status === 'fetching_info' && t('remote.status.connecting')}
                     {status === 'cloning' && (
                         <span>
-                            Syncing remote repository...
+                            {t('remote.status.syncing')}
                             {repoInfo && <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}> ({repoInfo.sizeDisplay})</span>}
                         </span>
                     )}
-                    {status === 'complete' && 'Remote synced!'}
-                    {status === 'error' && 'Sync failed'}
+                    {status === 'complete' && (successMessage || t('remote.status.synced'))}
+                    {status === 'creating' && t('remote.status.creating')}
+                    {status === 'error' && (customErrorTitle || t('remote.status.failed'))}
                 </div>
 
                 {/* Progress Bar */}
@@ -85,11 +98,11 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
                                 background: 'var(--accent-primary)',
                                 borderRadius: '3px',
                                 width: `${progress}%`,
-                                transition: 'width 0.3s ease-out'
+                                transition: 'width 0.5s ease-out'
                             }} />
                         </div>
                         <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                            {remainingSeconds > 0 ? `~${formatTime(remainingSeconds)} remaining` : 'Almost done...'}
+                            {remainingSeconds > 0 ? `~${formatTime(remainingSeconds)} ${t('remote.status.remaining')}` : t('remote.status.almostDone')}
                         </div>
                     </div>
                 )}
@@ -109,15 +122,15 @@ const CloneProgress: React.FC<CloneProgressProps> = ({
 
                 {/* Actions */}
                 {status === 'error' && (
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px', justifyContent: 'center' }}>
                         {onRetry && (
                             <Button size="sm" variant="primary" onClick={onRetry}>
-                                <RefreshCw size={14} /> Retry
+                                <RefreshCw size={14} /> {t('remote.retry')}
                             </Button>
                         )}
-                        {onCancel && (
+                        {onCancel && !hideCancelButton && (
                             <Button size="sm" variant="secondary" onClick={onCancel}>
-                                <XCircle size={14} /> Cancel
+                                <XCircle size={14} /> {t('remote.cancel')}
                             </Button>
                         )}
                     </div>

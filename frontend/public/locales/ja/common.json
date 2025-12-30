@@ -4,12 +4,27 @@
         "theme": {
             "light": "ライト",
             "dark": "ダーク"
-        }
+        },
+        "loading": "GitGymを読み込み中...",
+        "searchPlaceholder": "コミットを検索...",
+        "skills": "🎯 スキル",
+        "skillRadarTitle": "Gitスキルレーダー"
     },
     "viewMode": {
         "graph": "グラフ",
         "branches": "ブランチ",
         "tags": "タグ"
+    },
+    "visualization": {
+        "emptyState": "\"git init\" と入力して開始してください。",
+        "emptyRepo": {
+            "title": "リポジトリは空です",
+            "description": "最初のコミットをプッシュしてグラフを表示しましょう。"
+        },
+        "simulation": {
+            "title": "シミュレーションモード",
+            "potentialCommit": "ポテンシャルコミット"
+        }
     },
     "common": {
         "showAll": "全表示",
@@ -19,5 +34,267 @@
         "hash": "ハッシュ",
         "message": "メッセージ",
         "date": "日付"
+    },
+    "commitDetails": {
+        "title": "コミット詳細",
+        "changedFiles": "変更ファイル ({{count}})",
+        "loading": "読み込み中..."
+    },
+    "workspace": {
+        "title": "ワークスペース",
+        "deleteTitle": "プロジェクトの削除",
+        "deleteConfirm": "プロジェクト <1>{{name}}</1> を削除してもよろしいですか？ この操作は元に戻せません。",
+        "branches": "ブランチ",
+        "stagedChanges": "ステージ",
+        "noProjects": "ワークスペースは空です",
+        "empty": "ワークスペースが空です",
+        "files": "ワーキングツリー",
+        "noFiles": "ここにファイルはありません。",
+        "createHint": "mkdir でフォルダを作るか、git clone しましょう。",
+        "currentBranch": "現在のブランチ",
+        "checkout": "{{name}} をチェックアウト"
+    },
+    "remote": {
+        "configure": "設定",
+        "update": "更新",
+        "updating": "更新中...",
+        "retry": "再試行",
+        "cancel": "キャンセル",
+        "disconnect": "切断",
+        "validation": {
+            "urlRequired": "URLを入力してください",
+            "invalidUrl": "https:// または git@ で始まるURLを入力してください"
+        },
+        "noConfigured": "リモート未設定",
+        "cloneUrlLabel": "リモートURL",
+        "branches": "リモートブランチ",
+        "pullRequests": "プルリクエスト",
+        "newPR": "新規プルリクエスト",
+        "compare": {
+            "title": "新規プルリクエスト",
+            "desc": "マージするブランチを選択して、変更を確認します。",
+            "base": "マージ先 (Base)",
+            "compare": "マージ元 (Source)",
+            "titlePlaceholder": "タイトル",
+            "ableToMerge": "✓ マージ可能",
+            "ableToMergeDesc": "コンフリクトはありません。自動的にマージできます。",
+            "defaultTitle": "{{source}} を {{target}} にマージ",
+            "create": "プルリクエストを作成"
+        },
+        "list": {
+            "empty": "アクティブなプルリクエストはありません",
+            "openedBy": "{{name}} により作成",
+            "merge": "プルリクエストをマージ",
+            "merging": "マージ中...",
+            "delete": "削除",
+            "deleting": "削除中...",
+            "deleteConfirm": "このPRを削除してもよろしいですか？",
+            "deleteTitle": "プルリクエスト削除",
+            "deletePRConfirm": "このプルリクエストを削除してもよろしいですか？",
+            "deletePRTitle": "プルリクエスト削除"
+        },
+        "copyUrl": "URLをクリップボードにコピー",
+        "copied": "コピーしました！",
+        "status": {
+            "connecting": "リモートに接続中...",
+            "syncing": "リモートリポジトリを同期中...",
+            "synced": "同期完了！",
+            "failed": "同期に失敗しました",
+            "remaining": "残り",
+            "almostDone": "まもなく完了します...",
+            "creating": "リポジトリを作成中...",
+            "created": "リポジトリを作成しました！",
+            "createFailed": "リポジトリの作成に失敗しました",
+            "invalidRepo": "無効なリポジトリです。URLが正しいか確認してください ({{error}})",
+            "serverError": "サーバーへの接続に失敗しました。"
+        },
+        "header": {
+            "description": "Gitリポジトリに接続してリモート履歴を可視化しましょう。",
+            "settings": "リモート再設定",
+            "setup": "リモートを設定",
+            "label": "リモートURL"
+        },
+        "empty": {
+            "title": "リモートリポジトリ",
+            "description": "push / pull / clone を体験するにはリモートリポジトリが必要です",
+            "connect": "外部リポジトリに接続",
+            "create": "リポジトリを作成",
+            "createTitle": "新規にリポジトリを作成",
+            "duplicateName": "既に同じ名前のリモートリポジトリが存在します。",
+            "duplicateUrl": "既に登録済みのリモートURLです。",
+            "createPlaceholder": "リポジトリ名...",
+            "validation": "英数字、ハイフン、アンダースコアのみ使用できます。",
+            "createButton": "作成",
+            "connectButton": "接続",
+            "creating": "リポジトリを作成中...",
+            "created": "リポジトリを作成しました！",
+            "connecting": "リポジトリに接続中...",
+            "or": "または",
+            "repoNameRequired": "リポジトリ名は必須です",
+            "recentTitle": "最近使用したリモート",
+            "deleteRemoteTitle": "リモートを削除",
+            "deleteRemoteConfirm": "リモート {{name}} をリストから削除しますか？"
+        }
+    },
+    "developer": {
+        "addTitle": "新規ユーザ追加",
+        "namePlaceholder": "ユーザ名を入力してください (例: Alice)",
+        "cancel": "キャンセル",
+        "add": "ユーザを追加"
+    },
+    "terminal": {
+        "user": "ユーザ",
+        "branch": "ブランチ",
+        "welcome": "GitGymへようこそ！ 🚀",
+        "instructions": "始めるには、リポジトリを準備しましょう:",
+        "help": "'git help' と入力すると利用可能なコマンドが表示されます。",
+        "allowEmpty": "空コミットを許可",
+        "allowEmptyTooltip": "コミットコマンドに自動的に --allow-empty を追加します"
+    },
+    "mission": {
+        "active": "現在のミッション",
+        "objective": "目的",
+        "verify": "確認",
+        "abort": "中止",
+        "success": "ミッション達成！",
+        "failed": "確認失敗",
+        "loading": "ミッション詳細を読み込み中...",
+        "brief": "ミッション概要",
+        "startPractice": "練習を開始",
+        "notImplemented": "このスキルのミッションはまだ実装されていません。"
+    },
+    "skills": {
+        "basic": {
+            "name": "Git 基礎",
+            "desc": "基本操作: シングルブランチ・ワークフロー"
+        },
+        "intermediate": {
+            "name": "Git 中級",
+            "desc": "ブランチと履歴の探索"
+        },
+        "proficient": {
+            "name": "Git 熟練",
+            "desc": "修正と管理"
+        },
+        "advanced": {
+            "name": "Git 上級",
+            "desc": "履歴の書き換えと内部構造"
+        },
+        "init": {
+            "name": "git init",
+            "desc": "リポジトリを初期化します。（通常はクローンやセットアップで自動的に行われます）"
+        },
+        "clone": {
+            "name": "git clone",
+            "desc": "リポジトリをクローンします。\"git clone <url> <dir>\" でディレクトリ名を指定できます。"
+        },
+        "status": {
+            "name": "git status",
+            "desc": "変更されたファイルを確認します。\"git status -sb\" で簡潔な表示が可能です。"
+        },
+        "help": {
+            "name": "git help",
+            "desc": "ヘルプを表示します。\"git help <command>\" で具体的な使いかたを確認できます。"
+        },
+        "add": {
+            "name": "git add",
+            "desc": "変更をステージします。\"git add .\" で全ファイルを、特定のファイル名指定で個別に追加できます。"
+        },
+        "commit": {
+            "name": "git commit",
+            "desc": "変更を履歴に保存します。\"git commit --amend\" で直前のコミットを修正できます。"
+        },
+        "push": {
+            "name": "git push",
+            "desc": "リモートにアップロードします。GitGymでは安全にシミュレーションされます。"
+        },
+        "pull": {
+            "name": "git pull",
+            "desc": "最新の状態を取得してマージします。\"git pull --rebase\" で履歴を直線的に保てます。"
+        },
+        "branch": {
+            "name": "git branch",
+            "desc": "ブランチを表示・作成します。\"git branch -d\" でマージ済みのブランチを削除できます。"
+        },
+        "switch": {
+            "name": "git switch",
+            "desc": "ブランチを切り替えます。\"git switch -c <name>\" で作成と切り替えを同時に行えます。"
+        },
+        "checkout": {
+            "name": "git checkout",
+            "desc": "ブランチの切り替えや、\"git checkout -- <file>\" でファイルの復元ができます。"
+        },
+        "merge": {
+            "name": "git merge",
+            "desc": "ブランチを統合します。\"git merge --no-ff\" でマージ履歴を明確に残せます。"
+        },
+        "fetch": {
+            "name": "git fetch",
+            "desc": "リモートの情報のみをダウンロードします。\"git fetch --prune\" で削除済みブランチを整理できます。"
+        },
+        "diff": {
+            "name": "git diff",
+            "desc": "変更内容を表示します。\"git diff --staged\" でコミット予定の変更を確認できます。"
+        },
+        "log": {
+            "name": "git log",
+            "desc": "履歴を表示します。\"git log --oneline --graph\" で視覚的なツリーを確認できます。"
+        },
+        "blame": {
+            "name": "git blame",
+            "desc": "各行の最終編集者を表示します。特定の箇所の修正経緯を調べるのに便利です。"
+        },
+        "restore": {
+            "name": "git restore",
+            "desc": "ファイルを元の状態に戻します。"
+        },
+        "reset": {
+            "name": "git reset",
+            "desc": "現在のブランチの状態を指定したポイントまで戻します。"
+        },
+        "rm": {
+            "name": "git rm",
+            "desc": "ファイルを削除し、管理対象から外します。"
+        },
+        "clean": {
+            "name": "git clean",
+            "desc": "未追跡のファイルを削除します。"
+        },
+        "tag": {
+            "name": "git tag",
+            "desc": "特定のポイントにタグ（目印）を付けます。"
+        },
+        "remote": {
+            "name": "git remote",
+            "desc": "リモートリポジトリの設定を管理します。"
+        },
+        "show": {
+            "name": "git show",
+            "desc": "コミットの詳細やオブジェクトの内容を表示します。"
+        },
+        "stash": {
+            "name": "git stash",
+            "desc": "一時的に変更を退避させます。"
+        },
+        "revert": {
+            "name": "git revert",
+            "desc": "特定のコミットを打ち消す変更を作成します。"
+        },
+        "rebase": {
+            "name": "git rebase",
+            "desc": "コミットのベースとなる地点を移動し、履歴を整理します。"
+        },
+        "cherry_pick": {
+            "name": "git cherry-pick",
+            "desc": "特定のコミットだけを現在のブランチに取り込みます。"
+        },
+        "reflog": {
+            "name": "git reflog",
+            "desc": "リファレンスの更新履歴を確認し、失ったコミットを復元できます。"
+        },
+        "worktree": {
+            "name": "git worktree",
+            "desc": "複数の作業ツリーを並行して管理します。"
+        }
     }
 }

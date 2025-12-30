@@ -18,8 +18,9 @@ import (
 func TestRemoteCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-remote")
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"}) // creates session repo
+	// Init manually
+	s.InitRepo("testrepo")
+	s.CurrentDir = "/testrepo"
 
 	cmd := &RemoteCommand{}
 
@@ -35,6 +36,18 @@ func TestRemoteCommand(t *testing.T) {
 		}
 		if !strings.Contains(res, "origin") || !strings.Contains(res, "https://example.com/repo.git") {
 			t.Errorf("Unexpected remote list output: %s", res)
+		}
+	})
+
+	t.Run("Reproduction: Add without URL", func(t *testing.T) {
+		// Cleanup first
+		_, _ = cmd.Execute(context.Background(), s, []string{"remote", "remove", "origin"})
+
+		_, err := cmd.Execute(context.Background(), s, []string{"remote", "add", "origin"})
+		if err == nil {
+			t.Error("remote add origin (no URL) should have failed")
+		} else {
+			t.Logf("Caught expected error: %v", err)
 		}
 	})
 
@@ -57,6 +70,7 @@ func TestRemoteCommand(t *testing.T) {
 func TestFetchCommand(t *testing.T) {
 	// Setup: Session with a local repo and a simulated remote
 	sm := git.NewSessionManager()
+	sm.DataDir = t.TempDir()
 	s, _ := sm.CreateSession("test-fetch")
 
 	// Create "Remote" repo in memory manually
@@ -79,8 +93,8 @@ func TestFetchCommand(t *testing.T) {
 	sm.SharedRemotes["test-shared"] = remoteRepo
 
 	// Local repo
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	s.InitRepo("repo")
+	s.CurrentDir = "/repo"
 	repo := s.GetRepo()
 
 	// Add remote
@@ -97,7 +111,7 @@ func TestFetchCommand(t *testing.T) {
 			t.Fatalf("Fetch failed: %v", err)
 		}
 		if !strings.Contains(res, "new branch") && !strings.Contains(res, "test-shared") {
-			// output depends on implementation details
+			t.Logf("Note: Fetch output '%s' did not contain expected keywords (implementation detail)", res)
 		}
 
 		// Check if remote ref exists

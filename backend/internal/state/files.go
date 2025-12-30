@@ -66,7 +66,7 @@ func (sm *SessionManager) TouchFile(sessionID, filename string) error {
 		if createErr != nil {
 			return createErr
 		}
-		f.Close()
+		_ = f.Close()
 		return nil
 	}
 

@@ -91,9 +91,9 @@ func TestGitCloneAndPushRestriction(t *testing.T) {
 
 		// Create a file and commit
 		f, _ := w.Filesystem.Create("test.txt")
-		f.Write([]byte("test content"))
-		f.Close()
-		w.Add("test.txt")
+		_, _ = f.Write([]byte("test content"))
+		_ = f.Close()
+		_, _ = w.Add("test.txt")
 
 		_, err = w.Commit("Initial commit", &gogit.CommitOptions{
 			Author: &object.Signature{

@@ -6,6 +6,10 @@ services:
       - "8080:8080" # Optional: expose for direct testing, but Nginx connects internally
     volumes:
       - gitgym-data:/app/.gitgym-data
+    environment:
+      # Set to "true" to clear remote repository data on each startup
+      # Useful for development/testing. Remove for production to preserve data.
+      - CLEAR_REMOTES_ON_START=true
     networks:
       - gitgym-net
     healthcheck:

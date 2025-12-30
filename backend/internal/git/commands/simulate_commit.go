@@ -17,6 +17,9 @@ func init() {
 
 type SimulateCommitCommand struct{}
 
+// Ensure SimulateCommitCommand implements git.Command
+var _ git.Command = (*SimulateCommitCommand)(nil)
+
 func (c *SimulateCommitCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	// Usage: simulate-commit <remote-name> <message> [<author-name> <author-email>]
 	if len(args) < 3 {
@@ -82,7 +85,7 @@ func (c *SimulateCommitCommand) Execute(ctx context.Context, s *git.Session, arg
 	if _, writeErr := file.Write([]byte("Simulated content")); writeErr != nil {
 		return "", writeErr
 	}
-	file.Close()
+	_ = file.Close()
 
 	if _, addErr := w.Add(filename); addErr != nil {
 		return "", addErr

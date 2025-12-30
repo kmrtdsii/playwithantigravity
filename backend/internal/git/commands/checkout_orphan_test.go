@@ -22,8 +22,8 @@ func TestCheckoutOrphan(t *testing.T) {
 
 	// Create initial commit
 	w, _ := r.Worktree()
-	fs.Create("README.md")
-	w.Add("README.md")
+	_, _ = fs.Create("README.md")
+	_, _ = w.Add("README.md")
 	commit, _ := w.Commit("Initial commit", &gogit.CommitOptions{
 		Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
 	})

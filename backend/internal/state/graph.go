@@ -3,8 +3,11 @@ package state
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"sort"
 
+	"github.com/go-git/go-billy/v5/util"
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 )
@@ -25,7 +28,7 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 	// But we need to merge it with Session-specific data (Projects, proper Path)
 
 	// Create base structure from Session data
-	state := BuildGraphState(repo)
+	state := BuildGraphState(repo, showAll)
 
 	// Override/Augment with Session Data
 	state.PotentialCommits = session.PotentialCommits
@@ -49,7 +52,7 @@ func (sm *SessionManager) GetGraphState(sessionID string, showAll bool) (*GraphS
 
 // BuildGraphState constructs a GraphState from a git.Repository.
 // It can be used for both local session repos and shared remotes.
-func BuildGraphState(repo *gogit.Repository) *GraphState {
+func BuildGraphState(repo *gogit.Repository, showAll bool) *GraphState {
 	state := &GraphState{
 		Commits:        []Commit{},
 		Branches:       make(map[string]string),
@@ -72,9 +75,8 @@ func BuildGraphState(repo *gogit.Repository) *GraphState {
 		}
 
 		// 3. Walk Commits
-		// Use BFS from Refs (showAll=false) to ensure HybridStorer works
-		// (Iterating objects fails because Local is empty)
-		populateCommits(repo, state, false)
+		// Use BFS from Refs (if showAll=false) or iterate all objects (if showAll=true)
+		populateCommits(repo, state, showAll)
 		// Let's assume for Shared Remote we want to show everything we have.
 		// Actually, populateCommits logic for ancestors might be better.
 		// But for "Server View", showing the reachable history from branches is correct.
@@ -143,6 +145,7 @@ func populateBranchesAndTags(repo *gogit.Repository, state *GraphState) error {
 		_ = refs.ForEach(func(r *plumbing.Reference) error {
 			if r.Name().IsRemote() {
 				state.RemoteBranches[r.Name().Short()] = r.Hash().String()
+				// log.Printf("Graph: Found Remote Branch %s -> %s", r.Name().Short(), r.Hash().String())
 			} else if r.Name().IsTag() {
 				hash := r.Hash().String()
 				// Check if it's an annotated tag
@@ -166,26 +169,51 @@ func populateBranchesAndTags(repo *gogit.Repository, state *GraphState) error {
 }
 
 func populateFiles(session *Session, state *GraphState) {
-	walkPath := session.CurrentDir
-	if len(walkPath) > 0 && walkPath[0] == '/' {
-		walkPath = walkPath[1:]
-	}
-	if walkPath == "" {
-		walkPath = "."
+	// Show detailed file list based on the WORKTREE (filesystem), including untracked.
+
+	repo := session.GetRepo()
+	if repo == nil {
+		return
 	}
 
-	infos, err := session.Filesystem.ReadDir(walkPath)
-	if err == nil {
-		for _, info := range infos {
-			name := info.Name()
-			if info.IsDir() {
-				if name == ".git" {
-					continue
-				}
-				name = name + "/"
-			}
-			state.Files = append(state.Files, name)
+	w, err := repo.Worktree()
+	if err != nil {
+		// Bare repo or other issue
+		return
+	}
+
+	// Walk the filesystem to get ALL files including untracked
+	// PERFORMANCE GUARD: Limit file count to preventing UI freezing
+	const MaxFileCount = 1000
+	count := 0
+
+	_ = util.Walk(w.Filesystem, "/", func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return nil
 		}
+		if count >= MaxFileCount {
+			return filepath.SkipDir // Stop walking
+		}
+
+		if fi.IsDir() {
+			if path == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Clean path if needed (billy usually returns clean paths)
+		if path != "" && path[0] == '/' {
+			path = path[1:]
+		}
+
+		state.Files = append(state.Files, path)
+		count++
+		return nil
+	})
+
+	if count >= MaxFileCount {
+		state.Files = append(state.Files, "... (limit reached)")
 	}
 }
 

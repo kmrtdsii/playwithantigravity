@@ -13,14 +13,14 @@ func TestParseCommand(t *testing.T) {
 		expectedArgs []string
 	}{
 		{"git status", "status", []string{"status"}},
-		{"git commit -m 'msg'", "commit", []string{"commit", "-m", "'msg'"}},
+		{"git commit -m 'msg'", "commit", []string{"commit", "-m", "msg"}},
 		{"git --version", "version", []string{"version"}},
 		{"git -v", "version", []string{"version"}},
 		{"git --help", "help", []string{"help"}},
 		{"git -h", "help", []string{"help"}},
 		{"--version", "version", []string{"version"}},
 		{"git", "help", []string{"help"}},
-		{"git ls", "git-ls", []string{"git", "ls"}},
+		{"git ls", "ls", []string{"ls"}},
 	}
 
 	for _, tt := range tests {

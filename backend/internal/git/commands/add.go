@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 
+	gogit "github.com/go-git/go-git/v5"
 	"github.com/kurobon/gitgym/backend/internal/git"
 )
 
@@ -18,37 +19,22 @@ func init() {
 
 type AddCommand struct{}
 
+// Ensure AddCommand implements git.Command
+var _ git.Command = (*AddCommand)(nil)
+
+type AddOptions struct {
+	All       bool
+	Pathspecs []string
+}
+
 func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	// Flags
-	var (
-		all bool
-	)
-	var pathspecs []string
-
-	// Parse flags
-	cmdArgs := args[1:]
-	for i := 0; i < len(cmdArgs); i++ {
-		arg := cmdArgs[i]
-		switch arg {
-		case "-h", "--help":
-			return c.Help(), nil
-		case "-A", "--all":
-			all = true
-		case "--":
-			// Remainder are pathspecs
-			if i+1 < len(cmdArgs) {
-				pathspecs = append(pathspecs, cmdArgs[i+1:]...)
-			}
-			i = len(cmdArgs) // Break loop
-		default:
-			if arg == "." {
-				all = true // git add . is effectively all in current dir
-			}
-			pathspecs = append(pathspecs, arg)
-		}
+	// 1. Parse Args
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		return "", err
 	}
 
 	repo := s.GetRepo()
@@ -56,24 +42,57 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
-	w, _ := repo.Worktree()
-
-	if len(pathspecs) == 0 && !all {
-		return "", fmt.Errorf("Nothing specified, nothing added.\nMaybe you wanted to say 'git add .'?")
+	// 2. Resolve Context (Worktree)
+	w, err := repo.Worktree()
+	if err != nil {
+		return "", err
 	}
 
-	// Logic
+	// 3. Execution
+	return c.executeAdd(w, opts)
+}
+
+func (c *AddCommand) parseArgs(args []string) (*AddOptions, error) {
+	opts := &AddOptions{}
+	cmdArgs := args[1:]
+
+	for i := 0; i < len(cmdArgs); i++ {
+		arg := cmdArgs[i]
+		switch arg {
+		case "-h", "--help":
+			return nil, fmt.Errorf("help requested")
+		case "-A", "--all":
+			opts.All = true
+		case "--":
+			// Remainder are pathspecs
+			if i+1 < len(cmdArgs) {
+				opts.Pathspecs = append(opts.Pathspecs, cmdArgs[i+1:]...)
+			}
+			return opts, nil // Break entirely as rest are paths
+		default:
+			if arg == "." {
+				opts.All = true
+			}
+			opts.Pathspecs = append(opts.Pathspecs, arg)
+		}
+	}
+	return opts, nil
+}
+
+func (c *AddCommand) executeAdd(w *gogit.Worktree, opts *AddOptions) (string, error) {
+	if len(opts.Pathspecs) == 0 && !opts.All {
+		return "", fmt.Errorf("nothing specified, nothing added.\nMaybe you wanted to say 'git add .'?")
+	}
+
 	var err error
-	if all {
+	if opts.All {
 		// "git add ." or "git add -A"
-		// go-git w.Add(".") adds all changes in worktree
 		_, err = w.Add(".")
 	} else {
-		for _, file := range pathspecs {
+		for _, file := range opts.Pathspecs {
 			_, e := w.Add(file)
 			if e != nil {
-				return "", e // Error out on first fail? Standard git warns but continues?
-				// go-git Add returns err.
+				return "", e
 			}
 		}
 	}
@@ -82,19 +101,47 @@ func (c *AddCommand) Execute(ctx context.Context, s *git.Session, args []string)
 		return "", err
 	}
 
-	if all {
+	if opts.All {
 		return "Added changes", nil
 	}
-	return "Added " + fmt.Sprintf("%v", pathspecs), nil
+	return "Added " + fmt.Sprintf("%v", opts.Pathspecs), nil
 }
 
 func (c *AddCommand) Help() string {
-	return `usage: git add [options] [--] <pathspec>...
+	return `📘 GIT-ADD (1)                                          Git Manual
 
-Options:
-    .                 add all changes in current directory
-    <file>            add specific file
+ 💡 DESCRIPTION
+    ・変更したファイルをステージングエリア（コミットする準備場所）に追加する
+    ・新規作成したファイルをGitの管理対象にする
 
-Add file contents to the index (staging area).
+ 📋 SYNOPSIS
+    git add [<options>] [--] <pathspec>...
+
+ ⚙️  COMMON OPTIONS
+    .
+        カレントディレクトリ配下のすべての変更（新規・変更・削除）を追加します。
+
+    -A, --all
+        ワークツリー全体のすべての変更を追加します。
+
+    -p, --patch
+        (現在未実装) 変更箇所(hunk)を選択してステージングします。
+
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: すべての変更をステージング
+       変更内容が大きい場合など、一旦すべてステージングします。
+       $ git add .
+
+    2. 実践: 特定のファイルだけ (Recommended)
+       関係ないファイルの巻き込み事故を防ぐため、慣れてきたらファイル指定がベストです。
+       $ git add src/main.go
+
+    3. 実践: 部分的にステージング (Advance)
+       「この修正はコミットしたいけど、あのデバッグログは入れたくない」
+       そういう時は -p (patch) オプションを使います。
+       $ git add -p
+
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-add
 `
 }

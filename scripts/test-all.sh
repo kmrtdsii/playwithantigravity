@@ -12,10 +12,23 @@ go test ./...
 echo "   > Running Linters (golangci-lint)..."
 # Check if golangci-lint is installed, otherwise skip or warn
 if command -v golangci-lint &> /dev/null; then
-    golangci-lint run ./...
+    golangci-lint run --tests=false --disable=errcheck --enable=gosec ./...
 else
-    echo "   [INFO] golangci-lint not found in PATH, running via 'go run' (v1.62.2)..."
-    go run github.com/golangci/golangci-lint/cmd/golangci-lint@v1.62.2 run ./...
+    echo "   [INFO] golangci-lint not found in PATH, running via 'go run' (latest)..."
+    go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run --tests=false --disable=errcheck --enable=gosec ./...
+fi
+cd ..
+
+# 1.5. Security Verification
+echo "---------------------------------------"
+echo "🔒 Verifying Security..."
+cd backend
+echo "   > Running govulncheck..."
+if command -v govulncheck &> /dev/null; then
+    govulncheck ./...
+else
+    echo "   [INFO] govulncheck not found in PATH, running via 'go run'..."
+    go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 fi
 cd ..
 

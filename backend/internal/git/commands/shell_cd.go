@@ -20,6 +20,9 @@ func init() {
 
 type CdCommand struct{}
 
+// Ensure CdCommand implements git.Command
+var _ git.Command = (*CdCommand)(nil)
+
 func (c *CdCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -69,5 +72,20 @@ func (c *CdCommand) Execute(ctx context.Context, s *git.Session, args []string) 
 }
 
 func (c *CdCommand) Help() string {
-	return "usage: cd <directory>\n\nChange current directory."
+	return `📘 CD (1)                                               Shell Manual
+
+ 💡 DESCRIPTION
+    ・作業フォルダを移動する
+    （` + "`" + `..` + "`" + ` で一つ上の階層へ移動できます）
+
+ 📋 SYNOPSIS
+    cd <path>
+
+ 🛠  EXAMPLES
+    1. ディレクトリへ移動
+       $ cd my-repo
+
+    2. 上の階層へ
+       $ cd ..
+`
 }

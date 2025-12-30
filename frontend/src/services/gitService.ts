@@ -84,13 +84,16 @@ export const gitService = {
         return res.json();
     },
 
-    async ingestRemote(name: string, url: string): Promise<void> {
+    async ingestRemote(name: string, url: string, depth?: number): Promise<void> {
         const res = await fetch('/api/remote/ingest', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, url })
+            body: JSON.stringify({ name, url, depth: depth || 0 })
         });
-        if (!res.ok) throw new Error('Failed to ingest remote');
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText || 'Failed to ingest remote');
+        }
     },
 
     async getRemoteInfo(url: string): Promise<{
@@ -113,13 +116,37 @@ export const gitService = {
         return data;
     },
 
+    /**
+     * Get list of currently registered shared remotes
+     */
+    async listRemotes(): Promise<string[]> {
+        const res = await fetch('/api/remote/list');
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.remotes || [];
+    },
+
+    /**
+     * Helper to get the current active remote name (since we only support single residency).
+     * Returns the first remote found, or 'origin' as fallback.
+     */
+    async getActiveRemoteName(): Promise<string> {
+        try {
+            const remotes = await this.listRemotes();
+            return remotes[0] || 'origin';
+        } catch (e) {
+            console.warn('Failed to list remotes, falling back to origin', e);
+            return 'origin';
+        }
+    },
+
     async fetchPullRequests(): Promise<PullRequest[]> {
         const res = await fetch('/api/remote/pull-requests');
         if (!res.ok) throw new Error('Failed to fetch pull requests');
         return res.json();
     },
 
-    async createPullRequest(pr: { title: string; description: string; sourceBranch: string; targetBranch: string; creator: string }): Promise<PullRequest> {
+    async createPullRequest(pr: { title: string; description: string; sourceBranch: string; targetBranch: string; creator: string; remoteName: string }): Promise<PullRequest> {
         const res = await fetch('/api/remote/pull-requests/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -141,6 +168,18 @@ export const gitService = {
         }
     },
 
+    async deletePullRequest(id: number): Promise<void> {
+        const res = await fetch('/api/remote/pull-requests/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id })
+        });
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText || 'Failed to delete pull request');
+        }
+    },
+
     async resetRemote(name: string = 'origin'): Promise<void> {
         const res = await fetch('/api/remote/reset', {
             method: 'POST',
@@ -148,5 +187,58 @@ export const gitService = {
             body: JSON.stringify({ name })
         });
         if (!res.ok) throw new Error('Failed to reset remote');
+    },
+
+    async deleteRemote(name: string): Promise<void> {
+        const res = await fetch('/api/remote/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+        });
+        if (!res.ok) {
+            // If the endpoint doesn't exist, fall back to reset which might clear it
+            // checking status 404
+            if (res.status === 404) {
+                console.warn('/api/remote/delete not found, trying reset');
+                return this.resetRemote(name);
+            }
+            throw new Error('Failed to delete remote');
+        }
+    },
+
+    async createRemote(name: string, sessionId: string): Promise<{ name: string; remoteUrl: string }> {
+        const res = await fetch('/api/remote/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Session-ID': sessionId
+            },
+            body: JSON.stringify({ name })
+        });
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText || 'Failed to create repository');
+        }
+        return res.json();
+    },
+
+    async getWorkspaceTree(sessionId: string): Promise<{
+        tree: DirectoryNode[];
+        currentPath: string;
+        currentRepo: string;
+    }> {
+        const res = await fetch(`/api/workspace/tree?session=${sessionId}&t=${Date.now()}`);
+        if (!res.ok) throw new Error('Failed to fetch workspace tree');
+        return res.json();
     }
 };
+
+// Types for workspace tree
+export interface DirectoryNode {
+    path: string;
+    name: string;
+    isDir: boolean;
+    isRepo: boolean;
+    branch?: string;
+    children?: DirectoryNode[];
+}

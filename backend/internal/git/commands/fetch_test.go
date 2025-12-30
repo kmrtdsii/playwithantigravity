@@ -33,7 +33,7 @@ func TestFetchCommand_Reproduction(t *testing.T) {
 	})
 
 	// 3. Ingest
-	err := sm.IngestRemote(context.Background(), "origin", remotePath)
+	err := sm.IngestRemote(context.Background(), "origin", remotePath, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

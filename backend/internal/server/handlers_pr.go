@@ -25,12 +25,13 @@ func (s *Server) handleCreatePullRequest(w http.ResponseWriter, r *http.Request)
 		SourceBranch string `json:"sourceBranch"`
 		TargetBranch string `json:"targetBranch"`
 		Creator      string `json:"creator"`
+		RemoteName   string `json:"remoteName"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	pr, err := s.SessionManager.CreatePullRequest(req.Title, req.Description, req.SourceBranch, req.TargetBranch, req.Creator)
+	pr, err := s.SessionManager.CreatePullRequest(req.Title, req.Description, req.SourceBranch, req.TargetBranch, req.Creator, req.RemoteName)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -70,6 +71,25 @@ func (s *Server) handleMergePullRequest(w http.ResponseWriter, r *http.Request) 
 	_, err := git.Dispatch(r.Context(), session, "merge-pr", []string{"merge-pr", fmt.Sprintf("%d", req.ID), req.RemoteName})
 
 	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleDeletePullRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost && r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		ID int `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := s.SessionManager.DeletePullRequest(req.ID); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

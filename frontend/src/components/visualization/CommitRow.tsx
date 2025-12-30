@@ -7,7 +7,7 @@ interface CommitRowProps {
     node: VizNode;
     badges: Array<{ text: string; type: string; isActive?: boolean }>;
     isSelected: boolean;
-    onClick: () => void;
+    onClick?: () => void;
 }
 
 export const CommitRow: React.FC<CommitRowProps> = ({
@@ -30,7 +30,7 @@ export const CommitRow: React.FC<CommitRowProps> = ({
             alignItems: 'center',
             whiteSpace: 'nowrap',
             gap: '8px',
-            cursor: 'pointer',
+            cursor: onClick ? 'pointer' : 'default',
             paddingRight: '16px',
             userSelect: 'none',
             opacity: node.opacity,
@@ -41,25 +41,28 @@ export const CommitRow: React.FC<CommitRowProps> = ({
     >
         {/* Commit ID */}
         <span
-            onClick={(e) => e.stopPropagation()}
+            onClick={onClick} // Allow click to trigger selection
+            className="commit-hash"
             style={{
-                color: 'var(--text-tertiary)',
+                color: isSelected ? 'var(--text-primary)' : 'var(--text-tertiary)',
                 fontSize: '10px',
                 width: '60px',
                 textAlign: 'left',
                 flexShrink: 0,
-                fontWeight: 'normal',
+                fontWeight: isSelected ? 'bold' : 'normal',
                 marginRight: '8px',
                 fontFamily: 'var(--font-mono)',
                 userSelect: 'text',
-                cursor: 'text'
+                cursor: onClick ? 'pointer' : 'default', // Only show pointer if clickable
+                textDecoration: onClick ? 'underline' : 'none', // Only underline if clickable
+                textUnderlineOffset: '2px'
             }}>
             {node.id.substring(0, 7)}
         </span>
 
         {/* Badges */}
         {badges.length > 0 && (
-            <div style={{ display: 'flex', gap: '4px' }}>
+            <div style={{ display: 'flex', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
                 {badges.map((badge, i) => (
                     <CommitBadge key={i} badge={badge} color={node.color} />
                 ))}
@@ -85,6 +88,8 @@ export const CommitRow: React.FC<CommitRowProps> = ({
             {node.isGhost && '[SIMULATION] '}
             {node.message}
         </span>
+
+
 
         {/* Timestamp */}
         <span style={{

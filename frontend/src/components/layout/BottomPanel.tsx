@@ -1,5 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import FileExplorer from './FileExplorer';
+import { StagedFilesPanel } from './StagedFilesPanel';
+import { useGit } from '../../context/GitAPIContext';
 import GitTerminal from '../terminal/GitTerminal';
 import { Resizer } from '../common';
 import type { SelectedObject } from '../../types/layoutTypes';
@@ -11,6 +13,10 @@ interface BottomPanelProps {
 const BottomPanel: React.FC<BottomPanelProps> = ({ onSelect }) => {
     // Layout State
     const [explorerWidth, setExplorerWidth] = useState(40); // Percentage
+
+    // Connect to Git State
+    const { state } = useGit();
+    const hasStaged = state.staging && state.staging.length > 0;
 
     // Resize State & Refs
     const containerRef = useRef<HTMLDivElement>(null);
@@ -51,15 +57,21 @@ const BottomPanel: React.FC<BottomPanelProps> = ({ onSelect }) => {
 
     return (
         <div ref={containerRef} style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-            {/* File Explorer Panel */}
+            {/* File Explorer Panel Container */}
             <div style={{
                 width: `${explorerWidth}%`,
                 display: 'flex',
-                flexDirection: 'column',
+                flexDirection: 'row', // Horizontal layout for Explorer + Staged
                 borderRight: '1px solid var(--border-subtle)',
                 minWidth: 0
             }}>
-                <FileExplorer onSelect={onSelect} />
+                {/* File Tree */}
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                    <FileExplorer onSelect={onSelect} />
+                </div>
+
+                {/* Staged Files Panel (Conditional) */}
+                {hasStaged && <StagedFilesPanel />}
             </div>
 
             {/* Resize Handle */}

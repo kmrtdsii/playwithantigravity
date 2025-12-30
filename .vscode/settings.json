@@ -1,6 +1,0 @@
-{
-    "direnv.restart.automatic": true,
-    "go.alternateTools": {
-        "go": "go"
-    }
-}

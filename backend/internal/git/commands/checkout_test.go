@@ -17,17 +17,17 @@ func TestCheckoutCommand(t *testing.T) {
 	sm := git.NewSessionManager()
 	s, _ := sm.CreateSession("test-checkout")
 
-	initCmd := &InitCommand{}
-	initCmd.Execute(context.Background(), s, []string{"init"})
+	_, _ = s.InitRepo("repo")
+	s.CurrentDir = "/repo"
 
 	repo := s.GetRepo()
 	w, _ := repo.Worktree()
 
 	// Need a commit to checkout from
 	f, _ := w.Filesystem.Create("file.txt")
-	f.Write([]byte("base"))
-	f.Close()
-	w.Add("file.txt")
+	_, _ = f.Write([]byte("base"))
+	_ = f.Close()
+	_, _ = w.Add("file.txt")
 	w.Commit("base commit", &gogit.CommitOptions{Author: &object.Signature{Name: "Me", When: time.Now()}})
 
 	cmd := &CheckoutCommand{}
@@ -70,7 +70,44 @@ func TestCheckoutCommand(t *testing.T) {
 		}
 	})
 
-	// Test brittle case (if we want to support it, or confirm it fails now)
-	// git checkout -b feature2 (works)
-	// git checkout -f master (fails currently because args[1] must be -b or branch?)
+	t.Run("Checkout Force", func(t *testing.T) {
+		// Determine default branch name again or use hardcoded if known
+		var defaultBranch string
+		refs, _ := repo.References()
+		refs.ForEach(func(r *plumbing.Reference) error {
+			if r.Name().IsBranch() && r.Name().Short() != "feature" {
+				defaultBranch = r.Name().Short()
+			}
+			return nil
+		})
+		if defaultBranch == "" {
+			defaultBranch = "master"
+		}
+
+		// Create a dirty state
+		f, _ := w.Filesystem.Create("file.txt")
+		f.Write([]byte("dirty"))
+		f.Close()
+
+		// Attempt checkout without force (should fail or carry over? Git checkout carries over if no conflict, but if modifying same file...)
+		// If we switch to 'master' (which has 'base'), it should conflict/fail.
+
+		// However, with memfs and our simplistic implementation, let's verify -f overwrites.
+		res, err := cmd.Execute(context.Background(), s, []string{"checkout", "-f", defaultBranch})
+		if err != nil {
+			t.Fatalf("Checkout -f failed: %v", err)
+		}
+		if !strings.Contains(res, fmt.Sprintf("Switched to branch '%s'", defaultBranch)) {
+			t.Errorf("Unexpected output: %s", res)
+		}
+
+		// Check content reverted to master's version
+		f2, _ := w.Filesystem.Open("file.txt")
+		buf := make([]byte, 100)
+		n, _ := f2.Read(buf)
+		content := string(buf[:n])
+		if content != "base" {
+			t.Errorf("Expected 'base', got '%s'", content)
+		}
+	})
 }

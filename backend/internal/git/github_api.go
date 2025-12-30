@@ -20,10 +20,10 @@ type RepoInfo struct {
 
 // CloneEstimate contains estimated clone time information
 type CloneEstimate struct {
-	RepoInfo         *RepoInfo     `json:"repoInfo"`
-	EstimatedSeconds int           `json:"estimatedSeconds"`
-	SizeDisplay      string        `json:"sizeDisplay"`
-	Message          string        `json:"message"`
+	RepoInfo         *RepoInfo `json:"repoInfo"`
+	EstimatedSeconds int       `json:"estimatedSeconds"`
+	SizeDisplay      string    `json:"sizeDisplay"`
+	Message          string    `json:"message"`
 }
 
 // FetchRepoInfo retrieves repository information from GitHub API
@@ -62,7 +62,7 @@ func FetchRepoInfo(url string) (*RepoInfo, error) {
 	}
 
 	if resp.StatusCode == 403 {
-		return nil, fmt.Errorf("GitHub API rate limit exceeded. Please wait and try again.")
+		return nil, fmt.Errorf("GitHub API rate limit exceeded. Please wait and try again")
 	}
 
 	if resp.StatusCode != 200 {
@@ -96,10 +96,25 @@ func EstimateCloneTime(sizeKB int) time.Duration {
 }
 
 // GetCloneEstimate fetches repo info and calculates clone time estimate
+// For non-GitHub URLs, returns default estimates without API call
 func GetCloneEstimate(url string) (*CloneEstimate, error) {
 	info, err := FetchRepoInfo(url)
 	if err != nil {
-		return nil, err
+		// For non-GitHub URLs or API errors, return default estimate
+		// Extract repo name from URL for display
+		repoName := extractRepoName(url)
+		return &CloneEstimate{
+			RepoInfo: &RepoInfo{
+				Name:          repoName,
+				FullName:      repoName,
+				Size:          0,
+				DefaultBranch: "main",
+				Description:   "",
+			},
+			EstimatedSeconds: 10, // Default 10 seconds for unknown repos
+			SizeDisplay:      "unknown",
+			Message:          "Repository size unknown. Cloning may take a moment.",
+		}, nil
 	}
 
 	estimated := EstimateCloneTime(info.Size)
@@ -157,4 +172,24 @@ func formatSize(sizeKB int) string {
 	}
 	sizeGB := sizeMB / 1024.0
 	return fmt.Sprintf("%.2f GB", sizeGB)
+}
+
+// extractRepoName extracts repository name from various URL formats
+func extractRepoName(url string) string {
+	url = strings.TrimSpace(url)
+	url = strings.TrimSuffix(url, ".git")
+
+	// Try to extract last path segment
+	parts := strings.Split(url, "/")
+	if len(parts) > 0 {
+		name := parts[len(parts)-1]
+		// Handle git@ URLs like git@github.com:owner/repo
+		if colonIdx := strings.LastIndex(name, ":"); colonIdx != -1 {
+			name = name[colonIdx+1:]
+		}
+		if name != "" {
+			return name
+		}
+	}
+	return "repository"
 }

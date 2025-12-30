@@ -12,8 +12,13 @@ func TestGitBranchDelete(t *testing.T) {
 	}
 
 	// 1. Init repo
-	if _, err := ExecuteGitCommand(sessionID, []string{"init"}); err != nil {
-		t.Fatalf("Failed to init git: %v", err)
+	// "git init" is disabled, so we initialize via internal session method
+	session, err := GetSession(sessionID)
+	if err != nil {
+		t.Fatalf("Failed to get session: %v", err)
+	}
+	if _, err := session.InitRepo(""); err != nil {
+		t.Fatalf("Failed to init repo: %v", err)
 	}
 
 	// 2. Need a commit to create a branch

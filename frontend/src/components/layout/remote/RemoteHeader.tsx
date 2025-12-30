@@ -1,34 +1,42 @@
 import React, { useState } from 'react';
-import { Cloud, Database, Copy, Check } from 'lucide-react';
-import { headerStyle, inputStyle, cancelButtonStyle, submitButtonStyle } from './remoteStyles';
+import { useTranslation } from 'react-i18next';
+import { Settings, Cloud, Copy, Check, Database } from 'lucide-react';
+import {
+    toolbarRowStyle
+} from './remoteStyles';
 
 interface RemoteHeaderProps {
     remoteUrl: string;
     projectName: string;
+    // Legacy/Unused props kept for compatibility
     isEditMode: boolean;
     isSettingUp: boolean;
     setupUrl: string;
     onSetupUrlChange: (url: string) => void;
-    onEditRemote: () => void;
+    // Actions
+    onEditRemote: () => void; // Used for "Settings" action
+    onDisconnect?: () => void; // Kept in interface but unused in component
     onCancelEdit: () => void;
     onSubmit: (e: React.FormEvent) => void;
+    // Multi-remote Props
+    remotes?: string[];
+    activeRemote?: string;
+    onSelectRemote?: (name: string) => void;
+    // New prop to hide settings button when already in settings view
+    isSettingsOpen?: boolean;
 }
 
 /**
  * Header component for the Remote Repository panel.
- * Displays repository info and handles URL editing.
+ * Simplified design: No tabs, just title, URL copier, and Settings button.
  */
 const RemoteHeader: React.FC<RemoteHeaderProps> = ({
     remoteUrl,
     projectName,
-    isEditMode,
-    isSettingUp,
-    setupUrl,
-    onSetupUrlChange,
-    onEditRemote,
-    onCancelEdit,
-    onSubmit,
+    onEditRemote, // This will now open the settings view
+    isSettingsOpen = false,
 }) => {
+    const { t } = useTranslation('common');
     const [isCopied, setIsCopied] = useState(false);
 
     const handleCopyUrl = async () => {
@@ -38,168 +46,156 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
             setIsCopied(true);
             setTimeout(() => setIsCopied(false), 2000);
         } catch (err) {
-            console.error('Failed to copy:', err);
+            console.error('Failed to copy!', err);
         }
     };
 
-    const displayTitle = remoteUrl ? projectName : 'NO REMOTE CONFIGURED';
-
-    if (isEditMode) {
-        return (
-            <div style={headerStyle}>
-                <form onSubmit={onSubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%' }}>
-                    <input
-                        type="text"
-                        placeholder="https://github.com/..."
-                        value={setupUrl}
-                        onChange={(e) => onSetupUrlChange(e.target.value)}
-                        style={inputStyle}
-                        autoFocus
-                        onFocus={(e) => e.target.select()}
-                        data-testid="remote-url-input"
-                    />
-                    <button type="button" onClick={onCancelEdit} style={cancelButtonStyle} data-testid="remote-cancel-btn">
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        disabled={isSettingUp || !setupUrl}
-                        style={{ ...submitButtonStyle, opacity: isSettingUp ? 0.7 : 1 }}
-                        data-testid="remote-update-btn"
-                    >
-                        {isSettingUp ? 'UPDATING...' : 'UPDATE'}
-                    </button>
-                </form>
-            </div>
-        );
-    }
+    const displayTitle = remoteUrl ? projectName : (t('remote.empty.title') || 'Remote Repository');
 
     return (
-        <div style={headerStyle}>
-            {/* Title row with Configure button */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ fontWeight: 700, fontSize: 'var(--text-md)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)', color: 'var(--text-primary)' }}>
-                    {remoteUrl ? (
-                        <div style={{ position: 'relative', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Cloud size={20} strokeWidth={2} style={{ position: 'absolute', top: 0, left: 0, color: 'var(--text-primary)' }} />
-                            <Database size={10} strokeWidth={2} fill="var(--bg-secondary)" style={{ position: 'absolute', bottom: 2, right: 2, color: 'var(--text-primary)', background: 'var(--bg-secondary)', borderRadius: '50%' }} />
-                        </div>
-                    ) : null}
-                    <span>{displayTitle}</span>
-                    {remoteUrl && (
-                        <span style={{
-                            fontSize: 'var(--text-xs)',
-                            background: 'var(--accent-primary)',
-                            color: 'white',
-                            padding: '1px 6px',
-                            borderRadius: '10px',
-                            fontWeight: 600
-                        }}>
-                            origin
-                        </span>
-                    )}
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            borderBottom: '1px solid var(--border-subtle)',
+            background: 'var(--bg-secondary)', // Same as developer tabs
+        }}>
+            {/* ROW 1: Title & Main Actions (36px) - Matches DeveloperTabs */}
+            <div style={{
+                ...toolbarRowStyle,
+                padding: '0 12px',
+                justifyContent: 'space-between',
+                height: '36px',
+                borderBottom: '1px solid var(--border-subtle)'
+            }}>
+                {/* Left: Project Name */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <Cloud
+                            size={18}
+                            className={remoteUrl ? "text-accent-primary" : "text-tertiary"}
+                            style={{ opacity: remoteUrl ? 1 : 0.5 }}
+                        />
+                        <Database
+                            size={12}
+                            style={{
+                                position: 'absolute',
+                                right: -4,
+                                bottom: -2,
+                                color: remoteUrl ? 'var(--text-accent)' : 'var(--text-tertiary)',
+                                background: 'var(--bg-secondary)',
+                                borderRadius: '50%'
+                            }}
+                        />
+                    </div>
+                    <span style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'var(--text-primary)',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                    }}>
+                        {displayTitle}
+                    </span>
                 </div>
 
-                {/* Configure button */}
-                {remoteUrl && (
+                {/* Settings button - Right aligned */}
+                {!isSettingsOpen && (
                     <button
                         onClick={onEditRemote}
+                        title={t('remote.header.settings')}
                         style={{
-                            padding: '3px 10px',
-                            fontSize: 'var(--text-sm)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
                             background: 'transparent',
-                            border: '1px solid var(--border-subtle)',
-                            borderRadius: 'var(--radius-sm)',
+                            border: 'none',
                             color: 'var(--text-secondary)',
+                            fontSize: '11px',
                             cursor: 'pointer',
-                            fontWeight: 600,
-                            whiteSpace: 'nowrap'
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            flexShrink: 0
                         }}
-                        data-testid="remote-configure-btn"
+                        className="hover:bg-bg-tertiary transition-colors"
                     >
-                        Configure
+                        <Settings size={14} />
+                        <span>{remoteUrl ? t('remote.header.settings') : t('remote.header.setup')}</span>
                     </button>
                 )}
             </div>
 
-            {/* Full-width URL row */}
-            {remoteUrl ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <span style={{
-                        fontSize: 'var(--text-xs)',
-                        color: 'var(--text-tertiary)',
-                        whiteSpace: 'nowrap'
-                    }}>
-                        Clone using the web URL.
-                    </span>
-                    <input
-                        type="text"
-                        readOnly
-                        value={remoteUrl}
-                        style={{
+            {/* ROW 2: URL & Info (40px) - Matches Local View Toggles */}
+            <div style={{
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 12px',
+                background: 'var(--bg-toolbar)',
+                gap: '12px'
+            }}>
+                {remoteUrl ? (
+                    <>
+                        <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            color: 'var(--text-secondary)',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {t('remote.header.label')}
+                        </span>
+                        <div style={{
                             flex: 1,
-                            minWidth: 0,
-                            padding: 'var(--space-2) var(--space-3)',
-                            fontSize: 'var(--text-sm)',
-                            fontFamily: 'monospace',
-                            background: 'var(--bg-tertiary)',
-                            border: '1px solid var(--border-subtle)',
-                            borderRadius: 'var(--radius-md)',
-                            color: 'var(--text-primary)',
-                            outline: 'none',
-                            cursor: 'text'
-                        }}
-                        onClick={(e) => (e.target as HTMLInputElement).select()}
-                    />
-                    <div style={{ position: 'relative' }}>
-                        <button
-                            onClick={handleCopyUrl}
-                            title="Copy URL to clipboard"
-                            style={{
-                                padding: 'var(--space-1)',
-                                background: 'transparent',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: isCopied ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                                transition: 'color 0.15s'
-                            }}
-                        >
-                            {isCopied ? <Check size={16} /> : <Copy size={16} />}
-                        </button>
-                        {/* Copied! tooltip */}
-                        {isCopied && (
-                            <div style={{
-                                position: 'absolute',
-                                top: '100%',
-                                right: 0,
-                                marginTop: '4px',
-                                padding: '4px 8px',
-                                background: 'var(--accent-primary)',
-                                color: 'white',
-                                fontSize: 'var(--text-xs)',
-                                fontWeight: 600,
-                                borderRadius: 'var(--radius-sm)',
-                                whiteSpace: 'nowrap',
-                                zIndex: 100,
-                                animation: 'fadeIn 0.15s ease-out'
-                            }}>
-                                Copied!
-                            </div>
-                        )}
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            minWidth: 0
+                        }}>
+                            <input
+                                type="text"
+                                readOnly
+                                value={remoteUrl}
+                                style={{
+                                    flex: 1,
+                                    background: 'var(--bg-tertiary)',
+                                    border: '1px solid var(--border-subtle)',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    fontFamily: 'monospace',
+                                    color: 'var(--text-secondary)',
+                                    outline: 'none',
+                                    width: '100%'
+                                }}
+                            />
+                            <button
+                                onClick={handleCopyUrl}
+                                title="Copy URL"
+                                style={{
+                                    display: 'flex', alignItems: 'center',
+                                    background: 'transparent', border: 'none',
+                                    padding: '4px', cursor: 'pointer',
+                                    color: isCopied ? 'var(--accent-primary)' : 'var(--text-tertiary)'
+                                }}
+                            >
+                                {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                        {/* Automatically generated build information */}
+                        <div style={{
+                            fontSize: '9px',
+                            color: 'var(--text-secondary)',
+                            opacity: 0.8,
+                            fontFamily: 'monospace'
+                        }}>
+                            Built: {__BUILD_TIME__}
+                        </div>
                     </div>
-                </div>
-            ) : (
-                <div style={{
-                    fontSize: 'var(--text-sm)',
-                    color: 'var(--text-tertiary)',
-                    marginTop: 'var(--space-1)'
-                }}>
-                    Connect a GitHub repository to visualize remote history.
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };

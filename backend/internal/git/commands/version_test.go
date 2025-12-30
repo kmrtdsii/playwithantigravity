@@ -14,5 +14,5 @@ func TestVersionCommand(t *testing.T) {
 	output, err := cmd.Execute(context.TODO(), &git.Session{}, []string{"version"})
 	assert.NoError(t, err)
 	assert.True(t, strings.HasPrefix(output, "git version"), "Output should start with 'git version'")
-	assert.Contains(t, output, "2.51.2")
+	assert.Contains(t, output, "2.47.1")
 }

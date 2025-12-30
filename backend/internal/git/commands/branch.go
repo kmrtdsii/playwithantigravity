@@ -16,64 +16,32 @@ func init() {
 
 type BranchCommand struct{}
 
+// Ensure BranchCommand implements git.Command
+var _ git.Command = (*BranchCommand)(nil)
+
+type BranchOptions struct {
+	Delete      bool
+	DeleteForce bool
+	Move        bool
+	StartPoint  string
+	BranchName  string
+	NewName     string
+	Remote      bool
+	All         bool
+	Force       bool
+}
+
 func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
 
-	// 1. Basic Argument Parsing
-	// supported flags: -d, -D, -m, -r, -a, -f, --help
-	var (
-		deleteMode bool
-		force      bool // -D or -f depending on context
-		moveMode   bool
-		remoteMode bool
-		allMode    bool
-		helpMode   bool
-		branchName string
-		secondArg  string // newBranchName for move, startPoint for create
-	)
-
-	// Skip the first arg which is "branch"
-	cmdArgs := args[1:]
-
-	// If no arguments, it's a list command
-	if len(cmdArgs) == 0 {
-		return c.listBranches(s.GetRepo(), false, false)
-	}
-
-	// Parse flags manually to handle mixed order if needed
-	for i := 0; i < len(cmdArgs); i++ {
-		arg := strings.TrimSpace(cmdArgs[i])
-		switch arg {
-		case "--help", "-h":
-			helpMode = true
-		case "-d", "--delete":
-			deleteMode = true
-		case "-D":
-			deleteMode = true
-			force = true
-		case "-m", "--move":
-			moveMode = true
-		case "-f", "--force":
-			force = true
-		case "-r", "--remotes":
-			remoteMode = true
-		case "-a", "--all":
-			allMode = true
-		default:
-			if strings.HasPrefix(arg, "-") {
-				return "", fmt.Errorf("unknown option: %s", arg)
-			}
-			if branchName == "" {
-				branchName = arg
-			} else if secondArg == "" {
-				secondArg = arg
-			}
+	// 1. Parse Args
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
 		}
-	}
-
-	if helpMode {
-		return c.Help(), nil
+		return "", err
 	}
 
 	repo := s.GetRepo()
@@ -81,63 +49,102 @@ func (c *BranchCommand) Execute(ctx context.Context, s *git.Session, args []stri
 		return "", fmt.Errorf("fatal: not a git repository (or any of the parent directories): .git")
 	}
 
-	// 2. Dispatch based on mode
-
+	// 2. Dispatch
 	// LIST
-	if !deleteMode && !moveMode {
-		// Use explicit list flag check if we had one, but strict check:
-		// git branch <name> -> creation
-		// git branch -> list
-		// git branch -r -> list
-		// git branch -a -> list
-
-		if branchName == "" {
-			return c.listBranches(repo, remoteMode, allMode)
+	if !opts.Delete && !opts.DeleteForce && !opts.Move {
+		if opts.BranchName == "" {
+			return c.listBranches(repo, opts.Remote, opts.All)
 		}
-		// Special case: git branch -r <name> is technically list pattern matching in git, but here likely means list?
-		// But usually creation doesn't use -r / -a.
-		if remoteMode || allMode {
-			return c.listBranches(repo, remoteMode, allMode)
+		// Special case: "git branch -r" or "git branch -a" without name is list
+		if opts.Remote && !opts.Move && !opts.Delete { // "git branch -r"
+			return c.listBranches(repo, opts.Remote, opts.All)
+		}
+		if opts.All && !opts.Move && !opts.Delete { // "git branch -a"
+			return c.listBranches(repo, opts.Remote, opts.All)
 		}
 
-		// Creation
-		startPoint := "HEAD"
-		if secondArg != "" {
-			startPoint = secondArg
-		}
-
-		return c.createBranch(repo, branchName, startPoint, force)
+		// If name provided but not Delete/Move, it's CREATE
+		return c.createBranch(repo, opts)
 	}
 
 	// DELETE
-	if deleteMode {
-		if branchName == "" {
+	if opts.Delete || opts.DeleteForce {
+		if opts.BranchName == "" {
 			return "", fmt.Errorf("branch name required")
 		}
-		return c.deleteBranch(repo, branchName, force, remoteMode)
+		return c.deleteBranch(repo, opts)
 	}
 
 	// MOVE
-	if moveMode {
-		if branchName == "" {
-			return "", fmt.Errorf("branch name required")
-		}
-		if secondArg == "" {
-			// Rename current branch
-			head, err := repo.Head()
-			if err != nil {
-				return "", fmt.Errorf("cannot rename current branch: HEAD invalid")
-			}
-			if !head.Name().IsBranch() {
-				return "", fmt.Errorf("cannot rename detached HEAD")
-			}
-			secondArg = branchName
-			branchName = head.Name().Short()
-		}
-		return c.moveBranch(repo, branchName, secondArg, force)
+	if opts.Move {
+		// If explicit old name not provided, we resolve "current" inside moveBranch
+		// So we don't enforce opts.BranchName != "" here if we support current branch rename.
+		// However, parseArgs sets BranchName="" for implicit case.
+		// So we should allow it.
+		return c.moveBranch(repo, opts)
 	}
 
 	return "", nil
+}
+
+func (c *BranchCommand) parseArgs(args []string) (*BranchOptions, error) {
+	opts := &BranchOptions{
+		StartPoint: "HEAD",
+	}
+	cmdArgs := args[1:]
+
+	// Collect arguments to determine Name and StartPoint/NewName
+	var cleanArgs []string
+
+	for _, arg := range cmdArgs {
+		switch arg {
+		case "--help", "-h":
+			return nil, fmt.Errorf("help requested")
+		case "-d", "--delete":
+			opts.Delete = true
+		case "-D":
+			opts.DeleteForce = true // Implies Force for deletion logic
+		case "-m", "--move":
+			opts.Move = true
+		case "-f", "--force":
+			opts.Force = true
+		case "-r", "--remotes":
+			opts.Remote = true
+		case "-a", "--all":
+			opts.All = true
+		default:
+			if strings.HasPrefix(arg, "-") {
+				return nil, fmt.Errorf("unknown option: %s", arg)
+			}
+			cleanArgs = append(cleanArgs, arg)
+		}
+	}
+
+	if len(cleanArgs) > 0 {
+		opts.BranchName = cleanArgs[0]
+	}
+	if len(cleanArgs) > 1 {
+		if opts.Move {
+			opts.NewName = cleanArgs[1]
+		} else {
+			opts.StartPoint = cleanArgs[1]
+		}
+	}
+
+	// Handle Rename Current Branch: "git branch -m newname"
+	// Here cleanArgs[0] is newname if we are renaming CURRENT.
+	// Logic inside moveBranch needs to handle implicit "current" if only 1 arg.
+	// Actually, if len==1 and Move==true, cleanArgs[0] *is* NewName, and BranchName (old) is implicit.
+	// Let's refine parsing for Move case:
+	if opts.Move && len(cleanArgs) == 1 {
+		opts.NewName = cleanArgs[0]
+		opts.BranchName = "" // Signal to resolve current
+	} else if opts.Move && len(cleanArgs) >= 2 {
+		opts.BranchName = cleanArgs[0] // Old
+		opts.NewName = cleanArgs[1]    // New
+	}
+
+	return opts, nil
 }
 
 func (c *BranchCommand) listBranches(repo *gogit.Repository, remote, all bool) (string, error) {
@@ -158,67 +165,42 @@ func (c *BranchCommand) listBranches(repo *gogit.Repository, remote, all bool) (
 
 	// Remote branches
 	if remote || all {
-		rs, err := repo.Remotes()
-		if err == nil {
-			for _, r := range rs {
-				refs, listErr := r.List(&gogit.ListOptions{}) // basic list
-				if listErr == nil {
-					for _, ref := range refs {
-						if ref.Name().IsRemote() {
-							// strip refs/remotes/
-							name := ref.Name().Short()
-							// Short() often gives origin/master for refs/remotes/origin/master
-							branches = append(branches, name)
-						}
-					}
-				}
-			}
-			// Fallback: iterate all references and filter
-			refs, _ := repo.References()
-			_ = refs.ForEach(func(r *plumbing.Reference) error {
-				// if r.Name().IsRemote() {
-				// 	// branches = append(branches, r.Name().Short())
-				// }
-				return nil
-			})
-		}
-		// Actually go-git `repo.References()` contains remotes too.
-		// Let's just use References() and filter.
-		refs, err := repo.References()
+		remotes, err := c.listRemoteBranches(repo)
 		if err != nil {
 			return "", err
 		}
-		_ = refs.ForEach(func(r *plumbing.Reference) error {
-			if r.Name().IsRemote() {
-				// Only add if we are in remote/all mode
-				// Avoid duplicates if possible, but for now simple list
-				exists := false
-				short := r.Name().Short()
-				for _, b := range branches {
-					if b == short {
-						exists = true
-						break
-					}
-				}
-				if !exists {
-					branches = append(branches, short)
+		// Merge specific logic: deduplicate against existing local branches?
+		// The original logic was appending to 'branches'.
+		// Let's verify duplication handling.
+		// Original logic:
+		// Check duplicates against 'branches' (which contains local branches if 'all' is true)
+		for _, rBranch := range remotes {
+			exists := false
+			for _, b := range branches {
+				if b == rBranch {
+					exists = true
+					break
 				}
 			}
-			return nil
-		})
+			if !exists {
+				branches = append(branches, rBranch)
+			}
+		}
 	}
 
 	return strings.Join(branches, "\n"), nil
 }
 
-func (c *BranchCommand) createBranch(repo *gogit.Repository, name, startPoint string, force bool) (string, error) {
+func (c *BranchCommand) createBranch(repo *gogit.Repository, opts *BranchOptions) (string, error) {
+	name := opts.BranchName
+
 	if strings.HasPrefix(name, "-") {
 		return "", fmt.Errorf("unknown switch configuration: %s", name)
 	}
 
-	hash, err := git.ResolveRevision(repo, startPoint)
+	hash, err := git.ResolveRevision(repo, opts.StartPoint)
 	if err != nil {
-		return "", fmt.Errorf("not a valid object name: '%s'", startPoint)
+		return "", fmt.Errorf("not a valid object name: '%s'", opts.StartPoint)
 	}
 
 	refName := plumbing.ReferenceName("refs/heads/" + name)
@@ -229,11 +211,11 @@ func (c *BranchCommand) createBranch(repo *gogit.Repository, name, startPoint st
 		// Existing logic
 		head, headErr := repo.Head()
 		if headErr == nil && head.Name() == refName {
-			return "", fmt.Errorf("fatal: Cannot force update the current branch.")
+			return "", fmt.Errorf("fatal: cannot force update the current branch")
 		}
 
-		if !force {
-			return "", fmt.Errorf("fatal: A branch named '%s' already exists.", name)
+		if !opts.Force {
+			return "", fmt.Errorf("fatal: a branch named '%s' already exists", name)
 		}
 		// If force is true, we proceed to overwrite
 	}
@@ -245,14 +227,13 @@ func (c *BranchCommand) createBranch(repo *gogit.Repository, name, startPoint st
 		return "", err
 	}
 
-	// If overwritten, message might differ? Git usually silent or "Reset branch..."?
-	// But "Created branch" is simple for now.
 	return "Created branch " + name, nil
 }
 
-func (c *BranchCommand) deleteBranch(repo *gogit.Repository, name string, force, remote bool) (string, error) {
+func (c *BranchCommand) deleteBranch(repo *gogit.Repository, opts *BranchOptions) (string, error) {
+	name := opts.BranchName
 	// TODO: support remote delete (git branch -dr origin/branch)
-	if remote {
+	if opts.Remote {
 		return "", fmt.Errorf("deleting remote-tracking branches not fully supported yet in simulation")
 	}
 
@@ -267,6 +248,10 @@ func (c *BranchCommand) deleteBranch(repo *gogit.Repository, name string, force,
 	if err == nil && headRef.Name() == refName {
 		return "", fmt.Errorf("cannot delete branch '%s' checked out at current worktree", name)
 	}
+
+	// Determine if Force is needed (DeleteForce or just force flag logic?)
+	// git branch -d checks merge. git branch -D skips check.
+	force := opts.DeleteForce
 
 	if !force {
 		// Check if fully merged into HEAD
@@ -290,8 +275,27 @@ func (c *BranchCommand) deleteBranch(repo *gogit.Repository, name string, force,
 	return "Deleted branch " + name, nil
 }
 
-func (c *BranchCommand) moveBranch(repo *gogit.Repository, oldName, newName string, force bool) (string, error) {
-	oldRefName := plumbing.ReferenceName("refs/heads/" + oldName)
+func (c *BranchCommand) moveBranch(repo *gogit.Repository, opts *BranchOptions) (string, error) {
+	oldName := opts.BranchName
+	newName := opts.NewName
+
+	var oldRefName plumbing.ReferenceName
+
+	if oldName == "" {
+		// Renaming current branch
+		head, err := repo.Head()
+		if err != nil {
+			return "", fmt.Errorf("cannot rename current branch: failed to resolve HEAD: %w", err)
+		}
+		if !head.Name().IsBranch() {
+			return "", fmt.Errorf("cannot rename detached HEAD")
+		}
+		oldRefName = head.Name()
+		oldName = oldRefName.Short()
+	} else {
+		oldRefName = plumbing.ReferenceName("refs/heads/" + oldName)
+	}
+
 	oldRef, err := repo.Reference(oldRefName, true)
 	if err != nil {
 		return "", fmt.Errorf("branch '%s' not found", oldName)
@@ -300,7 +304,7 @@ func (c *BranchCommand) moveBranch(repo *gogit.Repository, oldName, newName stri
 	newRefName := plumbing.ReferenceName("refs/heads/" + newName)
 	// check if exists
 	_, err = repo.Reference(newRefName, true)
-	if err == nil && !force {
+	if err == nil && !opts.Force {
 		return "", fmt.Errorf("branch '%s' already exists", newName)
 	}
 
@@ -316,22 +320,69 @@ func (c *BranchCommand) moveBranch(repo *gogit.Repository, oldName, newName stri
 	return fmt.Sprintf("Renamed branch %s to %s", oldName, newName), nil
 }
 
-func (c *BranchCommand) Help() string {
-	return `usage: git branch [options] [-r | -a] [--merged | --no-merged]
-       git branch [options] [-l] [-f] <branchname> [<start-point>]
-       git branch [options] [-r] (-d | -D) <branchname>...
-       git branch [options] (-m | -M) [<oldbranch>] <newbranch>
+func (c *BranchCommand) listRemoteBranches(repo *gogit.Repository) ([]string, error) {
+	var remoteBranches []string
+	refs, err := repo.References()
+	if err != nil {
+		return nil, err
+	}
+	_ = refs.ForEach(func(r *plumbing.Reference) error {
+		if r.Name().IsRemote() {
+			short := r.Name().Short()
+			// Basic deduplication within remote list itself?
+			// The caller deduplicates against local.
+			remoteBranches = append(remoteBranches, short)
+		}
+		return nil
+	})
+	return remoteBranches, nil
+}
 
-Options:
-    -d, --delete          delete fully merged branch
-    -D                    delete branch (even if not merged)
-    -m, --move            move/rename a branch and its reflog
-    -M                    move/rename a branch, even if target exists
-    -c, --copy            copy a branch and its reflog
-    -C                    copy a branch, even if target exists
-    -l, --list            list branch names
-    -r, --remotes         act on remote-tracking branches
-    -a, --all             list both remote-tracking and local branches
-    --help                display this help message
+func (c *BranchCommand) Help() string {
+	return `📘 GIT-BRANCH (1)                                       Git Manual
+
+ 💡 DESCRIPTION
+    ブランチ（作業の分岐）に関する以下の操作を行います：
+    ・ブランチの一覧を表示する（引数なし）
+    ・新しいブランチを作成する
+    ・ブランチ名を変更する（-m）
+    ・不要なブランチを削除する（-d）
+
+ 📋 SYNOPSIS
+    git branch [--list] [-a] [-r]
+    git branch [-f] <branchname> [<start-point>]
+    git branch -d|-D <branchname>
+    git branch -m <old> <new>
+
+ ⚙️  COMMON OPTIONS
+    -a, --all
+        ローカルとリモート（追跡）の両方のブランチを表示します。
+
+    -d, --delete
+        ブランチを削除します（マージ済みの安全な場合のみ）。
+
+    -D
+        ブランチを強制削除します（マージされていなくても削除）。
+        ※ ゴミ箱機能はないので、消すと元に戻すのは大変です。注意！
+
+    -m, --move
+        ブランチ名を変更（移動）します。
+
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: 全ブランチを表示
+       リモートブランチも含めてリストアップします。
+       $ git branch -a
+
+    2. 実践: ブランチを強制削除
+       「実験したけどダメだったブランチ」を消す時などに使います。
+       マージしていなくても問答無用で削除されます。
+       $ git branch -D feature/login
+
+    3. 実践: 今のブランチ名を変更
+       「綴り間違えた！」という時に便利です。
+       $ git branch -m new-name
+
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-branch
 `
 }

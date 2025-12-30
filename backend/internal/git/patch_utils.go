@@ -127,10 +127,10 @@ func applyPatchToWorktree(w *gogit.Worktree, commit *object.Commit, patch *objec
 		}
 
 		if _, err := f.Write([]byte(content)); err != nil {
-			f.Close()
+			_ = f.Close()
 			return fmt.Errorf("failed to write file %s: %w", path, err)
 		}
-		f.Close()
+		_ = f.Close()
 
 		if _, err := w.Add(path); err != nil {
 			return fmt.Errorf("failed to stage file %s: %w", path, err)
@@ -283,17 +283,16 @@ func Merge3Way(w *gogit.Worktree, base, ours, theirs *object.Commit) error {
 					if err := w.Filesystem.Remove(path); err != nil && !os.IsNotExist(err) {
 						return fmt.Errorf("failed to remove %s: %w", path, err)
 					}
-					w.Remove(path) // Stage removal
+					_, _ = w.Remove(path) // Stage removal
 				} else {
 					// Theirs modified/added it.
 					if err := writeFile(w, path, theirsContent); err != nil {
 						return err
 					}
-					w.Add(path)
+					_, _ = w.Add(path)
 				}
-			} else {
-				// Base == Ours == Theirs. Nothing to do.
 			}
+			// else: Base == Ours == Theirs. Nothing to do.
 		} else {
 			// Ours changed (or deleted) from Base.
 			if baseH == theirsH {

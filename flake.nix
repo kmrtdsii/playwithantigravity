@@ -40,13 +40,36 @@
 
           # 2. Environment Setup
           shellHook = ''
-                      
             echo "--- GitGym Dev Environment ---"
             echo "Go: $(go version)"
             echo "Node: $(node -v) (Expected: v22.x)"
-
-            echo "To install/update dependencies, run: (cd backend && go mod download) && (cd frontend && npm install)"
             
+            # Platform detection for node_modules
+            CURRENT_PLATFORM="$(uname -s)-$(uname -m)"
+            PLATFORM_FILE="frontend/node_modules/.platform"
+            
+            if [ -d "frontend/node_modules" ]; then
+              if [ -f "$PLATFORM_FILE" ]; then
+                STORED_PLATFORM="$(cat $PLATFORM_FILE)"
+                if [ "$CURRENT_PLATFORM" != "$STORED_PLATFORM" ]; then
+                  echo ""
+                  echo "⚠️  node_modules was created on a different platform ($STORED_PLATFORM)"
+                  echo "   Current platform: $CURRENT_PLATFORM"
+                  echo "   Please reinstall: cd frontend && rm -rf node_modules && npm install"
+                  echo ""
+                fi
+              else
+                echo ""
+                echo "⚠️  node_modules exists but platform info is missing."
+                echo "   Recommend: cd frontend && rm -rf node_modules && npm install"
+                echo ""
+              fi
+            else
+              echo ""
+              echo "📦 node_modules not found. Run: cd frontend && npm install"
+              echo ""
+            fi
+
             # Check Git Config
             if [ -f "scripts/check-git-config.sh" ]; then
               /bin/bash scripts/check-git-config.sh

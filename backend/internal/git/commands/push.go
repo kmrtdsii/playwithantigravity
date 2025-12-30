@@ -26,6 +26,23 @@ func init() {
 
 type PushCommand struct{}
 
+// Ensure PushCommand implements git.Command
+var _ git.Command = (*PushCommand)(nil)
+
+type PushOptions struct {
+	Remote  string
+	Refspec string
+	Force   bool
+	DryRun  bool
+}
+
+type pushContext struct {
+	TargetRepo *gogit.Repository
+	RemoteName string
+	RemoteURL  string
+	Ref        *plumbing.Reference // The local ref to push (HEAD or specific branch/tag)
+}
+
 func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
 	defer s.Unlock()
@@ -35,54 +52,76 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 		return "", fmt.Errorf("fatal: not a git repository")
 	}
 
-	// Parse Flags
-	isForce := false
-	isDryRun := false
-	isHelp := false
-	var positionalArgs []string
-	for i, arg := range args {
-		if i == 0 {
-			continue // skip "push"
+	// 1. Parse Args
+	opts, err := c.parseArgs(args)
+	if err != nil {
+		if err.Error() == "help requested" {
+			return c.Help(), nil
 		}
+		return "", err
+	}
+
+	// if opts.DryRun {
+	// 	// Quick check before resolution? Or resolved dry run?
+	// 	// Logic below does full resolution then prints matches.
+	// }
+
+	// 2. Resolve Context (Remote, TargetRepo, RefToPush)
+	pCtx, err := c.resolveContext(s, repo, opts)
+	if err != nil {
+		return "", err
+	}
+
+	// 3. Execution (Perform Push)
+	return c.performPush(repo, pCtx, opts)
+}
+
+func (c *PushCommand) parseArgs(args []string) (*PushOptions, error) {
+	opts := &PushOptions{
+		Remote: "origin", // Default
+	}
+	var positional []string
+
+	cmdArgs := args[1:]
+	for _, arg := range cmdArgs {
 		switch arg {
 		case "-f", "--force":
-			isForce = true
+			opts.Force = true
 		case "-n", "--dry-run":
-			isDryRun = true
+			opts.DryRun = true
 		case "-h", "--help":
-			isHelp = true
+			return nil, fmt.Errorf("help requested")
 		default:
 			if strings.HasPrefix(arg, "-") {
-				// ignore other flags for now
+				// Ignore unknown flags or error? Legacy ignored.
+				// Let's stick to simple "ignore" or strict?
+				// Legacy: switch default: if strings.HasPrefix(arg, "-") { ignore } else { positional... }
 			} else {
-				positionalArgs = append(positionalArgs, arg)
+				positional = append(positional, arg)
 			}
 		}
 	}
 
-	if isHelp {
-		return c.Help(), nil
+	if len(positional) > 0 {
+		opts.Remote = positional[0]
+	}
+	if len(positional) > 1 {
+		opts.Refspec = positional[1]
 	}
 
-	// Syntax: git push [remote] [refspec]
-	remoteName := "origin"
-	refspec := ""
-	if len(positionalArgs) > 0 {
-		remoteName = positionalArgs[0]
-	}
-	if len(positionalArgs) > 1 {
-		refspec = positionalArgs[1]
-	}
+	return opts, nil
+}
 
+func (c *PushCommand) resolveContext(s *git.Session, repo *gogit.Repository, opts *PushOptions) (*pushContext, error) {
 	// Resolve Remote URL
-	rem, err := repo.Remote(remoteName)
+	rem, err := repo.Remote(opts.Remote)
 	if err != nil {
-		return "", fmt.Errorf("fatal: '%s' does not appear to be a git repository", remoteName)
+		return nil, fmt.Errorf("fatal: '%s' does not appear to be a git repository", opts.Remote)
 	}
 
 	cfg := rem.Config()
 	if len(cfg.URLs) == 0 {
-		return "", fmt.Errorf("remote %s has no URL defined", remoteName)
+		return nil, fmt.Errorf("remote %s has no URL defined", opts.Remote)
 	}
 	url := cfg.URLs[0]
 
@@ -96,55 +135,51 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	targetRepo, ok = s.Repos[lookupKey]
 	if !ok && s.Manager != nil {
 		// Check Shared Remotes
-		targetRepo, ok = s.Manager.SharedRemotes[lookupKey]
+		targetRepo, ok = s.Manager.SharedRemotes[lookupKey] // e.g. "repo.git"
 
-		// Fallback: Check using full URL (in case lookupKey stripped leading slash but map has it)
+		// Fallback: Check using full URL
 		if !ok {
 			targetRepo, ok = s.Manager.SharedRemotes[url]
 		}
 	}
 
 	if !ok {
-		// FALLBACK: Check if it is a local filesystem path (persistent remote)
-		// We trust the URL from the config.
-		var errOpen error
-		targetRepo, errOpen = gogit.PlainOpen(url)
-		if errOpen == nil {
+		// FALLBACK: Local filesystem path (persistent remote)
+		targetRepo, err = gogit.PlainOpen(url)
+		if err == nil {
 			ok = true
 		} else {
-			// Try without leading slash if it was stripped?
-			targetRepo, errOpen = gogit.PlainOpen(lookupKey)
-			if errOpen == nil {
+			targetRepo, err = gogit.PlainOpen(lookupKey)
+			if err == nil {
 				ok = true
 			}
 		}
 	}
 
 	if !ok {
-		return "", fmt.Errorf("remote repository '%s' not found (only local simulation supported)", url)
+		return nil, fmt.Errorf("remote repository '%s' not found (only local simulation supported)", url)
 	}
 
 	// Determined Ref to Push
 	var refToPush *plumbing.Reference
 
-	if refspec != "" {
+	if opts.Refspec != "" {
 		// Try to resolve refspec (Branch or Tag)
-		// 1. Try exact match
-		ref, refErr := repo.Reference(plumbing.ReferenceName(refspec), true)
+		ref, refErr := repo.Reference(plumbing.ReferenceName(opts.Refspec), true)
 		if refErr == nil {
 			refToPush = ref
 		} else {
-			// 2. Try refs/heads/
-			ref, err = repo.Reference(plumbing.ReferenceName("refs/heads/"+refspec), true)
+			// Try refs/heads/
+			ref, err = repo.Reference(plumbing.ReferenceName("refs/heads/"+opts.Refspec), true)
 			if err == nil {
 				refToPush = ref
 			} else {
-				// 3. Try refs/tags/
-				ref, err = repo.Reference(plumbing.ReferenceName("refs/tags/"+refspec), true)
+				// Try refs/tags/
+				ref, err = repo.Reference(plumbing.ReferenceName("refs/tags/"+opts.Refspec), true)
 				if err == nil {
 					refToPush = ref
 				} else {
-					return "", fmt.Errorf("src refspec '%s' does not match any", refspec)
+					return nil, fmt.Errorf("src refspec '%s' does not match any", opts.Refspec)
 				}
 			}
 		}
@@ -152,19 +187,31 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 		// Default: Push HEAD
 		headRef, headErr := repo.Head()
 		if headErr != nil {
-			return "", fmt.Errorf("failed to get HEAD: %w", headErr)
+			return nil, fmt.Errorf("failed to get HEAD: %w", headErr)
 		}
 		if !headRef.Name().IsBranch() {
-			return "", fmt.Errorf("HEAD is not on a branch (detached?)")
+			return nil, fmt.Errorf("HEAD is not on a branch (detached?)")
 		}
 		refToPush = headRef
 	}
 
+	return &pushContext{
+		TargetRepo: targetRepo,
+		RemoteName: opts.Remote,
+		RemoteURL:  url,
+		Ref:        refToPush,
+	}, nil
+}
+
+func (c *PushCommand) performPush(repo *gogit.Repository, pCtx *pushContext, opts *PushOptions) (string, error) {
+	refName := pCtx.Ref.Name()
+	targetRepo := pCtx.TargetRepo
+
 	// Check Fast-Forward (only for branches)
-	if refToPush.Name().IsBranch() && !isForce {
-		targetRef, targetErr := targetRepo.Reference(refToPush.Name(), true)
+	if refName.IsBranch() && !opts.Force {
+		targetRef, targetErr := targetRepo.Reference(refName, true)
 		if targetErr == nil {
-			isFF, gitErr := git.IsFastForward(repo, targetRef.Hash(), refToPush.Hash())
+			isFF, gitErr := git.IsFastForward(repo, targetRef.Hash(), pCtx.Ref.Hash())
 			if gitErr != nil {
 				return "", gitErr
 			}
@@ -172,19 +219,19 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 				return "", fmt.Errorf("non-fast-forward update rejected (use --force to override)")
 			}
 		}
-	} else if refToPush.Name().IsTag() {
-		_, tagRefErr := targetRepo.Reference(refToPush.Name(), true)
-		if tagRefErr == nil && !isForce {
-			return "", fmt.Errorf("tag '%s' already exists (use --force to override)", refToPush.Name().Short())
+	} else if refName.IsTag() {
+		_, tagRefErr := targetRepo.Reference(refName, true)
+		if tagRefErr == nil && !opts.Force {
+			return "", fmt.Errorf("tag '%s' already exists (use --force to override)", refName.Short())
 		}
 	}
 
-	if isDryRun {
-		return fmt.Sprintf("[dry-run] Would push %s to %s at %s", refToPush.Name().Short(), remoteName, url), nil
+	if opts.DryRun {
+		return fmt.Sprintf("[dry-run] Would push %s to %s at %s", refName.Short(), pCtx.RemoteName, pCtx.RemoteURL), nil
 	}
 
 	// SIMULATE PUSH: Copy Objects + Update Ref
-	hashToSync := refToPush.Hash()
+	hashToSync := pCtx.Ref.Hash()
 
 	// Check object type
 	obj, err := repo.Storer.EncodedObject(plumbing.AnyObject, hashToSync)
@@ -193,7 +240,7 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	}
 
 	if obj.Type() == plumbing.TagObject {
-		// It's an annotated tag.
+		// Annotated tag logic
 		if !git.HasObject(targetRepo, hashToSync) {
 			_, err = targetRepo.Storer.SetEncodedObject(obj)
 			if err != nil {
@@ -205,8 +252,6 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 		if decodeErr != nil {
 			return "", decodeErr
 		}
-
-		// Recursively copy the commit it points to
 		if copyErr := git.CopyCommitRecursive(repo, targetRepo, tagObj.Target); copyErr != nil {
 			return "", copyErr
 		}
@@ -219,30 +264,62 @@ func (c *PushCommand) Execute(ctx context.Context, s *git.Session, args []string
 	}
 
 	// Update Remote Reference
-	err = targetRepo.Storer.SetReference(refToPush)
+	err = targetRepo.Storer.SetReference(pCtx.Ref)
 	if err != nil {
 		return "", err
 	}
 
 	// Update Local Remote-Tracking Reference (ONLY for branches)
-	if refToPush.Name().IsBranch() {
-		localRemoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", remoteName, refToPush.Name().Short()))
-		newLocalRemoteRef := plumbing.NewHashReference(localRemoteRefName, refToPush.Hash())
+	if refName.IsBranch() {
+		localRemoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/%s/%s", pCtx.RemoteName, refName.Short()))
+		newLocalRemoteRef := plumbing.NewHashReference(localRemoteRefName, hashToSync)
 		_ = repo.Storer.SetReference(newLocalRemoteRef)
 	}
 
-	return fmt.Sprintf("To %s\n   %s -> %s", url, hashToSync.String()[:7], refToPush.Name().Short()), nil
+	// Get old hash for display (if updating existing ref)
+	oldHashStr := "0000000"
+	if refName.IsBranch() {
+		existingRef, refErr := targetRepo.Reference(refName, true)
+		if refErr == nil {
+			oldHashStr = existingRef.Hash().String()[:7]
+		}
+	}
+
+	return fmt.Sprintf("To %s\n   %s..%s  %s -> %s/%s", pCtx.RemoteURL, oldHashStr, hashToSync.String()[:7], refName.Short(), pCtx.RemoteName, refName.Short()), nil
 }
 
 func (c *PushCommand) Help() string {
-	return `usage: git push [options] [<remote>] [<refspec>]
+	return `📘 GIT-PUSH (1)                                         Git Manual
 
-Options:
-    -f, --force       force updates (overwrites non-fast-forward)
-    -n, --dry-run     dry run (show what would be pushed without doing it)
-    --help            display this help message
+ 💡 DESCRIPTION
+    ・自分のコミットをリモートリポジトリにアップロードする
+    ・ローカルのブランチをリモートに公開する
+    
+    ※ GitGymではシミュレーションであり、実際のネットワーク送信は行われません。
 
-Note: This is a simulated push. Objects are copied to in-memory
-virtual remotes only. No actual network operations are performed.
+ 📋 SYNOPSIS
+    git push [<remote>] [<branch>] [--force] [--force-with-lease]
+
+ ⚙️  COMMON OPTIONS
+    -u, --set-upstream
+        (現在未実装) リモートブランチとローカルブランチの関連付け(追跡設定)を行います。
+
+    -f, --force
+        強制的にプッシュします（リモートの履歴を上書きするので注意）。
+
+    --force-with-lease
+        (現在未実装) より安全な強制プッシュです。他人の更新がないか確認してから上書きします。
+
+ 🛠  PRACTICAL EXAMPLES
+    1. 基本: リモートに送信
+       $ git push origin main
+
+    2. 実践: 履歴書き換え時の安全な強制プッシュ (Recommended)
+       commit --amend や rebase で履歴を書き換えた後は強制プッシュが必要です。
+       しかし --force は危険なので、現場では「競合がない時だけ強制する」このオプションを使います。
+       $ git push --force-with-lease
+
+ 🔗 REFERENCE
+    Full documentation: https://git-scm.com/docs/git-push
 `
 }

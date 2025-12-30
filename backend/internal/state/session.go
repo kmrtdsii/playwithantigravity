@@ -7,6 +7,8 @@ import (
 	"github.com/go-git/go-billy/v5"
 	"github.com/go-git/go-billy/v5/memfs"
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
@@ -29,8 +31,10 @@ type SessionManager struct {
 	SharedRemotes     map[string]*gogit.Repository // Share repositories across all sessions
 	SharedRemotePaths map[string]string            // Maps remote name to local filesystem path
 	PullRequests      []*PullRequest
+	NextPRID          int
 	DataDir           string
 	mu                sync.RWMutex
+	ingestMu          sync.Mutex // Serializes ingestion operations
 }
 
 // ReflogEntry records a command executed in the session
@@ -59,6 +63,7 @@ type PullRequest struct {
 	Title       string    `json:"title"`
 	Description string    `json:"description"`
 	State       string    `json:"status"`       // "OPEN", "CLOSED", "MERGED"
+	RemoteName  string    `json:"remoteName"`   // The shared remote this PR belongs to
 	HeadRepo    string    `json:"headRepo"`     // simulating fork
 	HeadRef     string    `json:"sourceBranch"` // branch
 	BaseRepo    string    `json:"baseRepo"`
@@ -74,6 +79,7 @@ func NewSessionManager() *SessionManager {
 		SharedRemotes:     make(map[string]*gogit.Repository),
 		SharedRemotePaths: make(map[string]string),
 		PullRequests:      []*PullRequest{},
+		NextPRID:          1,
 		DataDir:           ".gitgym-data/remotes",
 	}
 }
@@ -234,10 +240,134 @@ func (s *Session) InitRepo(name string) (*gogit.Repository, error) {
 		return nil, err
 	}
 
-	repo, err := gogit.Init(memory.NewStorage(), fs)
+	storer := memory.NewStorage()
+	repo, err := gogit.Init(storer, fs)
 	if err != nil {
 		return nil, err
 	}
+
+	// Set default branch to 'main' instead of 'master'
+	headRef := plumbing.NewSymbolicReference(plumbing.HEAD, plumbing.NewBranchReferenceName("main"))
+	if err := storer.SetReference(headRef); err != nil {
+		// Ignore error, fallback to master
+		_ = err
+	}
+
+	// Create .git placeholder directory so users can see it with ls -a
+	_ = fs.MkdirAll(".git", 0755)
+
 	s.Repos[path] = repo
 	return repo, nil
+}
+
+// GetIndexTree returns a tree object reflecting the current state of the index.
+func (s *Session) GetIndexTree(repo *gogit.Repository) (*object.Tree, error) {
+	// For simulation purposes, we can't easily convert Index to Tree without writing objects.
+	// However, we can use a temporary commit to generate the tree, or manually build it.
+	// Since we are in-memory, we can afford a temporary commit if we roll it back or use a side storage.
+
+	// A simpler way: use the current Worktree to build a tree if we assume Index is clean.
+	// But Index might have staged changes that are NOT in HEAD.
+
+	// Better: Use go-git's internal tree builder logic.
+	// Since we don't want to pollute history, we'll use a temporary storer or just a temporary commit.
+
+	w, err := repo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+
+	// For now, let's use a "dirty" approach:
+	// 1. Get current HEAD commit tree
+	// 2. Overlay index changes
+	// This is hard.
+
+	// Let's try the "Temporary Commit" approach:
+	// 1. Save current HEAD
+	// 2. Commit (staging all)
+	// 3. Get that commit's tree
+	// 4. Restore HEAD
+
+	// But we only want to commit what is STAGED.
+	head, headErr := repo.Head()
+
+	// We use git commit --allow-empty --no-verify -m "temp"
+	// and then hash the tree.
+
+	// Since we are in state package, we don't have access to github.com/kurobon/gitgym/backend/internal/git
+	// But we can call go-git directly.
+
+	commitHash, err := w.Commit("temp index tree", &gogit.CommitOptions{
+		Author: &object.Signature{
+			Name:  "System",
+			Email: "system@gitgym.io",
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	commit, err := repo.CommitObject(commitHash)
+	if err != nil {
+		return nil, err
+	}
+
+	tree, err := commit.Tree()
+	if err != nil {
+		return nil, err
+	}
+
+	// Restore HEAD
+	if headErr == nil {
+		// Restore to previous HEAD
+		err = repo.Storer.SetReference(head)
+	} else {
+		// No previous HEAD (empty repo), remove it?
+		// go-git doesn't have an easy way to "un-init" HEAD.
+		// We'll leave it for now or use a detached head if possible.
+	}
+
+	return tree, nil
+}
+
+// GetWorktreeTree returns a tree object reflecting the current state of the filesystem.
+func (s *Session) GetWorktreeTree(repo *gogit.Repository) (*object.Tree, error) {
+	// To get a tree from the filesystem, we must stage everything first.
+	w, err := repo.Worktree()
+	if err != nil {
+		return nil, err
+	}
+
+	// Save current Index?
+	// Billy Filesystem doesn't easily support index backup.
+
+	// Let's use a side-repository in memory with the same FS to avoid messing with the main repo's index.
+	storage := memory.NewStorage()
+	fs := w.Filesystem // Reuse same filesystem!
+
+	tempRepo, err := gogit.Init(storage, fs)
+	if err != nil {
+		return nil, err
+	}
+
+	tempW, _ := tempRepo.Worktree()
+	_, err = tempW.Add(".")
+	if err != nil {
+		return nil, err
+	}
+
+	commitHash, err := tempW.Commit("temp worktree tree", &gogit.CommitOptions{
+		Author: &object.Signature{
+			Name:  "System",
+			Email: "system@gitgym.io",
+			When:  time.Now(),
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	commit, _ := tempRepo.CommitObject(commitHash)
+	return commit.Tree()
 }

@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGit } from '../../context/GitAPIContext';
 import type { Commit, GitState } from '../../types/gitTypes';
@@ -12,6 +13,7 @@ interface GitGraphVizProps {
     selectedCommitId?: string;
     state?: GitState;
     title?: string;
+    searchQuery?: string;
 }
 
 /**
@@ -27,9 +29,11 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     onSelect,
     selectedCommitId,
     state: propState,
-    title
+    title,
+    searchQuery
 }) => {
     const { state: contextState } = useGit();
+    const { t, i18n } = useTranslation('common');
     const state = propState || contextState;
     const { commits, potentialCommits, branches, references, remoteBranches, tags, HEAD } = state;
 
@@ -64,7 +68,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
         const el = containerRef.current;
         if (!el) return;
         const ro = new ResizeObserver(entries => {
-            for (let entry of entries) {
+            for (const entry of entries) {
                 setViewportHeight(entry.contentRect.height);
             }
         });
@@ -80,15 +84,64 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     const minVisY = Math.max(0, scrollTop - BUFFER_PX);
     const maxVisY = scrollTop + viewportHeight + BUFFER_PX;
 
-    // Filter for visibility
+    // Dimming Logic based on search
+    const filteredNodes = useMemo(() => {
+        if (!searchQuery) return nodes;
+
+        const query = searchQuery.toLowerCase();
+        return nodes.map(node => {
+            const formattedDate = new Date(node.timestamp).toLocaleString(i18n.language, {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+
+            const match =
+                node.id.toLowerCase().includes(query) ||
+                node.message.toLowerCase().includes(query) ||
+                formattedDate.startsWith(query); // Prefix match for date
+
+            return {
+                ...node,
+                opacity: match ? 1 : 0.2
+                // We keep edges attached to dimmed nodes consistent with node opacity or keep them dimmed?
+                // Visual preference: if node is dimmed, edges connecting it likely dimmed too.
+            };
+        });
+    }, [nodes, searchQuery]);
+
+    const activeNodes = searchQuery ? filteredNodes : nodes;
+
+    // Auto-scroll to first match
+    useEffect(() => {
+        if (!searchQuery) return;
+        const firstMatch = activeNodes.find(n => n.opacity === 1);
+        if (firstMatch && containerRef.current) {
+            containerRef.current.scrollTo({
+                top: firstMatch.y - viewportHeight / 2,
+                behavior: 'smooth'
+            });
+        }
+    }, [searchQuery, activeNodes, viewportHeight]);
+
+    // Filter for visibility (Virtualization)
     const visibleNodes = useMemo(() =>
-        nodes.filter(n => n.y >= minVisY && n.y <= maxVisY),
-        [nodes, minVisY, maxVisY]
+        activeNodes.filter(n => n.y >= minVisY && n.y <= maxVisY),
+        [activeNodes, minVisY, maxVisY]
     );
 
     const visibleEdges = useMemo(() =>
-        edges.filter(e => e.maxY >= minVisY && e.minY <= maxVisY),
-        [edges, minVisY, maxVisY]
+        edges.filter(e => e.maxY >= minVisY && e.minY <= maxVisY).map(edge => {
+            // If search is active, dim edges if their connected nodes are dimmed?
+            // This requires mapping edges to nodes. Simplified: if searchQuery, dim all edges to 0.2?
+            // Or better: keep original edges opacity but multiply by 0.2 if no match?
+            // Too complex to map dynamically without edge source/target ref.
+            // Let's just dim all edges slightly during search to emphasize nodes.
+            if (searchQuery) {
+                return { ...edge, opacity: 0.1 };
+            }
+            return edge;
+        }),
+        [edges, minVisY, maxVisY, searchQuery]
     );
 
     // Resolve HEAD commit ID for halo effect
@@ -102,7 +155,20 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
     if (!state.initialized) {
         return (
             <div data-testid="git-graph-empty" className="flex h-full items-center justify-center text-gray-500 font-mono text-sm">
-                Type <code className="mx-1 text-gray-400">git init</code> to start.
+                {t('visualization.emptyState', { defaultValue: 'Type git init to start.' })}
+            </div>
+        );
+    }
+
+    // Processed empty state (Converted from initialized check)
+    if (state.initialized && nodes.length === 0) {
+        return (
+            <div data-testid="git-graph-empty-commits" className="flex h-full flex-col items-center justify-center text-gray-500 gap-4" style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', gap: '16px' }}>
+                <div style={{ fontSize: '48px', opacity: 0.2 }}>📭</div>
+                <div style={{ fontSize: '14px', textAlign: 'center' }}>
+                    <div style={{ fontWeight: 600, marginBottom: '4px' }}>{t('visualization.emptyRepo.title', { defaultValue: 'Repository is empty' })}</div>
+                    <div style={{ fontSize: '12px', opacity: 0.7 }}>{t('visualization.emptyRepo.description', { defaultValue: 'Push your first commit to see the graph.' })}</div>
+                </div>
             </div>
         );
     }
@@ -187,7 +253,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                         node={node}
                         badges={badgesMap[node.id] || []}
                         isSelected={node.id === selectedCommitId}
-                        onClick={() => onSelect?.(node)}
+                        onClick={onSelect ? () => onSelect(node) : undefined}
                     />
                 ))}
             </div>
@@ -206,7 +272,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                     boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
                     zIndex: 20
                 }}>
-                    <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>Simulation Mode</div>
+                    <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>{t('visualization.simulation.title')}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-tertiary)' }}>
                         <span style={{
                             width: '10px',
@@ -215,7 +281,7 @@ const GitGraphViz: React.FC<GitGraphVizProps> = ({
                             border: '2px dashed var(--text-tertiary)',
                             display: 'inline-block'
                         }}></span>
-                        <span>Potential Commit</span>
+                        <span>{t('visualization.simulation.potentialCommit')}</span>
                     </div>
                 </div>
             )}
