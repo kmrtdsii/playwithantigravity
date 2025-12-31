@@ -298,54 +298,6 @@ func (sm *SessionManager) DeletePullRequest(id int) error {
 	return fmt.Errorf("pull request %d not found", id)
 }
 
-// pruneStaleWorkspaces removes local repos that point to deleted shared remotes
-func (sm *SessionManager) pruneStaleWorkspaces(stalePaths map[string]bool) {
-	if len(stalePaths) == 0 {
-		return
-	}
-
-	sm.mu.RLock()
-	sessions := make([]*Session, 0, len(sm.sessions))
-	for _, s := range sm.sessions {
-		sessions = append(sessions, s)
-	}
-	sm.mu.RUnlock()
-
-	for _, s := range sessions {
-		s.Lock()
-		var reposToRemove []string
-
-		for name, repo := range s.Repos {
-			remotes, err := repo.Remotes()
-			if err != nil {
-				continue
-			}
-			for _, r := range remotes {
-				for _, url := range r.Config().URLs {
-					if stalePaths[url] {
-						reposToRemove = append(reposToRemove, name)
-						break
-					}
-				}
-			}
-		}
-
-		for _, name := range reposToRemove {
-			log.Printf("Pruning stale workspace: %s (Session %s)", name, s.ID)
-			delete(s.Repos, name)
-			// Remove from filesystem
-			_ = s.RemoveAll(name)
-
-			// Reset CurrentDir if inside deleted repo
-			// Check if CurrentDir starts with /name
-			if s.CurrentDir == "/"+name || (len(s.CurrentDir) > len(name)+2 && s.CurrentDir[:len(name)+2] == "/"+name+"/") {
-				s.CurrentDir = "/"
-			}
-		}
-		s.Unlock()
-	}
-}
-
 // CreateBareRepository creates a new bare repository on the server
 // This only creates the remote repository - users must manually git clone or git init
 func (sm *SessionManager) CreateBareRepository(ctx context.Context, sessionID, name string) error {

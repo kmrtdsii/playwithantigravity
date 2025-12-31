@@ -214,13 +214,6 @@ func (c *LogCommand) executeLog(_ *git.Session, repo *gogit.Repository, opts *Lo
 	return sb.String(), nil
 }
 
-func makeGraphIndent(prefix string) string {
-	if prefix == "" {
-		return ""
-	}
-	return "| "
-}
-
 func (c *LogCommand) Help() string {
 	return `📘 GIT-LOG (1)                                          Git Manual
 
