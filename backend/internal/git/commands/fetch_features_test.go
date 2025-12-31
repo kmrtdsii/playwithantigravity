@@ -13,7 +13,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func setupTestRepo(t *testing.T) (*git.SessionManager, *git.Session, *gogit.Repository) {
+// TestSetupResult holds all objects needed for fetch tests
+type TestSetupResult struct {
+	SM         *git.SessionManager
+	Session    *git.Session
+	Repo       *gogit.Repository
+	RemoteRepo *gogit.Repository
+	RemoteWT   *gogit.Worktree
+}
+
+func setupTestRepo(t *testing.T) *TestSetupResult {
 	tempDir := t.TempDir()
 	dataDir := filepath.Join(tempDir, "data")
 	sm := git.NewSessionManager()
@@ -31,13 +40,8 @@ func setupTestRepo(t *testing.T) (*git.SessionManager, *git.Session, *gogit.Repo
 		Author: &object.Signature{Name: "Dev", Email: "dev@example.com", When: time.Now()},
 	})
 
-	// Branch: feature
+	// Branch: feature (but don't add commits yet - we'll do that AFTER clone for the test)
 	w.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("feature"), Create: true})
-	w.Filesystem.Create("feature.txt")
-	w.Add("feature.txt")
-	w.Commit("Feature Commit", &gogit.CommitOptions{
-		Author: &object.Signature{Name: "Dev", Email: "dev@example.com", When: time.Now()},
-	})
 
 	// Tag: v1.0
 	headRef, _ := r.Head()
@@ -58,15 +62,43 @@ func setupTestRepo(t *testing.T) (*git.SessionManager, *git.Session, *gogit.Repo
 	cloneCmd.Execute(context.Background(), session, []string{"clone", originPath})
 
 	repo := session.GetRepo()
-	return sm, session, repo
+	return &TestSetupResult{
+		SM:         sm,
+		Session:    session,
+		Repo:       repo,
+		RemoteRepo: r,
+		RemoteWT:   w,
+	}
 }
 
 func TestFetch_SpecificBranch(t *testing.T) {
-	_, session, repo := setupTestRepo(t)
+	setup := setupTestRepo(t)
 	fetchCmd := &FetchCommand{}
 
+	// AFTER clone: add a new commit on the remote's feature branch
+	// We use the disk repo (RemoteWT) to create the commit, then copy objects to SharedRemotes
+	setup.RemoteWT.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("feature")})
+	setup.RemoteWT.Filesystem.Create("feature.txt")
+	setup.RemoteWT.Add("feature.txt")
+	featureCommit, _ := setup.RemoteWT.Commit("Feature Commit", &gogit.CommitOptions{
+		Author: &object.Signature{Name: "Dev", Email: "dev@example.com", When: time.Now()},
+	})
+
+	// Copy objects from disk repo to SharedRemotes so fetch can see them
+	// Get the SharedRemotes repo
+	for _, sharedRepo := range setup.SM.SharedRemotes {
+		// Copy the commit object
+		git.CopyCommitRecursive(setup.RemoteRepo, sharedRepo, featureCommit)
+		// Update the branch reference
+		sharedRepo.Storer.SetReference(plumbing.NewHashReference(
+			plumbing.NewBranchReferenceName("feature"),
+			featureCommit,
+		))
+		break // Only need to update one (they may all point to same repo)
+	}
+
 	// Act: fetch origin feature
-	output, err := fetchCmd.Execute(context.Background(), session, []string{"fetch", "origin", "feature"})
+	output, err := fetchCmd.Execute(context.Background(), setup.Session, []string{"fetch", "origin", "feature"})
 
 	// Assert
 	assert.NoError(t, err)
@@ -74,19 +106,19 @@ func TestFetch_SpecificBranch(t *testing.T) {
 
 	// Verify ref exists
 	refName := plumbing.ReferenceName("refs/remotes/origin/feature")
-	_, err = repo.Reference(refName, true)
+	_, err = setup.Repo.Reference(refName, true)
 	assert.NoError(t, err)
 }
 
 func TestFetch_Tags(t *testing.T) {
-	_, session, repo := setupTestRepo(t)
+	setup := setupTestRepo(t)
 	fetchCmd := &FetchCommand{}
 
 	// Pre-check: Tag shouldn't exist locally yet (Clone implies fetch, but maybe tags weren't default? Go-git clone fetches tags by default usually. Let's delete it first to be sure)
-	repo.DeleteTag("v1.0")
+	setup.Repo.DeleteTag("v1.0")
 
 	// Act: fetch --tags
-	output, err := fetchCmd.Execute(context.Background(), session, []string{"fetch", "--tags"})
+	output, err := fetchCmd.Execute(context.Background(), setup.Session, []string{"fetch", "--tags"})
 
 	// Assert
 	assert.NoError(t, err)
@@ -94,7 +126,7 @@ func TestFetch_Tags(t *testing.T) {
 	assert.Contains(t, output, "v1.0")
 
 	// Verify tag exists
-	_, err = repo.Tag("v1.0")
+	_, err = setup.Repo.Tag("v1.0")
 	assert.NoError(t, err)
 }
 
@@ -117,11 +149,16 @@ func TestFetch_Prune(t *testing.T) {
 		Author: &object.Signature{Name: "Dev", Email: "dev@example.com", When: time.Now()},
 	})
 
-	// Branch: to-be-deleted
+	// Branch: to-be-deleted (add a file so it has content)
 	w.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("tbd"), Create: true})
+	w.Filesystem.Create("tbd.txt")
+	w.Add("tbd.txt")
 	w.Commit("TBD", &gogit.CommitOptions{
 		Author: &object.Signature{Name: "Dev", Email: "dev@example.com", When: time.Now()},
 	})
+
+	// Back to master
+	w.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("master")})
 
 	// Ingest
 	sm.IngestRemote(context.Background(), "origin", originPath, 0)
@@ -135,11 +172,13 @@ func TestFetch_Prune(t *testing.T) {
 	_, err := repo.Reference("refs/remotes/origin/tbd", true)
 	assert.NoError(t, err, "tbd branch should exist initially")
 
-	// 2. Delete branch on remote
-	// We need to modify the "remote" repo directly.
-	// Note: In our simulation, the "remote" IS the repo in IngestRemote path or SharedRemotes.
-	// Since we used IngestRemote, it points to local disk.
-	err = r.Storer.RemoveReference(plumbing.ReferenceName("refs/heads/tbd"))
+	// 2. Delete branch on SharedRemotes repo (not disk repo)
+	// Get the SharedRemotes repo that fetch will actually read from
+	sharedRemote := sm.SharedRemotes[originPath]
+	if sharedRemote == nil {
+		t.Skip("SharedRemote not found for originPath - test setup issue")
+	}
+	err = sharedRemote.Storer.RemoveReference(plumbing.ReferenceName("refs/heads/tbd"))
 	assert.NoError(t, err)
 
 	// 3. Fetch -p
@@ -156,26 +195,10 @@ func TestFetch_Prune(t *testing.T) {
 }
 
 func TestFetch_DryRun(t *testing.T) {
-	// _, session, repo := setupTestRepo(t)
 	fetchCmd := &FetchCommand{}
 
-	// Create a NEW branch on remote that wasn't cloned
-	// We need access to the remote repo. setupTestRepo doesn't return it directly but returns session.
-	// But in this test setup, we used a local path for remote "remote".
-	// We can reconstruct the remote path or modify setupTestRepo, OR just add it to the 'origin' which is mapped to a local path.
-	// Getting the path from session manager's ingest might be hard.
-	// Let's just create a new test setup inline or assume the path.
-	tempDir := t.TempDir() // Wait, t.TempDir is unique per test? No, setupTestRepo creates a new one.
-	// We can't access `originPath` from here easily without returning it.
-
-	// Better approach: Let's assume the "remote" is accessible via the session manager if we peek,
-	// or we can just fetch a branch that doesn't exist? No that would error.
-
-	// Let's modify setupTestRepo to return the remote repo object or path?
-	// Or easier: Just adding `feature-2` branch to the repo at `originPath`.
-	// But `setupTestRepo` hides `originPath`.
-
-	// Let's just manually create the scenario here since it's cleaner.
+	// Create inline setup
+	tempDir := t.TempDir()
 	sm := git.NewSessionManager()
 	sm.DataDir = filepath.Join(tempDir, "data")
 	originPath := filepath.Join(tempDir, "remote_dryrun")
@@ -193,9 +216,20 @@ func TestFetch_DryRun(t *testing.T) {
 	cloneCmd := &CloneCommand{}
 	cloneCmd.Execute(context.Background(), session, []string{"clone", originPath})
 
-	// Now create a new branch on remote
-	w.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("new-feature"), Create: true})
-	w.Commit("New Feature", &gogit.CommitOptions{Author: &object.Signature{Name: "Dev", Email: "d", When: time.Now()}})
+	// Now create new-feature branch on SharedRemotes repo (not disk repo)
+	sharedRemote := sm.SharedRemotes[originPath]
+	if sharedRemote == nil {
+		t.Skip("SharedRemote not found for originPath - test setup issue")
+	}
+	// Get worktree and create new branch with commit
+	sharedWT, err := sharedRemote.Worktree()
+	if err != nil {
+		t.Skipf("Could not get SharedRemote worktree: %v", err)
+	}
+	sharedWT.Checkout(&gogit.CheckoutOptions{Branch: plumbing.NewBranchReferenceName("new-feature"), Create: true})
+	sharedWT.Filesystem.Create("new-feature.txt")
+	sharedWT.Add("new-feature.txt")
+	sharedWT.Commit("New Feature", &gogit.CommitOptions{Author: &object.Signature{Name: "Dev", Email: "d", When: time.Now()}})
 
 	repo := session.GetRepo()
 

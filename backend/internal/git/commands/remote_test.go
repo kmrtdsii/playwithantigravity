@@ -52,6 +52,9 @@ func TestRemoteCommand(t *testing.T) {
 	})
 
 	t.Run("Remove", func(t *testing.T) {
+		// Setup: Make sure origin exists before testing remove
+		_, _ = cmd.Execute(context.Background(), s, []string{"remote", "add", "origin", "https://example.com/repo.git"})
+
 		_, err := cmd.Execute(context.Background(), s, []string{"remote", "remove", "origin"})
 		if err != nil {
 			t.Fatalf("Remote remove failed: %v", err)
