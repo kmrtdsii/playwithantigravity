@@ -80,8 +80,8 @@ func (e *Engine) StartMission(ctx context.Context, missionID string) (string, er
 		}
 	}
 
-	// Reset Reflog for the user starting fresh
-	sess.Reflog = nil
+	// Do NOT Reset Reflog here, so user can see what happened during setup (e.g. init, commit)
+	// sess.Reflog = nil
 
 	return sessionID, nil
 }

@@ -10,6 +10,9 @@ setup:
   - "git init"
   - "git config user.name 'User'"
   - "git config user.email 'user@example.com'"
+  - "echo '# Project' > README.md"
+  - "git add README.md"
+  - "git commit -m 'Initial commit'"
   - "echo 'Feature work implementation' > feature.txt"
   - "git add feature.txt"
   - "git commit -m 'Add feature implementatoin'" # Typo here

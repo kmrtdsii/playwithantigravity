@@ -40,8 +40,22 @@ func (c *ReflogCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	}
 
 	var sb strings.Builder
-	for i, entry := range s.Reflog {
-		sb.WriteString(fmt.Sprintf("%s HEAD@{%d}: %s\n", entry.Hash[:7], i, entry.Message))
+	// Git reflog shows newest first (HEAD@{0} is current)
+	count := len(s.Reflog)
+	for i := count - 1; i >= 0; i-- {
+		entry := s.Reflog[i]
+		// index 0 is oldest, so HEAD@{count-1-i} ?? No.
+		// Standard: HEAD@{0} is the most recent (last appended).
+		// So i (which is index in slice) corresponds to what?
+		// if slice is [A, B, C], C is newest (HEAD@{0}).
+		// i=2 (C) -> 0
+		// i=1 (B) -> 1
+		// i=0 (A) -> 2
+		// Formula: count - 1 - i
+
+		refIndex := count - 1 - i
+
+		sb.WriteString(fmt.Sprintf("%s HEAD@{%d}: %s\n", entry.Hash[:7], refIndex, entry.Message))
 	}
 	return sb.String(), nil
 }
