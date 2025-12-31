@@ -1,0 +1,47 @@
+id: "202-undo-commit"
+title: "Undo Start Button"
+description: "You accidentally committed a file that wasn't ready. Undo the commit but keep your changes in the staging area."
+difficulty:
+  level: "intermediate"
+  stars: 2
+skill: "reset"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'Good work' > good.txt"
+  - "git add good.txt"
+  - "git commit -m 'Good commit'"
+  - "echo 'Not ready work' > bad.txt"
+  - "git add bad.txt"
+  - "git commit -m 'Premature commit'"
+
+validation:
+  checks:
+    - type: "head_commit_message"
+      message_pattern: "Good commit"
+      description: "HEAD is back to the good commit"
+    - type: "file_content"
+      path: "bad.txt"
+      contains:
+        - "Not ready work"
+      description: "File changes still exist"
+
+hints:
+  - "Use `git reset` to move HEAD backward."
+  - "Which flag preserves changes in staging? `--soft`."
+  - "Command: `git reset --soft HEAD~1`"
+
+scoring:
+  time_bonus: true
+  hint_penalty: 5
+
+translations:
+  ja:
+    title: "コミットの取り消し"
+    description: "準備ができていないファイルを間違ってコミットしてしまいました。変更をステージングに残したまま、コミットだけを取り消してください。"
+    hints:
+      - "`git reset` を使ってHEADを前に戻します。"
+      - "ステージングに変更を残すフラグは `--soft` です。"
+      - "コマンド例: `git reset --soft HEAD~1`"

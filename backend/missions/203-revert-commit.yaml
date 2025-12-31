@@ -1,0 +1,47 @@
+id: "203-revert-commit"
+title: "Safe Undo"
+description: "A commit introduced a bug, but it's already pushed (simulated). Undo the changes by creating a NEW commit that reverses the effect."
+difficulty:
+  level: "intermediate"
+  stars: 2
+skill: "revert"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'Stable code' > app.js"
+  - "git add app.js"
+  - "git commit -m 'Initial release'"
+  - "echo 'Buggy code' >> app.js"
+  - "git add app.js"
+  - "git commit -m 'Feature with bug'"
+
+validation:
+  checks:
+    - type: "head_commit_message"
+      message_pattern: "Revert \"Feature with bug\""
+      description: "Created a revert commit"
+    - type: "file_content"
+      path: "app.js"
+      contains:
+        - "Stable code"
+      description: "Code is restored to stable state"
+
+hints:
+  - "Use `git revert` to safely undo a commit."
+  - "You need to target the HEAD commit."
+  - "Command: `git revert HEAD` (and save the message)"
+
+scoring:
+  time_bonus: true
+  hint_penalty: 5
+
+translations:
+  ja:
+    title: "安全な取り消し"
+    description: "バグを含むコミットをしてしまいましたが、既に共有されています（想定）。そのコミットの影響を打ち消がす新しいコミットを作成してください。"
+    hints:
+      - "`git revert` を使うと、安全にコミットを打ち消せます。"
+      - "現在のHEADコミットを対象にします。"
+      - "コマンド例: `git revert HEAD`"

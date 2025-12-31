@@ -14,6 +14,11 @@
     "dojo": {
         "title": "Git Dojo",
         "subtitle": "Select today's challenge",
+        "random": "Surprise Me!",
+        "view": {
+            "level": "By Level",
+            "command": "By Command"
+        },
         "category": {
             "basic": "BASIC",
             "intermediate": "INTERMEDIATE",
@@ -71,31 +76,86 @@
                 "trivia": "git add . stages all changes in the current directory. To stage specific files, specify the filename."
             },
             "102": {
-                "title": "Create a Branch",
-                "description": "To develop a new feature, create a new branch and switch to it.",
-                "goals": {
-                    "0": "Create a new branch",
-                    "1": "Switch to the new branch"
-                },
-                "trivia": "Use git switch -c <branch-name> to create and switch to a branch in one command."
+                "title": "Branching Out",
+                "description": "Create a new branch for feature development to keep the main branch clean.",
+                "goals": [
+                    "Create a branch named 'feature'",
+                    "Switch to the 'feature' branch"
+                ],
+                "trivia": "A branch in Git is essentially a lightweight movable pointer to a commit."
             },
             "103": {
-                "title": "Resolve Merge Conflict",
-                "description": "Alice and Bob edited the same file simultaneously. Resolve the merge conflict and create a commit that includes both changes.",
-                "goals": {
-                    "0": "Resolve the conflict",
-                    "1": "Create the merge commit"
-                },
-                "trivia": "Conflict markers are <<<<<<< HEAD, =======, and >>>>>>>. Above ======= is your current branch, below is the branch being merged."
+                "title": "History Investigation",
+                "description": "A mysterious repository has been found. Use git log and git show to investigate its history and find the secret code.",
+                "goals": [
+                    "Find the secret code in commit history",
+                    "Write the code to 'answer.txt'"
+                ],
+                "trivia": "`git log --oneline --graph` is a popular way to see history visually in the terminal."
+            },
+            "104": {
+                "title": "Fixing a Typo",
+                "description": "You just committed a change but realized there's a typo in the commit message. Fix it using --amend.",
+                "goals": [
+                    "Amend the last commit message"
+                ],
+                "trivia": "`--amend` actually creates a new commit and replaces the old one, rewriting history."
             },
             "201": {
-                "title": "Rebase Basics",
-                "description": "Rebase the feature branch onto the latest commit of the main branch.",
-                "goals": {
-                    "0": "Switch to the feature branch",
-                    "1": "Rebase onto main"
-                },
-                "trivia": "Rebasing keeps commit history linear, but rebasing already-pushed branches can cause issues."
+                "title": "Coming Soon",
+                "description": "This intermediate challenge is under construction.",
+                "goals": [],
+                "trivia": ""
+            },
+            "202": {
+                "title": "Undo Start Button",
+                "description": "You accidentally committed a file that wasn't ready. Undo the commit but keep your changes.",
+                "goals": [
+                    "Reset HEAD to previous commit",
+                    "Keep changes in staging/worktree"
+                ],
+                "trivia": "`git reset --soft` moves HEAD but leaves index and worktree touched, effectively 'uncommitting'."
+            },
+            "203": {
+                "title": "Safe Undo",
+                "description": "A commit introduced a bug. Undo the changes by creating a NEW revert commit.",
+                "goals": [
+                    "Revert HEAD commit"
+                ],
+                "trivia": "`git revert` is safe for shared branches because it adds history rather than rewriting it."
+            },
+            "204": {
+                "title": "Discard Changes",
+                "description": "You modified a config file but broke it. Discard your local changes.",
+                "goals": [
+                    "Restore config.ini to original state"
+                ],
+                "trivia": "`git restore` was introduced in Git 2.23 to separate responsibilities from the overloaded `git checkout`."
+            },
+            "301": {
+                "title": "The Conflict Crisis",
+                "description": "Bob and Alice edited the same file. The repository is in a broken merge state. Fix it.",
+                "goals": [
+                    "Resolve merge conflict in README.md",
+                    "Commit the merge"
+                ],
+                "trivia": "Conflicts happen when Git cannot automatically reconcile differences in code (e.g., same line edits)."
+            },
+            "302": {
+                "title": "Rebase Introduction",
+                "description": "Your feature branch is behind main. Rebase it onto main to include updates.",
+                "goals": [
+                    "Rebase feature branch onto main"
+                ],
+                "trivia": "Rebasing rewrites history to create a linear progression, making it cleaner but risky on shared branches."
+            },
+            "303": {
+                "title": "Cherry Picking",
+                "description": "Pick a specific commit from another branch and apply it here.",
+                "goals": [
+                    "Cherry-pick the 'Golden commit'"
+                ],
+                "trivia": "Cherry-picking is useful for backporting bug fixes to older maintenance branches."
             }
         }
     },

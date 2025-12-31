@@ -1,0 +1,50 @@
+id: "303-cherry-pick"
+title: "Cherry Picking"
+description: "There is a great commit on the 'experimental' branch. Pick just that single commit and apply it to 'main'."
+difficulty:
+  level: "intermediate"
+  stars: 2
+skill: "cherry-pick"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'Main' > app.txt"
+  - "git add app.txt"
+  - "git commit -m 'Initial'"
+  - "git checkout -b experimental"
+  - "echo 'Garbage' > garbage.txt"
+  - "git add garbage.txt"
+  - "git commit -m 'Garbage commit'"
+  - "echo 'Gold' > gold.txt"
+  - "git add gold.txt"
+  - "git commit -m 'Golden commit'"
+  - "git checkout main"
+
+validation:
+  checks:
+    - type: "file_content"
+      path: "gold.txt"
+      contains:
+        - "Gold"
+      description: "Cherry-picked file exists"
+    - type: "current_branch"
+      name: "main"
+      description: "On main branch"
+
+hints:
+  - "Find the commit hash of 'Golden commit' using `git log experimental`."
+  - "Use `git cherry-pick <hash>` to apply just that commit."
+
+scoring:
+  time_bonus: true
+  hint_penalty: 5
+
+translations:
+  ja:
+    title: "Cherry Pick"
+    description: "'experimental' ブランチに素晴らしいコミットがあります。それだけを選んで 'main' ブランチに適用してください。"
+    hints:
+      - "`git log experimental` で 'Golden commit' のハッシュを探します。"
+      - "`git cherry-pick <ハッシュ>` を使って、そのコミットだけを適用します。"

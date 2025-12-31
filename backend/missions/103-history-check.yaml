@@ -1,0 +1,48 @@
+id: "103-history-check"
+title: "History Investigation"
+description: "A mysterious repository has been found. Use git log and git show to investigate its history and find the secret code."
+difficulty:
+  level: "basic"
+  stars: 1
+skill: "log"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'Project started' > README.md"
+  - "git add README.md"
+  - "git commit -m 'Initial commit'"
+  - "echo 'Secret Code: 4829' > secret.txt"
+  - "git add secret.txt"
+  - "git commit -m 'Add secret file'"
+  - "git rm secret.txt"
+  - "git commit -m 'Delete secret file'"
+
+validation:
+  checks:
+    - type: "file_content"
+      path: "answer.txt"
+      contains:
+        - "4829"
+      description: "Found the secret code and wrote it to answer.txt"
+
+hints:
+  - "Run `git log` to see the commit history."
+  - "Notice a commit about 'Add secret file'? Use `git show <commit-hash>` to see what was in it."
+  - "Create a file named `answer.txt` with the secret code inside."
+  - "Command: `echo '4829' > answer.txt`"
+
+scoring:
+  time_bonus: true
+  hint_penalty: 5
+
+translations:
+  ja:
+    title: "歴史の調査"
+    description: "謎のリポジトリが見つかりました。git log と git show を使って歴史を調査し、秘密のコードを見つけてください。見つけたコードを `answer.txt` に書き込んでください。"
+    hints:
+      - "`git log` を実行してコミット履歴を確認しましょう。"
+      - "'Add secret file' というコミットが怪しいですね。`git show <コミットハッシュ>` で内容を確認できます。"
+      - "`answer.txt` というファイルを作成し、中に秘密のコードを書き込んでください。"
+      - "コマンド例: `echo '4829' > answer.txt`"

@@ -528,3 +528,113 @@
 .action-button.secondary:hover {
     background: var(--bg-hover);
 }
+
+/* === NEW UI ELEMENTS === */
+
+/* Random Button */
+.dojo-header-actions {
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+}
+
+.random-button {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    padding: 12px 32px;
+    border-radius: 50px;
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.random-button:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 16px rgba(245, 158, 11, 0.5);
+}
+
+.random-button:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* View Tabs */
+.dojo-view-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 0;
+}
+
+.view-tab {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.view-tab.active {
+    color: var(--accent-primary);
+    border-bottom-color: var(--accent-primary);
+}
+
+.view-tab:hover:not(.active) {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+    border-radius: 6px 6px 0 0;
+}
+
+/* Command Chips */
+.command-filter-container {
+    padding: 0 24px 24px 24px;
+}
+
+.command-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+}
+
+.command-chip {
+    padding: 6px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.command-chip:hover {
+    background: var(--bg-hover);
+    border-color: var(--accent-primary);
+}
+
+.command-chip.active {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent-primary);
+    border-color: var(--accent-primary);
+}
+
+/* Flattened Problem List for Command View */
+.flat-problem-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 0 24px;
+}

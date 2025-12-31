@@ -1,0 +1,39 @@
+id: "104-amend-commit"
+title: "Fixing a Typo"
+description: "You just committed a change but realized there's a typo in the commit message. Fix it using --amend without creating a new commit."
+difficulty:
+  level: "basic"
+  stars: 1
+skill: "amend"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'Feature work implementation' > feature.txt"
+  - "git add feature.txt"
+  - "git commit -m 'Add feature implementatoin'" # Typo here
+
+validation:
+  checks:
+    - type: "head_commit_message"
+      message_pattern: "Add feature implementation"
+      description: "HEAD commit message is corrected"
+
+hints:
+  - "Use `git commit --amend` to modify the last commit."
+  - "You can use `-m` to set the new message directly."
+  - "Command: `git commit --amend -m 'Add feature implementation'`"
+
+scoring:
+  time_bonus: true
+  hint_penalty: 5
+
+translations:
+  ja:
+    title: "コミットメッセージの修正"
+    description: "コミットした直後に、メッセージにタイプミスがあることに気づきました。新しいコミットを作らずに `git commit --amend` で修正してください。"
+    hints:
+      - "`git commit --amend` を使うと直前のコミットを修正できます。"
+      - "`-m` オプションを使って新しいメッセージを直接指定できます。"
+      - "コマンド例: `git commit --amend -m 'Add feature implementation'`"

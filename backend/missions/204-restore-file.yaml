@@ -1,0 +1,44 @@
+id: "204-restore-file"
+title: "Discard Changes"
+description: "You modified a config file but broke it. Discard your local changes and restore it to the last committed state."
+difficulty:
+  level: "basic"
+  stars: 1
+skill: "restore"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'key=value' > config.ini"
+  - "git add config.ini"
+  - "git commit -m 'Add config'"
+  - "echo 'key=broken' > config.ini"
+
+validation:
+  checks:
+    - type: "file_content"
+      path: "config.ini"
+      contains:
+        - "key=value"
+      description: "File content matches original"
+    - type: "clean_working_tree"
+      description: "No pending changes"
+
+hints:
+  - "Use `git restore` to discard changes in the working directory."
+  - "Command: `git restore config.ini`"
+  - "Alternatively: `git checkout config.ini` (older command)"
+
+scoring:
+  time_bonus: true
+  hint_penalty: 5
+
+translations:
+  ja:
+    title: "変更の破棄"
+    description: "設定ファイルを変更しましたが、壊してしまいました。ローカルの変更を破棄して、最後にコミットした状態に戻してください。"
+    hints:
+      - "`git restore` を使うと、ワーキングディレクトリの変更を破棄できます。"
+      - "コマンド例: `git restore config.ini`"
+      - "または昔ながらの `git checkout config.ini` でも可能です。"

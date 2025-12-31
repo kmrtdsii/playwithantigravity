@@ -1,0 +1,54 @@
+id: "302-rebase-basic"
+title: "Rebase Introduction"
+description: "Your feature branch is behind main. Rebase it onto main to include the latest updates before merging."
+difficulty:
+  level: "intermediate"
+  stars: 3
+skill: "rebase"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'Initial' > README.md"
+  - "git add README.md"
+  - "git commit -m 'Initial commit'"
+  - "gitCheckout -b feature" # Helper or raw
+  - "git checkout -b feature"
+  - "echo 'Feature' > feature.txt"
+  - "git add feature.txt"
+  - "git commit -m 'Feature commit'"
+  - "git checkout main"
+  - "echo 'Update' >> README.md"
+  - "git add README.md"
+  - "git commit -m 'Main update'"
+  - "git checkout feature"
+
+validation:
+  checks:
+    - type: "file_content"
+      path: "README.md"
+      contains:
+        - "Update"
+      description: "Feature branch has main's updates"
+    - type: "current_branch"
+      name: "feature"
+      description: "Still on feature branch"
+
+hints:
+  - "You are on the `feature` branch."
+  - "Use `git rebase main` to rebase onto main."
+  - "If conflicts were to happen, you'd fix them, but here it's clean."
+
+scoring:
+  time_bonus: true
+  hint_penalty: 10
+
+translations:
+  ja:
+    title: "Rebase入門"
+    description: "featureブランチがmainより遅れています。マージする前に、`git rebase` を使ってmainの最新の変更を取り込んでください。"
+    hints:
+      - "現在は `feature` ブランチにいます。"
+      - "`git rebase main` を使って、mainの上にリベースします。"
+      - "コンフリクトが発生した場合は修正が必要ですが、今回はクリーンに適用されます。"

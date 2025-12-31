@@ -65,24 +65,13 @@ func (e *Engine) StartMission(ctx context.Context, missionID string) (string, er
 	// defer sess.Unlock()
 
 	// 1. Clean Filesystem (Reset State)
-	// We need a way to empty the MemFS.
-	// Sess.RemoveAll("/") might work if implemented recursively.
-	// state.Session has RemoveAll.
-	_ = sess.RemoveAll("/")
-	// Re-create root if needed? MemFS handles it.
-	sess.CurrentDir = "/"
-	sess.Repos = make(map[string]*gogit.Repository)
-	// We can't easily wipe sess.Repos without raw access.
-	// Let's just create a new Session object in the Manager if possible?
-	// Manager.sessions is private.
-
-	// Workaround: We'll assume RemoveAll("/") clears the files,
-	// and we manually clear the Repos map (since we have access to the pointer).
-	// But `Repos` is defined in state.Session.
-	// We just need to clear it.
-	for k := range sess.Repos {
-		delete(sess.Repos, k)
+	if err := e.cleanWorkspace(sess); err != nil {
+		return "", fmt.Errorf("failed to clean workspace: %w", err)
 	}
+	// Re-create root if needed? MemFS handles it.
+	// We use /project as the default directory to avoid "cannot init repo at root" errors
+	_ = sess.Filesystem.MkdirAll("/project", 0755)
+	sess.CurrentDir = "/project"
 
 	// 2. Run Setup Commands
 	for _, cmdStr := range m.Setup {
@@ -95,6 +84,27 @@ func (e *Engine) StartMission(ctx context.Context, missionID string) (string, er
 	sess.Reflog = nil
 
 	return sessionID, nil
+}
+
+// cleanWorkspace removes all files and directories in the root of the session filesystem
+func (e *Engine) cleanWorkspace(sess *state.Session) error {
+	// Clear Repos map
+	sess.Repos = make(map[string]*gogit.Repository)
+
+	// List all files in root
+	files, err := sess.Filesystem.ReadDir("/")
+	if err != nil {
+		// If root doesn't exist, that's fine (though unlikely for memfs)
+		return nil
+	}
+
+	for _, file := range files {
+		path := "/" + file.Name()
+		if err := sess.RemoveAll(path); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // runCommand handles git commands and basic shell simulation (echo, mkdir, cd, redirection)
@@ -282,8 +292,19 @@ func (e *Engine) VerifyMission(sessionID string, missionID string) (*Verificatio
 			}
 
 		case "file_content":
+			// Resolve path relative to CurrentDir
+			targetPath := check.Path
+			if !strings.HasPrefix(targetPath, "/") {
+				// Avoid double slash if CurrentDir is "/"
+				if sess.CurrentDir == "/" {
+					targetPath = "/" + targetPath
+				} else {
+					targetPath = sess.CurrentDir + "/" + targetPath
+				}
+			}
+
 			// Check file content
-			f, err := sess.Filesystem.Open(check.Path)
+			f, err := sess.Filesystem.Open(targetPath)
 			if err == nil {
 				// Read content
 				contentBytes, readErr := io.ReadAll(f)
@@ -345,6 +366,22 @@ func (e *Engine) VerifyMission(sessionID string, missionID string) (*Verificatio
 			headRef, hErr := repo.Head()
 			if hErr == nil && headRef.Name().IsBranch() {
 				passed = headRef.Name().Short() == check.Name
+			}
+
+		case "head_commit_message":
+			// Check if HEAD commit message matches the pattern
+			headRef, hErr := repo.Head()
+			if hErr == nil {
+				commit, cErr := repo.CommitObject(headRef.Hash())
+				if cErr == nil {
+					if check.MessagePattern == "" {
+						passed = true
+					} else {
+						// Simple contains check, or exact match? 'pattern' usually implies contains/regex.
+						// Using strings.Contains like commit_exists
+						passed = strings.Contains(commit.Message, check.MessagePattern)
+					}
+				}
 			}
 		}
 
