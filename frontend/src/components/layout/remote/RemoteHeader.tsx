@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Settings, Cloud, Copy, Check, Database } from 'lucide-react';
-import {
-    toolbarRowStyle
-} from './remoteStyles';
+
 
 interface RemoteHeaderProps {
     remoteUrl: string;
@@ -55,51 +53,103 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
     return (
         <div style={{
             display: 'flex',
-            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: '44px', // Slightly taller for single row comfort
+            padding: '0 12px',
             borderBottom: '1px solid var(--border-subtle)',
-            background: 'var(--bg-secondary)', // Same as developer tabs
+            background: 'var(--bg-secondary)',
+            gap: '12px'
         }}>
-            {/* ROW 1: Title & Main Actions (36px) - Matches DeveloperTabs */}
-            <div style={{
-                ...toolbarRowStyle,
-                padding: '0 12px',
-                justifyContent: 'space-between',
-                height: '36px',
-                borderBottom: '1px solid var(--border-subtle)'
-            }}>
-                {/* Left: Project Name */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <Cloud
-                            size={18}
-                            className={remoteUrl ? "text-accent-primary" : "text-tertiary"}
-                            style={{ opacity: remoteUrl ? 1 : 0.5 }}
-                        />
-                        <Database
-                            size={12}
-                            style={{
-                                position: 'absolute',
-                                right: -4,
-                                bottom: -2,
-                                color: remoteUrl ? 'var(--text-accent)' : 'var(--text-tertiary)',
-                                background: 'var(--bg-secondary)',
-                                borderRadius: '50%'
-                            }}
-                        />
-                    </div>
-                    <span style={{
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        color: 'var(--text-primary)',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                    }}>
-                        {displayTitle}
-                    </span>
+            {/* Left: Project Name */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <Cloud
+                        size={18}
+                        className={remoteUrl ? "text-accent-primary" : "text-tertiary"}
+                        style={{ opacity: remoteUrl ? 1 : 0.5 }}
+                    />
+                    <Database
+                        size={12}
+                        style={{
+                            position: 'absolute',
+                            right: -4,
+                            bottom: -2,
+                            color: remoteUrl ? 'var(--text-accent)' : 'var(--text-tertiary)',
+                            background: 'var(--bg-secondary)',
+                            borderRadius: '50%'
+                        }}
+                    />
                 </div>
+                <span style={{
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: 'var(--text-primary)',
+                    whiteSpace: 'nowrap'
+                }}>
+                    {displayTitle}
+                </span>
+            </div>
 
-                {/* Settings button - Right aligned */}
+            {/* Middle: URL Input */}
+            {remoteUrl ? (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    flex: 1,
+                    maxWidth: '600px', // Prevent stretching too wide on large screens
+                    minWidth: 0
+                }}>
+                    <input
+                        type="text"
+                        readOnly
+                        value={remoteUrl}
+                        style={{
+                            flex: 1,
+                            background: 'var(--bg-tertiary)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '11px',
+                            fontFamily: 'monospace',
+                            color: 'var(--text-secondary)',
+                            outline: 'none',
+                            minWidth: 0
+                        }}
+                    />
+                    <button
+                        onClick={handleCopyUrl}
+                        title={t('remote.header.copyUrl')}
+                        style={{
+                            display: 'flex', alignItems: 'center',
+                            background: 'transparent', border: 'none',
+                            padding: '4px', cursor: 'pointer',
+                            color: isCopied ? 'var(--accent-primary)' : 'var(--text-tertiary)',
+                            flexShrink: 0
+                        }}
+                    >
+                        {isCopied ? <Check size={14} /> : <Copy size={14} />}
+                    </button>
+                </div>
+            ) : (
+                <div style={{ flex: 1 }} />
+            )}
+
+            {/* Right Group: Build Info & Settings */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+                {!remoteUrl && (
+                    <div style={{
+                        fontSize: '9px',
+                        color: 'var(--text-secondary)',
+                        opacity: 0.6,
+                        fontFamily: 'monospace',
+                        whiteSpace: 'nowrap'
+                    }}>
+                        {__BUILD_TIME__}
+                    </div>
+                )}
+
                 {!isSettingsOpen && remoteUrl && (
                     <button
                         onClick={onEditRemote}
@@ -107,93 +157,19 @@ const RemoteHeader: React.FC<RemoteHeaderProps> = ({
                         style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            justifyContent: 'center',
                             background: 'transparent',
                             border: 'none',
                             color: 'var(--text-secondary)',
-                            fontSize: '11px',
                             cursor: 'pointer',
-                            padding: '4px 8px',
+                            padding: '6px',
                             borderRadius: '4px',
-                            flexShrink: 0
+                            transition: 'background-color 0.2s'
                         }}
-                        className="hover:bg-bg-tertiary transition-colors"
+                        className="hover:bg-bg-tertiary"
                     >
-                        <Settings size={14} />
-                        <span>{t('remote.header.settings')}</span>
+                        <Settings size={16} />
                     </button>
-                )}
-            </div>
-
-            {/* ROW 2: URL & Info (40px) - Matches Local View Toggles */}
-            <div style={{
-                height: '40px',
-                display: 'flex',
-                alignItems: 'center',
-                padding: '0 12px',
-                background: 'var(--bg-toolbar)',
-                gap: '12px'
-            }}>
-                {remoteUrl ? (
-                    <>
-                        <span style={{
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            color: 'var(--text-secondary)',
-                            whiteSpace: 'nowrap'
-                        }}>
-                            {t('remote.header.label')}
-                        </span>
-                        <div style={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            minWidth: 0
-                        }}>
-                            <input
-                                type="text"
-                                readOnly
-                                value={remoteUrl}
-                                style={{
-                                    flex: 1,
-                                    background: 'var(--bg-tertiary)',
-                                    border: '1px solid var(--border-subtle)',
-                                    borderRadius: '4px',
-                                    padding: '4px 8px',
-                                    fontSize: '11px',
-                                    fontFamily: 'monospace',
-                                    color: 'var(--text-secondary)',
-                                    outline: 'none',
-                                    width: '100%'
-                                }}
-                            />
-                            <button
-                                onClick={handleCopyUrl}
-                                title={t('remote.header.copyUrl')}
-                                style={{
-                                    display: 'flex', alignItems: 'center',
-                                    background: 'transparent', border: 'none',
-                                    padding: '4px', cursor: 'pointer',
-                                    color: isCopied ? 'var(--accent-primary)' : 'var(--text-tertiary)'
-                                }}
-                            >
-                                {isCopied ? <Check size={14} /> : <Copy size={14} />}
-                            </button>
-                        </div>
-                    </>
-                ) : (
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                        {/* Automatically generated build information */}
-                        <div style={{
-                            fontSize: '9px',
-                            color: 'var(--text-secondary)',
-                            opacity: 0.8,
-                            fontFamily: 'monospace'
-                        }}>
-                            Built: {__BUILD_TIME__}
-                        </div>
-                    </div>
                 )}
             </div>
         </div>

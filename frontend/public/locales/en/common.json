@@ -299,7 +299,8 @@
             "repoNameRequired": "Repository name is required",
             "recentTitle": "Recent Remotes",
             "deleteRemoteTitle": "Delete Remote",
-            "deleteRemoteConfirm": "Are you sure you want to delete remote {{name}} from the list?"
+            "deleteRemoteConfirm": "Are you sure you want to delete remote {{name}} from the list?",
+            "deleteRemoteDesc": "The actual repository and local files will be preserved."
         }
     },
     "developer": {

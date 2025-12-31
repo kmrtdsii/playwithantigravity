@@ -299,7 +299,8 @@
             "repoNameRequired": "リポジトリ名は必須です",
             "recentTitle": "最近使用したリモート",
             "deleteRemoteTitle": "リモートを削除",
-            "deleteRemoteConfirm": "リモート {{name}} をリストから削除しますか？"
+            "deleteRemoteConfirm": "リモート {{name}} をリストから削除しますか？",
+            "deleteRemoteDesc": "実際のリポジトリやローカルファイルは保持されます。"
         }
     },
     "developer": {
