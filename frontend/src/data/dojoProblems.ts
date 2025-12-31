@@ -144,7 +144,7 @@ export const DOJO_PROBLEMS: DojoProblem[] = [
             'dojo.problems.203.goals.0',
         ],
         solutionSteps: [
-            'git revert HEAD~1',
+            'git revert HEAD',
         ],
         trivia: 'dojo.problems.203.trivia',
     },
@@ -227,6 +227,25 @@ export const DOJO_PROBLEMS: DojoProblem[] = [
             'git cherry-pick <hash>',
         ],
         trivia: 'dojo.problems.303.trivia',
+    },
+    {
+        id: '304',
+        title: 'dojo.problems.304.title',
+        description: 'dojo.problems.304.description',
+        category: 'intermediate',
+        difficulty: 3,
+        estimatedMinutes: 5,
+        prerequisiteIds: [],
+        missionId: '304-revert-merge',
+        commands: ['git revert'],
+        goals: [
+            'dojo.problems.304.goals.0',
+        ],
+        solutionSteps: [
+            'git log',
+            'git revert -m 1 <hash>',
+        ],
+        trivia: 'dojo.problems.304.trivia',
     },
 ];
 

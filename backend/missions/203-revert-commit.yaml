@@ -16,41 +16,28 @@ setup:
   - "echo 'Buggy feature' >> app.js"
   - "git add app.js"
   - "git commit -m 'Add buggy feature'"
-  - "echo 'Good feature' > feature.txt"
-  - "git add feature.txt"
-  - "git commit -m 'Add good feature'"
 
 validation:
   checks:
     - type: "head_commit_message"
       message_pattern: "Revert \"Add buggy feature\""
-      description: "Created a revert commit for the buggy feature"
+      description: "Created a revert commit"
     - type: "file_content"
       path: "app.js"
       contains:
         - "Stable feature"
-      description: "App.js restored to stable state"
-    - type: "file_content"
-      path: "feature.txt"
-      contains:
-        - "Good feature"
-      description: "New feature (feature.txt) is preserved"
-    - type: "commit_exists"
-      message_pattern: "Add good feature"
-      description: "The good feature commit still exists (do not use reset)"
+      description: "App restored to stable state"
 
 hints:
-  - "Use `git revert <commit-hash>` to undo a specific commit."
-  - "The buggy commit is not the latest one (`HEAD`), but the one before it."
-  - "Find the hash of 'Add buggy feature' commit or use `HEAD~1`."
-  - "Command: `git revert HEAD~1`"
+  - "Use `git revert` to safely undo a commit."
+  - "You need to target the HEAD commit."
+  - "Command: `git revert HEAD`"
 
 translations:
   ja:
-    title: "安全な取り消し（一部のみ）"
-    description: "開発が進んでいますが、途中のコミットにバグが含まれていました。最新の変更（Good feature）は残したまま、バグのあるコミット（Add buggy feature）だけを `git revert` で打ち消してください。"
+    title: "安全な取り消し"
+    description: "バグを含むコミットをしてしまいました。そのコミットの影響を打ち消す「新しいコミット」を作成してください。"
     hints:
-      - "`git revert <コミットハッシュ>` で特定のコミットだけを打ち消せます。"
-      - "バグのあるコミットは最新（HEAD）ではなく、一つ前です。"
-      - "ログで 'Add buggy feature' のハッシュを探すか、`HEAD~1` を指定します。"
-      - "コマンド例: `git revert HEAD~1`"
+      - "`git revert` を使うと、安全にコミットを打ち消せます。"
+      - "現在のHEADコミットを対象にします。"
+      - "コマンド例: `git revert HEAD`"

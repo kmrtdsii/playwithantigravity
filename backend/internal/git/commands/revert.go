@@ -24,11 +24,29 @@ func (c *RevertCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	s.Lock()
 	defer s.Unlock()
 
-	if len(args) < 2 {
-		return "", fmt.Errorf("usage: git revert <commit>")
+	// Parse flags and arguments
+	var rev string
+	var mainline int
+
+	for i := 1; i < len(args); i++ {
+		arg := args[i]
+		if arg == "-m" {
+			if i+1 >= len(args) {
+				return "", fmt.Errorf("option -m requires a value")
+			}
+			n, err := fmt.Sscanf(args[i+1], "%d", &mainline)
+			if err != nil || n != 1 {
+				return "", fmt.Errorf("invalid mainline parent number: %s", args[i+1])
+			}
+			i++ // skip value
+		} else {
+			rev = arg
+		}
 	}
-	// For now, support single commit revert
-	rev := args[1]
+
+	if rev == "" {
+		return "", fmt.Errorf("usage: git revert [-m parent-number] <commit>")
+	}
 
 	repo := s.GetRepo()
 	if repo == nil {
@@ -46,27 +64,39 @@ func (c *RevertCommand) Execute(ctx context.Context, s *git.Session, args []stri
 	}
 
 	// 2. Identify Parent (Theirs/Target state for the revert)
-	// If multiple parents (merge commit), fail unless -m is implied (not supported yet)
-	if targetCommit.NumParents() > 1 {
-		return "", fmt.Errorf("error: commit %s is a merge but no -m option was given", hash.String()[:7])
-	}
-
 	var parentCommit *object.Commit
-	if targetCommit.NumParents() > 0 {
-		parentCommit, err = targetCommit.Parent(0)
+
+	if targetCommit.NumParents() > 1 {
+		if mainline == 0 {
+			return "", fmt.Errorf("error: commit %s is a merge but no -m option was given", hash.String()[:7])
+		}
+		if mainline < 1 || mainline > targetCommit.NumParents() {
+			return "", fmt.Errorf("error: commit %s does not have parent %d", hash.String()[:7], mainline)
+		}
+		// Parents are 0-indexed in API, 1-indexed in CLI
+		parentCommit, err = targetCommit.Parent(mainline - 1)
 		if err != nil {
 			return "", err
 		}
 	} else {
-		// Reverting a root commit?
-		// "Theirs" should be an empty tree.
-		// For simplicity, let's treat it as nil and handle in Merge3Way if it supports it,
-		// or create an empty dummy commit if needed.
-		// git.Merge3Way usually expects *object.Commit.
-		// If implementation supports nil as "empty tree", good. If not, we block root revert for now.
-		// Looking at cherry-pick: logic handles Base=nil.
-		// Here Parent is "Theirs".
+		if mainline != 0 {
+			return "", fmt.Errorf("error: mainline was specified but commit %s is not a merge", hash.String()[:7])
+		}
+		if targetCommit.NumParents() > 0 {
+			parentCommit, err = targetCommit.Parent(0)
+			if err != nil {
+				return "", err
+			}
+		}
 	}
+	// Reverting a root commit?
+	// "Theirs" should be an empty tree.
+	// For simplicity, let's treat it as nil und handle in Merge3Way if it supports it,
+	// or create an empty dummy commit if needed.
+	// git.Merge3Way usually expects *object.Commit.
+	// If implementation supports nil as "empty tree", good. If not, we block root revert for now.
+	// Looking at cherry-pick: logic handles Base=nil.
+	// Here Parent is "Theirs".
 
 	// 3. Get HEAD (Ours)
 	headRef, err := repo.Head()
@@ -142,17 +172,23 @@ func (c *RevertCommand) Help() string {
  💡 DESCRIPTION
     ・既存のコミットを「打ち消す」新しいコミットを作成します。
     ・履歴を改変せず（resetと異なり）、安全に過去の変更を取り消せます。
-    ・すでにPush済みのコミットを取り消す場合に推奨されます。
 
  📋 SYNOPSIS
-    git revert <commit>
+    git revert [-m parent-number] <commit>
+
+ ⚙️  OPTIONS
+    -m parent-number
+        マージコミットを打ち消す場合に、どの親を「残す」かを指定します。
+        通常、親番号は以下の通りです：
+        1: 元いたブランチ（Mainline）
+        2: マージされたブランチ
 
  🛠  EXAMPLES
     1. 直前のコミットを取り消す
        $ git revert HEAD
        
-    2. 特定の過去のコミットを取り消す
-       $ git revert a1b2c3d
+    2. マージコミットを取り消す（メインラインを残す）
+       $ git revert -m 1 <commit>
 
  🔗 REFERENCE
     Full documentation: https://git-scm.com/docs/git-revert

@@ -385,6 +385,11 @@ func (e *Engine) VerifyMission(sessionID string, missionID string) (*Verificatio
 			}
 		}
 
+		// Handle Negation
+		if check.Negate {
+			passed = !passed
+		}
+
 		results = append(results, CheckResult{
 			Description: check.Description,
 			Passed:      passed,

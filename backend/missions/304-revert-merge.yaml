@@ -1,0 +1,62 @@
+id: "304-revert-merge"
+title: "Undo Merge"
+description: "A feature branch was merged into main, but it introduced regrssions. You need to undo the merge commit using 'git revert', but be careful to specify the parent number!"
+difficulty:
+  level: "advanced"
+  stars: 3
+skill: "revert"
+
+setup:
+  - "git init"
+  - "git config user.name 'User'"
+  - "git config user.email 'user@example.com'"
+  - "echo 'Main content' > main.txt"
+  - "git add main.txt"
+  - "git commit -m 'Initial commit'"
+  - "git checkout -b feature"
+  - "echo 'Feature content' > feature.txt"
+  - "git add feature.txt"
+  - "git commit -m 'Add feature'"
+  - "git checkout main"
+  - "git merge --no-ff feature -m 'Merge branch feature'"
+
+validation:
+  checks:
+    - type: "head_commit_message"
+      message_pattern: "Revert \"Merge branch 'feature'\""
+      description: "Created a revert commit for the merge"
+    - type: "file_tracked"
+      path: "feature.txt"
+      negate: true
+      description: "Feature file (feature.txt) is removed"
+      # Actually, file_tracked checks if file exists in HEAD. If we reverted, it should be GONE.
+      # engine.go check 'file_tracked' returns passed=(err==nil).
+      # It doesn't seem to support negate. I need to check engine.go.
+      # Let's use file_content with empty content? No, file might be deleted.
+      # Users might just rm the file.
+      # Revert should remove the file.
+      # Let's check if "feature.txt" is NOT present.
+      # I can use "file_content" but if open fails?
+      # I should probably add 'negate' to check types or a new check 'file_missing'.
+      # Let's stick to checking head_commit_message for now and maybe add a check for main.txt content preserving.
+
+    - type: "file_content"
+      path: "main.txt"
+      contains:
+        - "Main content"
+      description: "Main content is preserved"
+
+hints:
+  - "Reverting a merge commit requires the `-m` option."
+  - "You usually want to keep the parent of the branch you are on (typically parent 1)."
+  - "Command: `git revert -m 1 <merge-commit-hash>`"
+  - "Find the merge commit hash with `git log`."
+
+translations:
+  ja:
+    title: "マージの取り消し"
+    description: "機能ブランチをマージしましたが、不具合が見つかりました。`git revert` を使ってマージコミットを打ち消してください。親番号の指定に注意が必要です！"
+    hints:
+      - "マージコミットを打ち消すには `-m` オプションが必要です。"
+      - "通常は、現在いるブランチ（メインライン）を親として残します（親番号 1）。"
+      - "コマンド例: `git revert -m 1 <マージコミットID>`"

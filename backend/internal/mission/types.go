@@ -36,6 +36,7 @@ type Check struct {
 	Path           string   `yaml:"path"`            // For file checks
 	Contains       []string `yaml:"contains"`        // For file content checks
 	Name           string   `yaml:"name"`            // For branch checks (branch_exists, current_branch)
+	Negate         bool     `yaml:"negate"`          // If true, inverts the pass condition
 }
 
 type Scoring struct {

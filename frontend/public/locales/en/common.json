@@ -120,7 +120,7 @@
                 "title": "Safe Undo",
                 "description": "A commit introduced a bug. Undo the changes by creating a NEW revert commit.",
                 "goals": [
-                    "Revert HEAD~1 commit"
+                    "Revert HEAD commit"
                 ],
                 "trivia": "`git revert` is safe for shared branches because it adds history rather than rewriting it."
             },
@@ -156,6 +156,14 @@
                     "Cherry-pick the 'Golden commit'"
                 ],
                 "trivia": "Cherry-picking is useful for backporting bug fixes to older maintenance branches."
+            },
+            "304": {
+                "title": "Undo a Merge",
+                "description": "A feature branch merge introduced a bug. Revert the merge commit safely.",
+                "goals": [
+                    "Revert the merge commit"
+                ],
+                "trivia": "When reverting a merge, you must specify `-m 1` to keep the mainline history as the parent."
             }
         }
     },
