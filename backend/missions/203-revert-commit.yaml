@@ -10,38 +10,47 @@ setup:
   - "git init"
   - "git config user.name 'User'"
   - "git config user.email 'user@example.com'"
-  - "echo 'Stable code' > app.js"
+  - "echo 'Stable feature' > app.js"
   - "git add app.js"
   - "git commit -m 'Initial release'"
-  - "echo 'Buggy code' >> app.js"
+  - "echo 'Buggy feature' >> app.js"
   - "git add app.js"
-  - "git commit -m 'Feature with bug'"
+  - "git commit -m 'Add buggy feature'"
+  - "echo 'Good feature' > feature.txt"
+  - "git add feature.txt"
+  - "git commit -m 'Add good feature'"
 
 validation:
   checks:
     - type: "head_commit_message"
-      message_pattern: "Revert \"Feature with bug\""
-      description: "Created a revert commit"
+      message_pattern: "Revert \"Add buggy feature\""
+      description: "Created a revert commit for the buggy feature"
     - type: "file_content"
       path: "app.js"
       contains:
-        - "Stable code"
-      description: "Code is restored to stable state"
+        - "Stable feature"
+      description: "App.js restored to stable state"
+    - type: "file_content"
+      path: "feature.txt"
+      contains:
+        - "Good feature"
+      description: "New feature (feature.txt) is preserved"
+    - type: "commit_exists"
+      message_pattern: "Add good feature"
+      description: "The good feature commit still exists (do not use reset)"
 
 hints:
-  - "Use `git revert` to safely undo a commit."
-  - "You need to target the HEAD commit."
-  - "Command: `git revert HEAD` (and save the message)"
-
-scoring:
-  time_bonus: true
-  hint_penalty: 5
+  - "Use `git revert <commit-hash>` to undo a specific commit."
+  - "The buggy commit is not the latest one (`HEAD`), but the one before it."
+  - "Find the hash of 'Add buggy feature' commit or use `HEAD~1`."
+  - "Command: `git revert HEAD~1`"
 
 translations:
   ja:
-    title: "安全な取り消し"
-    description: "バグを含むコミットをしてしまいましたが、既に共有されています（想定）。そのコミットの影響を打ち消がす新しいコミットを作成してください。"
+    title: "安全な取り消し（一部のみ）"
+    description: "開発が進んでいますが、途中のコミットにバグが含まれていました。最新の変更（Good feature）は残したまま、バグのあるコミット（Add buggy feature）だけを `git revert` で打ち消してください。"
     hints:
-      - "`git revert` を使うと、安全にコミットを打ち消せます。"
-      - "現在のHEADコミットを対象にします。"
-      - "コマンド例: `git revert HEAD`"
+      - "`git revert <コミットハッシュ>` で特定のコミットだけを打ち消せます。"
+      - "バグのあるコミットは最新（HEAD）ではなく、一つ前です。"
+      - "ログで 'Add buggy feature' のハッシュを探すか、`HEAD~1` を指定します。"
+      - "コマンド例: `git revert HEAD~1`"

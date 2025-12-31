@@ -120,7 +120,7 @@
                 "title": "Safe Undo",
                 "description": "A commit introduced a bug. Undo the changes by creating a NEW revert commit.",
                 "goals": [
-                    "Revert HEAD commit"
+                    "Revert HEAD~1 commit"
                 ],
                 "trivia": "`git revert` is safe for shared branches because it adds history rather than rewriting it."
             },

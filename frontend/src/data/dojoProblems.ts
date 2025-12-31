@@ -144,7 +144,7 @@ export const DOJO_PROBLEMS: DojoProblem[] = [
             'dojo.problems.203.goals.0',
         ],
         solutionSteps: [
-            'git revert HEAD',
+            'git revert HEAD~1',
         ],
         trivia: 'dojo.problems.203.trivia',
     },
