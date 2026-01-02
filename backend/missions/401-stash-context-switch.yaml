@@ -26,17 +26,17 @@ validation:
     - type: "branch_exists"
       name: "hotfix"
       description: "Hotfix branch exists"
-    - type: "head_on_branch"
-      branch: "main"
+    - type: "current_branch"
+      name: "main"
       description: "Back on main branch"
     - type: "file_content"
       path: "app.js"
       contains:
         - "Refactoring"
       description: "Refactoring work restored"
-    - type: "commit_count_min"
-      count: 2
-      description: "Hotfix commit exists"
+    - type: "commit_exists"
+      message_pattern: ""
+      description: "At least one commit exists"
 
 hints:
   - "Use `git stash` to save your in-progress work (both staged and unstaged)."

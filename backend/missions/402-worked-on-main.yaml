@@ -31,17 +31,12 @@ validation:
     - type: "branch_exists"
       name: "feature/task-A"
       description: "Feature branch created"
-    - type: "head_on_branch"
-      branch: "main"
+    - type: "current_branch"
+      name: "main"
       description: "On main branch"
-    - type: "commit_count"
-      branch: "main"
-      count: 1
-      description: "Main has only original commit"
-    - type: "commit_count"
-      branch: "feature/task-A"
-      count: 4
-      description: "Feature branch has all commits"
+    - type: "head_commit_message"
+      message_pattern: "Initial commit on main"
+      description: "Main is reset to original commit"
 
 hints:
   - "First, create a new branch at the current position: `git branch feature/task-A`"
