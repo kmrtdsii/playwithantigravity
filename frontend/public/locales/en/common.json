@@ -348,7 +348,7 @@
         "returnToRadar": "Close",
         "steps": {
             "title": "Steps",
-            "identifyConflict": "Identify conflicting files",
+            "identifyConflict": "Check conflict status",
             "resolveConflict": "Resolve the conflict",
             "createMergeCommit": "Create merge commit"
         },

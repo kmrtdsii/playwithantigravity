@@ -1,6 +1,6 @@
 id: "001-conflict-crisis"
 title: "The Conflict Crisis"
-description: "You tried to merge a feature branch, but it raised a conflict with main. Resolve the conflict and complete the merge."
+description: "You tried to merge a feature branch, but it raised a conflict with main. Resolve the conflict by preserving both changes (e.g., 'Version 1.0 - Feature Update + Hotfix') and complete the merge."
 difficulty:
   level: "basic"
   stars: 2
@@ -13,7 +13,8 @@ setup:
   - "echo 'Version 1.0' > README.md"
   - "git add README.md"
   - "git commit -m 'Initial commit'"
-  - "git checkout -b feature"
+  - "git branch feature"
+  - "git checkout feature"
   - "echo 'Version 1.0 - Feature Update' > README.md"
   - "git add README.md"
   - "git commit -m 'Add feature update'"
@@ -38,8 +39,8 @@ validation:
       description: "Both changes are preserved"
 
 hints:
-  - "Run `git status` to see which files are in conflict."
-  - "Use `echo 'Version 1.0 - Feature Update + Hotfix' > README.md` to resolve the conflict."
+  - "Run `git status` to see which files are in conflict. If it says 'clean', you may have already resolved it."
+  - "Open `README.md` in the file editor and change the content to 'Version 1.0 - Feature Update + Hotfix' to resolve the conflict."
   - "After resolving, run `git add README.md` and then `git commit` to complete the merge."
 
 scoring:
@@ -49,8 +50,8 @@ scoring:
 translations:
   ja:
     title: "コンフリクトの危機"
-    description: "機能ブランチをmainにマージしようとしましたが、同じ箇所が変更されていたためコンフリクトが発生しました。両方の変更を残したまま解決してください。"
+    description: "機能ブランチをmainにマージしようとしましたが、同じ箇所が変更されていたためコンフリクトが発生しました。両方の変更を残したまま解決してください（例: 'Version 1.0 - Feature Update + Hotfix'）。"
     hints:
-      - "`git status` を実行して、競合しているファイルを確認しましょう。"
-      - "`echo 'Version 1.0 - Feature Update + Hotfix' > README.md` でファイルを上書きして競合を解決します。"
+      - "`git status` を実行して、競合しているファイルを確認しましょう。もし「nothing to commit」と表示される場合は、既にマージが完了している可能性があります。ファイルの中身を確認してください。"
+      - "ファイルエディタで `README.md` を開き、内容を 'Version 1.0 - Feature Update + Hotfix' に変更して競合を解決します。"
       - "解決後は `git add README.md` と `git commit` を実行してマージを完了させてください。"

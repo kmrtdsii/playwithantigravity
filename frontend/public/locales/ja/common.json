@@ -348,7 +348,7 @@
         "returnToRadar": "閉じる",
         "steps": {
             "title": "ステップ",
-            "identifyConflict": "競合ファイルを特定する",
+            "identifyConflict": "競合解決状況を確認する",
             "resolveConflict": "コンフリクトを解決する",
             "createMergeCommit": "マージコミットを作成する"
         },
@@ -377,7 +377,7 @@
         "whatYouLearn": "学べること",
         "retry": "もう一度練習",
         "learn": {
-            "identifyConflict": "git status で競合ファイルを特定する",
+            "identifyConflict": "git status で競合解決状況を確認する",
             "readMarkers": "コンフリクトマーカーの読み方を理解する",
             "complete": "手動でマージを完了させる"
         }
