@@ -3,12 +3,9 @@ package state
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/go-git/go-billy/v5/util"
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 )
@@ -173,66 +170,21 @@ func populateBranchesAndTags(repo *gogit.Repository, state *GraphState) error {
 }
 
 func populateFiles(session *Session, state *GraphState) {
-	// Walk the filesystem.
-	// If we are in a project, walk from project root recursively.
-	// If we are at /, just show the top-level (projects).
-
-	const MaxFileCount = 1000
-	count := 0
-
 	startPath := session.CurrentDir
 	if state.ActiveProject != "" {
 		startPath = "/" + state.ActiveProject
 	}
 
-	log.Printf("Walking Filesystem: startPath=%s (ActiveProject=%s)", startPath, state.ActiveProject)
-
-	_ = util.Walk(session.Filesystem, startPath, func(path string, fi os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if count >= MaxFileCount {
-			return filepath.SkipDir
-		}
-
-		// Calculate relative path for display (relative to startPath)
-		relPath := path
-		if startPath != "/" {
-			if path == startPath {
-				return nil // Skip the directory itself
-			}
-			if !strings.HasPrefix(path, startPath+"/") {
-				return nil
-			}
-			relPath = strings.TrimPrefix(path, startPath+"/")
-		} else {
-			relPath = strings.TrimPrefix(path, "/")
-		}
-
-		if relPath != "" {
-			// Skip .git directory content for the explorer
-			if strings.Contains(relPath, ".git/") || relPath == ".git" {
-				if fi.IsDir() {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-
-			displayPath := relPath
-			if fi.IsDir() {
-				displayPath += "/"
-			}
-			state.Files = append(state.Files, displayPath)
-			count++
-		}
-
-		return nil
-	})
-
-	log.Printf("Walking Filesystem: found %d files", len(state.Files))
-	if count >= MaxFileCount {
-		state.Files = append(state.Files, "... (limit reached)")
+	// Try to get from cache first
+	if cached := session.FileCache.Get(); cached != nil {
+		state.Files = cached
+		return
 	}
+
+	// Cache miss or expired - walk filesystem and update cache
+	files := WalkFilesystem(session.Filesystem, startPath, state.ActiveProject)
+	session.FileCache.Set(files)
+	state.Files = files
 }
 
 func findActiveProject(session *Session) string {

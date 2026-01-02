@@ -3,55 +3,30 @@ package commands
 import (
 	"context"
 	"fmt"
-	"os"
 
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/kurobon/gitgym/backend/internal/git"
+	"github.com/kurobon/gitgym/backend/internal/git/commands/checkout"
 )
 
 func init() {
 	git.RegisterCommand("checkout", func() git.Command { return &CheckoutCommand{} })
 }
 
+// CheckoutCommand implements the git checkout command.
 type CheckoutCommand struct{}
 
 // Ensure CheckoutCommand implements git.Command
 var _ git.Command = (*CheckoutCommand)(nil)
 
-type CheckoutOptions struct {
-	NewBranch      string
-	ForceNewBranch string
-	OrphanBranch   string
-	Force          bool
-	Detach         bool
-	Target         string
-	Files          []string // For "git checkout -- <file>"
-}
-
-type checkoutMode int
-
-const (
-	modeInvalid checkoutMode = iota
-	modeFiles
-	modeOrphan
-	modeNewBranch
-	modeRefOrPath
+// Strategy instances (stateless, can be shared)
+var (
+	fileStrategy   = &checkout.FileStrategy{}
+	orphanStrategy = &checkout.OrphanStrategy{}
+	branchStrategy = &checkout.BranchStrategy{}
+	refStrategy    = &checkout.RefStrategy{}
 )
-
-type checkoutContext struct {
-	mode           checkoutMode
-	w              *gogit.Worktree
-	repo           *gogit.Repository
-	files          []string
-	orphanBranch   string
-	newBranch      string
-	forceCreate    bool
-	startPointHash *plumbing.Hash
-	targetRef      plumbing.ReferenceName
-	targetHash     *plumbing.Hash
-	isDetached     bool
-}
 
 func (c *CheckoutCommand) Execute(ctx context.Context, s *git.Session, args []string) (string, error) {
 	s.Lock()
@@ -71,18 +46,37 @@ func (c *CheckoutCommand) Execute(ctx context.Context, s *git.Session, args []st
 		return "", err
 	}
 
-	// 2. Resolve
+	// 2. Resolve Context
 	cCtx, err := c.resolveContext(repo, opts)
 	if err != nil {
 		return "", err
 	}
 
-	// 3. Perform
-	return c.performAction(s, cCtx, opts)
+	// 3. Dispatch to Strategy
+	strategy := c.selectStrategy(cCtx.Mode)
+	if strategy == nil {
+		return "", fmt.Errorf("internal error: unknown checkout mode")
+	}
+	return strategy.Execute(s, cCtx, opts)
 }
 
-func (c *CheckoutCommand) parseArgs(args []string) (*CheckoutOptions, error) {
-	opts := &CheckoutOptions{}
+func (c *CheckoutCommand) selectStrategy(mode checkout.Mode) checkout.Strategy {
+	switch mode {
+	case checkout.ModeFiles:
+		return fileStrategy
+	case checkout.ModeOrphan:
+		return orphanStrategy
+	case checkout.ModeNewBranch:
+		return branchStrategy
+	case checkout.ModeRefOrPath:
+		return refStrategy
+	default:
+		return nil
+	}
+}
+
+func (c *CheckoutCommand) parseArgs(args []string) (*checkout.Options, error) {
+	opts := &checkout.Options{}
 	cmdArgs := args[1:]
 	for i := 0; i < len(cmdArgs); i++ {
 		arg := cmdArgs[i]
@@ -127,27 +121,27 @@ func (c *CheckoutCommand) parseArgs(args []string) (*CheckoutOptions, error) {
 	return opts, nil
 }
 
-func (c *CheckoutCommand) resolveContext(repo *gogit.Repository, opts *CheckoutOptions) (*checkoutContext, error) {
+func (c *CheckoutCommand) resolveContext(repo *gogit.Repository, opts *checkout.Options) (*checkout.Context, error) {
 	w, err := repo.Worktree()
 	if err != nil {
 		return nil, err
 	}
 
-	ctx := &checkoutContext{
-		w:    w,
-		repo: repo,
+	ctx := &checkout.Context{
+		Worktree: w,
+		Repo:     repo,
 	}
 
 	// Determine Mode
 	if len(opts.Files) > 0 {
-		ctx.mode = modeFiles
-		ctx.files = opts.Files
+		ctx.Mode = checkout.ModeFiles
+		ctx.Files = opts.Files
 		return ctx, nil
 	}
 
 	if opts.OrphanBranch != "" {
-		ctx.mode = modeOrphan
-		ctx.orphanBranch = opts.OrphanBranch
+		ctx.Mode = checkout.ModeOrphan
+		ctx.OrphanBranch = opts.OrphanBranch
 
 		// Verify it doesn't exist
 		refName := plumbing.ReferenceName("refs/heads/" + opts.OrphanBranch)
@@ -159,12 +153,12 @@ func (c *CheckoutCommand) resolveContext(repo *gogit.Repository, opts *CheckoutO
 	}
 
 	if opts.NewBranch != "" || opts.ForceNewBranch != "" {
-		ctx.mode = modeNewBranch
-		ctx.newBranch = opts.NewBranch
-		ctx.forceCreate = false
+		ctx.Mode = checkout.ModeNewBranch
+		ctx.NewBranch = opts.NewBranch
+		ctx.ForceCreate = false
 		if opts.ForceNewBranch != "" {
-			ctx.newBranch = opts.ForceNewBranch
-			ctx.forceCreate = true
+			ctx.NewBranch = opts.ForceNewBranch
+			ctx.ForceCreate = true
 		}
 
 		startPoint := opts.Target
@@ -176,12 +170,12 @@ func (c *CheckoutCommand) resolveContext(repo *gogit.Repository, opts *CheckoutO
 		if err != nil {
 			return nil, fmt.Errorf("fatal: invalid reference: %s", startPoint)
 		}
-		ctx.startPointHash = hash
+		ctx.StartPointHash = hash
 
-		refName := plumbing.ReferenceName("refs/heads/" + ctx.newBranch)
+		refName := plumbing.ReferenceName("refs/heads/" + ctx.NewBranch)
 		_, err = repo.Reference(refName, true)
-		if err == nil && !ctx.forceCreate {
-			return nil, fmt.Errorf("fatal: a branch named '%s' already exists", ctx.newBranch)
+		if err == nil && !ctx.ForceCreate {
+			return nil, fmt.Errorf("fatal: a branch named '%s' already exists", ctx.NewBranch)
 		}
 		return ctx, nil
 	}
@@ -191,14 +185,14 @@ func (c *CheckoutCommand) resolveContext(repo *gogit.Repository, opts *CheckoutO
 	}
 
 	// Ref or Path mode
-	ctx.mode = modeRefOrPath
+	ctx.Mode = checkout.ModeRefOrPath
 
 	// 1. Try as branch (unless --detach)
 	if !opts.Detach {
 		branchRef := plumbing.ReferenceName("refs/heads/" + opts.Target)
 		_, err := repo.Reference(branchRef, true)
 		if err == nil {
-			ctx.targetRef = branchRef
+			ctx.TargetRef = branchRef
 			return ctx, nil
 		}
 	}
@@ -206,9 +200,9 @@ func (c *CheckoutCommand) resolveContext(repo *gogit.Repository, opts *CheckoutO
 	// 1.5. Check if it's a remote branch (Auto-track)
 	remoteRefName := plumbing.ReferenceName(fmt.Sprintf("refs/remotes/origin/%s", opts.Target))
 	if remoteRef, err := repo.Reference(remoteRefName, true); err == nil && !opts.Detach {
-		ctx.targetRef = remoteRefName
+		ctx.TargetRef = remoteRefName
 		h := remoteRef.Hash()
-		ctx.targetHash = &h
+		ctx.TargetHash = &h
 		return ctx, nil
 	}
 
@@ -216,8 +210,8 @@ func (c *CheckoutCommand) resolveContext(repo *gogit.Repository, opts *CheckoutO
 	hash, err := repo.ResolveRevision(plumbing.Revision(opts.Target))
 	if err == nil {
 		if _, errObj := repo.CommitObject(*hash); errObj == nil { // is commit
-			ctx.targetHash = hash
-			ctx.isDetached = true
+			ctx.TargetHash = hash
+			ctx.IsDetached = true
 			return ctx, nil
 		}
 	}
@@ -229,128 +223,14 @@ func (c *CheckoutCommand) resolveContext(repo *gogit.Repository, opts *CheckoutO
 		headCommit, err := repo.CommitObject(headRef.Hash())
 		if err == nil {
 			if _, errFile := headCommit.File(opts.Target); errFile == nil {
-				ctx.mode = modeFiles
-				ctx.files = []string{opts.Target}
+				ctx.Mode = checkout.ModeFiles
+				ctx.Files = []string{opts.Target}
 				return ctx, nil
 			}
 		}
 	}
 
 	return nil, fmt.Errorf("error: pathspec '%s' did not match any file(s) known to git", opts.Target)
-}
-
-func (c *CheckoutCommand) performAction(s *git.Session, ctx *checkoutContext, opts *CheckoutOptions) (string, error) {
-	switch ctx.mode {
-	case modeFiles:
-		return c.executeCheckoutFiles(ctx.repo, ctx.w, ctx.files)
-	case modeOrphan:
-		return c.executeCheckoutOrphan(ctx.repo, s, ctx.orphanBranch)
-	case modeNewBranch:
-		return c.executeCreateAndCheckout(ctx.repo, ctx.w, s, ctx.newBranch, ctx.startPointHash, ctx.forceCreate, opts.Force)
-	case modeRefOrPath:
-		return c.executeCheckoutRef(ctx.repo, ctx.w, s, opts.Target, ctx.targetRef, ctx.targetHash, opts.Force, ctx.isDetached)
-	default:
-		return "", fmt.Errorf("internal error: unknown checkout mode")
-	}
-}
-
-func (c *CheckoutCommand) executeCheckoutOrphan(repo *gogit.Repository, s *git.Session, branchName string) (string, error) {
-	refName := plumbing.ReferenceName("refs/heads/" + branchName)
-	headRef := plumbing.NewSymbolicReference(plumbing.HEAD, refName)
-	if err := repo.Storer.SetReference(headRef); err != nil {
-		return "", fmt.Errorf("failed to set HEAD for orphan: %w", err)
-	}
-
-	s.RecordReflog(fmt.Sprintf("checkout: moving from %s to %s (orphan)", "HEAD", branchName))
-	return fmt.Sprintf("Switched to a new branch '%s' (orphan)", branchName), nil
-}
-
-func (c *CheckoutCommand) executeCheckoutFiles(repo *gogit.Repository, w *gogit.Worktree, files []string) (string, error) {
-	headRef, err := repo.Head()
-	if err != nil {
-		return "", fmt.Errorf("fatal: cannot checkout file without HEAD")
-	}
-	headCommit, err := repo.CommitObject(headRef.Hash())
-	if err != nil {
-		return "", err
-	}
-
-	for _, filename := range files {
-		file, err := headCommit.File(filename)
-		if err != nil {
-			return "", fmt.Errorf("pathspec '%s' did not match any file(s) known to git", filename)
-		}
-		content, _ := file.Contents()
-
-		f, err := w.Filesystem.OpenFile(filename, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0644)
-		if err != nil {
-			return "", err
-		}
-		_, _ = f.Write([]byte(content))
-		_ = f.Close()
-	}
-
-	if len(files) == 1 {
-		return "Updated " + files[0], nil
-	}
-	return fmt.Sprintf("Updated %d files", len(files)), nil
-}
-
-func (c *CheckoutCommand) executeCreateAndCheckout(repo *gogit.Repository, w *gogit.Worktree, s *git.Session, branchName string, hash *plumbing.Hash, forceCreate, forceCheckout bool) (string, error) {
-	refName := plumbing.ReferenceName("refs/heads/" + branchName)
-	newRef := plumbing.NewHashReference(refName, *hash)
-	if err := repo.Storer.SetReference(newRef); err != nil {
-		return "", err
-	}
-
-	err := w.Checkout(&gogit.CheckoutOptions{
-		Branch: refName,
-		Force:  forceCheckout,
-	})
-	if err != nil {
-		return "", err
-	}
-
-	s.RecordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", branchName))
-	if forceCreate {
-		return fmt.Sprintf("Reset branch '%s'", branchName), nil
-	}
-	return fmt.Sprintf("Switched to a new branch '%s'", branchName), nil
-}
-
-func (c *CheckoutCommand) executeCheckoutRef(repo *gogit.Repository, w *gogit.Worktree, s *git.Session, targetName string, ref plumbing.ReferenceName, hash *plumbing.Hash, force, detach bool) (string, error) {
-	gOpts := &gogit.CheckoutOptions{Force: force}
-
-	if ref != "" {
-		if ref.IsRemote() {
-			// Actually need to create local if it's remote auto-track
-			localName := targetName
-			localRef := plumbing.ReferenceName("refs/heads/" + localName)
-			newRef := plumbing.NewHashReference(localRef, *hash)
-			if err := repo.Storer.SetReference(newRef); err != nil {
-				return "", err
-			}
-			gOpts.Branch = localRef
-		} else {
-			gOpts.Branch = ref
-		}
-	} else if hash != nil {
-		gOpts.Hash = *hash
-	}
-
-	if err := w.Checkout(gOpts); err != nil {
-		return "", err
-	}
-
-	s.RecordReflog(fmt.Sprintf("checkout: moving from %s to %s", "HEAD", targetName))
-
-	if detach {
-		return fmt.Sprintf("Note: switching to '%s'.\n\nYou are in 'detached HEAD' state.", targetName), nil
-	}
-	if ref != "" && ref.IsRemote() {
-		return fmt.Sprintf("Switched to a new branch '%s'\nBranch '%s' set up to track remote branch '%s' from 'origin'.", targetName, targetName, targetName), nil
-	}
-	return fmt.Sprintf("Switched to branch '%s'", targetName), nil
 }
 
 func (c *CheckoutCommand) Help() string {

@@ -22,6 +22,7 @@ type Session struct {
 	Reflog           []ReflogEntry
 	PotentialCommits []Commit
 	Manager          *SessionManager // Reference to manager for shared state
+	FileCache        *FileCache      // Cached file listing for performance
 	mu               sync.RWMutex
 }
 
@@ -101,6 +102,7 @@ func (sm *SessionManager) CreateSession(id string) (*Session, error) {
 		CurrentDir: "/",
 		CreatedAt:  time.Now(),
 		Manager:    sm,
+		FileCache:  &FileCache{},
 	}
 	sm.sessions[id] = s
 	return s, nil

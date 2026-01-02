@@ -13,16 +13,13 @@ import (
 	gogit "github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	appconfig "github.com/kurobon/gitgym/backend/internal/config"
 )
 
 // IngestRemote creates a new shared remote repository from a URL (simulated clone)
 func (sm *SessionManager) IngestRemote(ctx context.Context, name, url string, depth int) error {
 	// Define local path for persistence
-	baseDir := os.Getenv("GITGYM_DATA_ROOT")
-	if baseDir == "" {
-		baseDir = ".gitgym-data"
-	}
-	baseDir = filepath.Join(baseDir, "remotes")
+	baseDir := appconfig.Global.RemotesDir()
 
 	// Requirement: Single persistent remote. Clean up others.
 	// We use URL hash for directory name so clients pointing to old URL paths fail.
@@ -315,11 +312,7 @@ func (sm *SessionManager) CreateBareRepository(ctx context.Context, sessionID, n
 	}
 
 	// Define local path for persistence
-	baseDir := os.Getenv("GITGYM_DATA_ROOT")
-	if baseDir == "" {
-		baseDir = ".gitgym-data"
-	}
-	baseDir = filepath.Join(baseDir, "remotes")
+	baseDir := appconfig.Global.RemotesDir()
 
 	// Use name or hash for directory? "remote://gitgym/{name}" -> hash
 	// To be consistent with IngestRemote which hashes the URL.

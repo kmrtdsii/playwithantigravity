@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
+import styles from './Modal.module.css';
 
 interface ModalProps {
     isOpen: boolean;
@@ -11,34 +12,10 @@ interface ModalProps {
     hideCloseButton?: boolean;
 }
 
-// Visual styles for the dialog box itself
-const dialogStyle: React.CSSProperties = {
-    backgroundColor: 'var(--bg-secondary)',
-    border: '1px solid var(--border-subtle)',
-    borderRadius: '8px',
-    padding: '0',
-    minWidth: '320px',
-    boxShadow: '0 4px 24px rgba(0, 0, 0, 0.2)',
-    color: 'var(--text-primary)',
-};
-
-// Internal layout (Flex)
-const dialogInnerStyle: React.CSSProperties = {
-    padding: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    height: '100%',
-    boxSizing: 'border-box',
-    position: 'relative',
-};
-
-const modalHeaderStyle: React.CSSProperties = {
-    fontSize: '14px',
-    fontWeight: 600,
-    marginBottom: '4px',
-};
-
+/**
+ * Modal component with focus trapping for accessibility.
+ * Uses the native <dialog> element for proper modal behavior.
+ */
 const Modal: React.FC<ModalProps> = ({
     isOpen,
     onClose,
@@ -50,34 +27,78 @@ const Modal: React.FC<ModalProps> = ({
     hideCloseButton = false
 }) => {
     const dialogRef = useRef<HTMLDialogElement>(null);
+    const previousActiveElement = useRef<Element | null>(null);
 
-    const getSizeStyles = (): React.CSSProperties => {
-        if (size === 'fullscreen') {
-            return { width: '700px', height: '800px', maxWidth: '95vw', maxHeight: '95vh' };
+    // Focus trap: get all focusable elements inside the modal
+    const getFocusableElements = useCallback((): HTMLElement[] => {
+        if (!dialogRef.current) return [];
+        return Array.from(
+            dialogRef.current.querySelectorAll<HTMLElement>(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            )
+        ).filter(el => !el.hasAttribute('disabled') && el.offsetParent !== null);
+    }, []);
+
+    // Handle tab key for focus trap
+    const handleKeyDown = useCallback((e: KeyboardEvent) => {
+        if (e.key !== 'Tab') return;
+
+        const focusableElements = getFocusableElements();
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+            // Shift+Tab: if on first element, move to last
+            if (document.activeElement === firstElement) {
+                e.preventDefault();
+                lastElement.focus();
+            }
+        } else {
+            // Tab: if on last element, move to first
+            if (document.activeElement === lastElement) {
+                e.preventDefault();
+                firstElement.focus();
+            }
         }
-        if (size === 'large') {
-            return { maxWidth: '90vw', width: '900px' };
-        }
-        return {};
-    };
+    }, [getFocusableElements]);
 
     useEffect(() => {
         const dialog = dialogRef.current;
         if (!dialog) return;
 
         if (isOpen) {
+            // Save currently focused element
+            previousActiveElement.current = document.activeElement;
+
             dialog.showModal();
             document.body.style.overflow = 'hidden';
+
+            // Focus first focusable element
+            const focusableElements = getFocusableElements();
+            if (focusableElements.length > 0) {
+                focusableElements[0].focus();
+            }
+
+            // Add focus trap listener
+            dialog.addEventListener('keydown', handleKeyDown);
         } else {
             dialog.close();
             document.body.style.overflow = 'unset';
+
+            // Restore focus to previously focused element
+            if (previousActiveElement.current instanceof HTMLElement) {
+                previousActiveElement.current.focus();
+            }
         }
 
         return () => {
             document.body.style.overflow = 'unset';
-            if (dialog?.open) dialog.close();
+            dialog.removeEventListener('keydown', handleKeyDown);
+            if (dialog.open) dialog.close();
         };
-    }, [isOpen]);
+    }, [isOpen, getFocusableElements, handleKeyDown]);
 
     const handleCancel = (e: React.SyntheticEvent<HTMLDialogElement, Event>) => {
         e.preventDefault();
@@ -92,83 +113,45 @@ const Modal: React.FC<ModalProps> = ({
         }
     };
 
-    const resizableStyles: React.CSSProperties = resizable
-        ? { resize: 'both', overflow: 'auto', minWidth: '400px', minHeight: '400px' }
-        : {};
+    const getSizeClass = () => {
+        switch (size) {
+            case 'fullscreen': return styles.sizeFullscreen;
+            case 'large': return styles.sizeLarge;
+            default: return styles.sizeDefault;
+        }
+    };
+
+    const dialogClassName = [
+        styles.dialog,
+        getSizeClass(),
+        resizable ? styles.resizable : ''
+    ].filter(Boolean).join(' ');
 
     return (
         <dialog
             ref={dialogRef}
             onCancel={handleCancel}
             onClick={handleClick}
-            style={{
-                ...dialogStyle,
-                ...getSizeStyles(),
-                ...resizableStyles,
-                margin: 'auto',
-                position: 'fixed',
-                zIndex: 1000
-            }}
+            className={dialogClassName}
             aria-labelledby="modal-title"
+            aria-modal="true"
         >
-            <div style={dialogInnerStyle}>
-                {/* Header with title and close button */}
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '8px'
-                }}>
-                    <div id="modal-title" style={modalHeaderStyle}>{title}</div>
+            <div className={styles.dialogInner}>
+                <div className={styles.header}>
+                    <div id="modal-title" className={styles.title}>{title}</div>
                     {!hideCloseButton && (
                         <button
                             onClick={onClose}
-                            style={{
-                                width: '28px',
-                                height: '28px',
-                                borderRadius: '6px',
-                                border: 'none',
-                                background: 'transparent',
-                                color: 'var(--text-secondary, #6b7280)',
-                                fontSize: '18px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background = '#ef4444';
-                                e.currentTarget.style.color = 'white';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'transparent';
-                                e.currentTarget.style.color = 'var(--text-secondary, #6b7280)';
-                            }}
+                            className={styles.closeButton}
+                            aria-label="Close modal"
                         >
                             ✕
                         </button>
                     )}
                 </div>
                 {children}
-                {/* Resize handle indicator */}
                 {resizable && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            bottom: '4px',
-                            right: '4px',
-                            width: '20px',
-                            height: '20px',
-                            cursor: 'se-resize',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#9ca3af',
-                            fontSize: '14px',
-                            pointerEvents: 'none'
-                        }}
-                    >
+                    <div className={styles.resizeHandle} aria-hidden="true">
                         ⋮⋮
                     </div>
                 )}
